@@ -2,6 +2,7 @@ import type { WCAEvent } from '@/types'
 
 interface ScramblePanelProps {
   scramble: string
+  loading: boolean
   event: WCAEvent
   onNewScramble: () => void
   onEventChange: (event: WCAEvent) => void
@@ -26,75 +27,6 @@ const WCA_EVENTS: { value: WCAEvent; label: string }[] = [
   { value: '555bf', label: '5BLD' },
 ]
 
-// Sticker face colors for the 2D cube net (placeholder -- all neutral grey)
-const FACE_COLORS = {
-  U: '#475569',
-  D: '#475569',
-  F: '#475569',
-  B: '#475569',
-  L: '#475569',
-  R: '#475569',
-}
-
-function CubeNetSVG() {
-  const S = 14 // sticker size
-  const G = 1  // gap
-  const FACE = S * 3 + G * 2 // face total size
-  const PAD = 4
-
-  // Face positions in the cross layout:
-  //      [U]
-  //   [L][F][R][B]
-  //      [D]
-  const facePositions: { face: keyof typeof FACE_COLORS; col: number; row: number }[] = [
-    { face: 'U', col: 1, row: 0 },
-    { face: 'L', col: 0, row: 1 },
-    { face: 'F', col: 1, row: 1 },
-    { face: 'R', col: 2, row: 1 },
-    { face: 'B', col: 3, row: 1 },
-    { face: 'D', col: 1, row: 2 },
-  ]
-
-  const totalW = 4 * (FACE + PAD) + PAD
-  const totalH = 3 * (FACE + PAD) + PAD
-
-  return (
-    <svg
-      width={totalW}
-      height={totalH}
-      viewBox={`0 0 ${totalW} ${totalH}`}
-      aria-label="Cube net visualization (neutral state)"
-    >
-      {facePositions.map(({ face, col, row }) => {
-        const faceX = PAD + col * (FACE + PAD)
-        const faceY = PAD + row * (FACE + PAD)
-        const color = FACE_COLORS[face]
-
-        return (
-          <g key={face}>
-            {Array.from({ length: 9 }, (_, i) => {
-              const r = Math.floor(i / 3)
-              const c = i % 3
-              return (
-                <rect
-                  key={i}
-                  x={faceX + c * (S + G)}
-                  y={faceY + r * (S + G)}
-                  width={S}
-                  height={S}
-                  rx={2}
-                  fill={color}
-                  stroke="rgba(255,255,255,0.06)"
-                  strokeWidth={0.5}
-                />
-              )
-            })}
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
 
 function RefreshIcon() {
   return (
@@ -112,6 +44,7 @@ function RefreshIcon() {
 
 export function ScramblePanel({
   scramble,
+  loading,
   event,
   onNewScramble,
   onEventChange,
@@ -195,21 +128,15 @@ export function ScramblePanel({
         style={{
           fontSize: 15,
           fontWeight: 500,
-          color: 'var(--text-primary)',
           letterSpacing: '0.04em',
           lineHeight: 1.6,
           wordBreak: 'break-word',
+          color: loading ? 'var(--text-muted)' : 'var(--text-primary)',
+          transition: 'color 150ms ease',
+          minHeight: '1.6em',
         }}
       >
-        {scramble}
-      </div>
-
-      {/* Cube net visualization */}
-      <div style={{ paddingTop: 4 }}>
-        <CubeNetSVG />
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-          Visualization is placeholder -- state rendering coming soon
-        </p>
+        {loading ? 'Generating…' : scramble}
       </div>
     </div>
   )
