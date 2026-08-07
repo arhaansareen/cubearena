@@ -1,0 +1,451 @@
+import { useState } from 'react'
+import type { WCAEvent, NotesBehavior, UserSettings } from '@/types'
+import { useProfile } from '@/providers/ProfileProvider'
+
+const WCA_EVENTS: { value: WCAEvent; label: string }[] = [
+  { value: '333', label: '3x3' },
+  { value: '222', label: '2x2' },
+  { value: '444', label: '4x4' },
+  { value: '555', label: '5x5' },
+  { value: '666', label: '6x6' },
+  { value: '777', label: '7x7' },
+  { value: '333bf', label: '3BLD' },
+  { value: '333oh', label: '3OH' },
+  { value: '333fm', label: 'FMC' },
+  { value: 'clock', label: 'Clock' },
+  { value: 'minx', label: 'Megaminx' },
+  { value: 'pyram', label: 'Pyraminx' },
+  { value: 'skewb', label: 'Skewb' },
+  { value: 'sq1', label: 'Square-1' },
+  { value: '444bf', label: '4BLD' },
+  { value: '555bf', label: '5BLD' },
+]
+
+const DEFAULT_SETTINGS: UserSettings = {
+  defaultEvent: '333',
+  notesBehavior: 'soft',
+  crowdNoiseVolume: 0.5,
+  inspectionCallouts: true,
+  aiOpponents: true,
+  aiDifficulty: 'medium',
+  customAiMean: 10000,
+  clutchModeEnabled: false,
+  wcaId: null,
+}
+
+interface SectionProps {
+  title: string
+  description?: string
+  children: React.ReactNode
+}
+
+function Section({ title, description, children }: SectionProps) {
+  return (
+    <section
+      style={{
+        backgroundColor: 'var(--surface-0)',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{title}</h2>
+        {description && (
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{description}</p>
+        )}
+      </div>
+      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {children}
+      </div>
+    </section>
+  )
+}
+
+interface ToggleProps {
+  checked: boolean
+  onChange: (v: boolean) => void
+  label: string
+  description?: string
+}
+
+function Toggle({ checked, onChange, label, description }: ToggleProps) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        cursor: 'pointer',
+      }}
+      onClick={() => onChange(!checked)}
+    >
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{label}</div>
+        {description && (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{description}</div>
+        )}
+      </div>
+      <div
+        role="switch"
+        aria-checked={checked}
+        style={{
+          width: 44,
+          height: 24,
+          borderRadius: 12,
+          backgroundColor: checked ? 'var(--accent)' : 'var(--surface-1)',
+          border: `1px solid ${checked ? 'var(--accent)' : 'var(--border)'}`,
+          position: 'relative',
+          flexShrink: 0,
+          transition: 'background-color 200ms ease, border-color 200ms ease',
+          cursor: 'pointer',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            backgroundColor: '#fff',
+            top: '50%',
+            transform: `translate(${checked ? '21px' : '2px'}, -50%)`,
+            transition: 'transform 200ms ease',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+export function SettingsPage() {
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
+  const { profile, save: saveProfile, isSaving } = useProfile()
+
+  const [displayNameInput, setDisplayNameInput] = useState(profile?.displayName ?? '')
+  const [wcaIdInput, setWcaIdInput] = useState(profile?.wcaId ?? '')
+  const [savedIndicator, setSavedIndicator] = useState(false)
+
+  // Sync inputs if profile loads after mount
+  const prevProfileRef = useState<string | null>(null)
+  if (profile && prevProfileRef[0] !== profile.displayName) {
+    prevProfileRef[1](profile.displayName)
+    setDisplayNameInput(profile.displayName)
+    setWcaIdInput(profile.wcaId ?? '')
+  }
+
+  const update = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
+    setSettings((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleSaveProfile = async () => {
+    await saveProfile({
+      displayName: displayNameInput.trim(),
+      wcaId: wcaIdInput.trim().toUpperCase() || null,
+    })
+    setSavedIndicator(true)
+    setTimeout(() => setSavedIndicator(false), 2000)
+  }
+
+  return (
+    <div
+      style={{
+        padding: '32px',
+        maxWidth: 640,
+        margin: '0 auto',
+        width: '100%',
+      }}
+    >
+      <div style={{ marginBottom: 32 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
+          Settings
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+          Customize your training experience.
+        </p>
+      </div>
+
+      {/* Profile */}
+      <Section title="Profile" description="Your identity across sessions and rivals.">
+        <div>
+          <label
+            htmlFor="display-name"
+            style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6 }}
+          >
+            Display Name
+          </label>
+          <input
+            id="display-name"
+            type="text"
+            value={displayNameInput}
+            onChange={(e) => setDisplayNameInput(e.target.value)}
+            placeholder="Your name"
+            maxLength={40}
+            style={{
+              width: '100%',
+              backgroundColor: 'var(--surface-1)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '9px 12px',
+              color: 'var(--text-primary)',
+              fontSize: 14,
+              outline: 'none',
+              transition: 'border-color 150ms ease',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="wca-id"
+            style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6 }}
+          >
+            WCA ID
+          </label>
+          <input
+            id="wca-id"
+            type="text"
+            value={wcaIdInput}
+            onChange={(e) => setWcaIdInput(e.target.value.toUpperCase())}
+            placeholder="e.g. 2009ZEMD01"
+            maxLength={10}
+            style={{
+              width: '100%',
+              backgroundColor: 'var(--surface-1)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '9px 12px',
+              color: 'var(--text-primary)',
+              fontSize: 14,
+              fontFamily: "'JetBrains Mono', monospace",
+              outline: 'none',
+              transition: 'border-color 150ms ease',
+              letterSpacing: '0.04em',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+          />
+        </div>
+
+        <button
+          onClick={handleSaveProfile}
+          disabled={isSaving}
+          style={{
+            alignSelf: 'flex-start',
+            padding: '9px 20px',
+            backgroundColor: savedIndicator ? 'rgba(34,197,94,0.15)' : 'var(--accent)',
+            color: savedIndicator ? 'var(--positive)' : '#020617',
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            border: savedIndicator ? '1px solid var(--positive)' : 'none',
+            cursor: isSaving ? 'not-allowed' : 'pointer',
+            transition: 'all 200ms ease',
+            opacity: isSaving ? 0.6 : 1,
+          }}
+        >
+          {savedIndicator ? 'Saved' : isSaving ? 'Saving...' : 'Save Profile'}
+        </button>
+      </Section>
+
+      {/* Session defaults */}
+      <Section title="Session Defaults">
+        <div>
+          <label
+            htmlFor="default-event"
+            style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6 }}
+          >
+            Default Event
+          </label>
+          <select
+            id="default-event"
+            value={settings.defaultEvent}
+            onChange={(e) => update('defaultEvent', e.target.value as WCAEvent)}
+            style={{
+              width: '100%',
+              backgroundColor: 'var(--surface-1)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '9px 12px',
+              color: 'var(--text-primary)',
+              fontSize: 14,
+              outline: 'none',
+              cursor: 'pointer',
+              transition: 'border-color 150ms ease',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            {WCA_EVENTS.map((ev) => (
+              <option key={ev.value} value={ev.value}>{ev.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 8 }}>
+            Notes After Solve
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['off', 'soft', 'required'] as NotesBehavior[]).map((behavior) => (
+              <button
+                key={behavior}
+                onClick={() => update('notesBehavior', behavior)}
+                style={{
+                  flex: 1,
+                  padding: '8px 4px',
+                  borderRadius: 8,
+                  border: `1px solid ${settings.notesBehavior === behavior ? 'var(--accent)' : 'var(--border)'}`,
+                  backgroundColor: settings.notesBehavior === behavior ? 'var(--accent-dim)' : 'var(--surface-1)',
+                  color: settings.notesBehavior === behavior ? 'var(--accent)' : 'var(--text-muted)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'all 150ms ease',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {behavior}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      {/* Audio */}
+      <Section title="Audio">
+        <Toggle
+          checked={settings.inspectionCallouts}
+          onChange={(v) => update('inspectionCallouts', v)}
+          label="Inspection Callouts"
+          description="Beep at 8 and 12 seconds during inspection."
+        />
+
+        <div>
+          <div
+            style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}
+          >
+            <label
+              htmlFor="crowd-volume"
+              style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}
+            >
+              Crowd Noise Volume
+            </label>
+            <span
+              className="font-mono"
+              style={{ fontSize: 13, color: 'var(--text-primary)' }}
+            >
+              {Math.round(settings.crowdNoiseVolume * 100)}%
+            </span>
+          </div>
+          <input
+            id="crowd-volume"
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={settings.crowdNoiseVolume}
+            onChange={(e) => update('crowdNoiseVolume', parseFloat(e.target.value))}
+            style={{
+              width: '100%',
+              accentColor: 'var(--accent)',
+              cursor: 'pointer',
+            }}
+          />
+        </div>
+      </Section>
+
+      {/* AI Opponents */}
+      <Section title="AI Opponents">
+        <Toggle
+          checked={settings.aiOpponents}
+          onChange={(v) => update('aiOpponents', v)}
+          label="Enable AI Opponents"
+          description="Compete against virtual opponents during solves."
+        />
+
+        {settings.aiOpponents && (
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 8 }}>
+              Difficulty
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {(['easy', 'medium', 'hard', 'custom'] as const).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => update('aiDifficulty', d)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    border: `1px solid ${settings.aiDifficulty === d ? 'var(--accent)' : 'var(--border)'}`,
+                    backgroundColor: settings.aiDifficulty === d ? 'var(--accent-dim)' : 'var(--surface-1)',
+                    color: settings.aiDifficulty === d ? 'var(--accent)' : 'var(--text-muted)',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {settings.aiOpponents && settings.aiDifficulty === 'custom' && (
+          <div>
+            <div
+              style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}
+            >
+              <label
+                htmlFor="custom-ai-mean"
+                style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}
+              >
+                Target Mean
+              </label>
+              <span
+                className="font-mono"
+                style={{ fontSize: 13, color: 'var(--text-primary)' }}
+              >
+                {(settings.customAiMean / 1000).toFixed(2)}s
+              </span>
+            </div>
+            <input
+              id="custom-ai-mean"
+              type="range"
+              min={3000}
+              max={120000}
+              step={100}
+              value={settings.customAiMean}
+              onChange={(e) => update('customAiMean', parseInt(e.target.value))}
+              style={{
+                width: '100%',
+                accentColor: 'var(--accent)',
+                cursor: 'pointer',
+              }}
+            />
+          </div>
+        )}
+      </Section>
+
+      {/* Clutch Mode */}
+      <Section
+        title="Clutch Mode"
+        description="Increases pressure: AI opponents speed up in the final seconds."
+      >
+        <Toggle
+          checked={settings.clutchModeEnabled}
+          onChange={(v) => update('clutchModeEnabled', v)}
+          label="Enable Clutch Mode"
+        />
+      </Section>
+    </div>
+  )
+}
