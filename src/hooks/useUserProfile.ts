@@ -1,4 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  doc,
+  getDoc,
+  setDoc,
+} from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import type { UserProfile } from '@/types'
 
 const LS_KEY = 'cubearena:profile'
@@ -20,10 +26,7 @@ function saveToStorage(profile: UserProfile) {
 
 async function loadFromFirestore(uid: string): Promise<UserProfile | null> {
   try {
-    const { db } = await import('@/lib/firebase')
-    const { doc, getDoc } = await import('firebase/firestore')
-    if (!db || typeof (db as { type?: string }).type === 'undefined') return null
-    const snap = await getDoc(doc(db, 'profiles', uid))
+    const snap = await getDoc(doc(db, 'users', uid, 'profile', 'data'))
     return snap.exists() ? (snap.data() as UserProfile) : null
   } catch {
     return null
@@ -32,10 +35,7 @@ async function loadFromFirestore(uid: string): Promise<UserProfile | null> {
 
 async function saveToFirestore(uid: string, profile: UserProfile): Promise<void> {
   try {
-    const { db } = await import('@/lib/firebase')
-    const { doc, setDoc } = await import('firebase/firestore')
-    if (!db || typeof (db as { type?: string }).type === 'undefined') return
-    await setDoc(doc(db, 'profiles', uid), profile, { merge: true })
+    await setDoc(doc(db, 'users', uid, 'profile', 'data'), profile, { merge: true })
   } catch (err) {
     console.warn('[useUserProfile] Firestore save failed, data saved locally only:', err)
   }
@@ -60,7 +60,6 @@ export function useUserProfile(uid: string | null): UseUserProfileReturn {
     setLoading(true)
 
     async function load() {
-      // Try Firestore first if we have a uid, fall back to localStorage
       let loaded: UserProfile | null = null
       if (uid) {
         loaded = await loadFromFirestore(uid)

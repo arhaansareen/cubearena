@@ -1,7 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/providers/AuthProvider'
+import { useProfile } from '@/providers/ProfileProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
+import { useWCAData } from '@/hooks/useWCAData'
 import { formatTime } from '@/lib/utils'
 import type { Solve, WCAEvent } from '@/types'
 
@@ -13,6 +15,13 @@ const DASHBOARD_EVENTS: { event: WCAEvent; label: string }[] = [
   { event: 'pyram', label: 'Pyra' },
   { event: 'skewb', label: 'Skewb' },
 ]
+
+const EVENT_LABELS: Record<string, string> = {
+  '333': '3×3', '222': '2×2', '444': '4×4', '555': '5×5',
+  '666': '6×6', '777': '7×7', '333bf': '3×3 BLD', '333oh': 'OH',
+  '333fm': 'FMC', clock: 'Clock', minx: 'Megaminx', pyram: 'Pyra',
+  skewb: 'Skewb', sq1: 'Sq-1', '444bf': '4×4 BLD', '555bf': '5×5 BLD',
+}
 
 function computePB(solves: Solve[], event: WCAEvent): number | null {
   const times = solves
@@ -66,13 +75,6 @@ function formatRelativeDate(ts: number): string {
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-const EVENT_LABELS: Record<string, string> = {
-  '333': '3×3', '222': '2×2', '444': '4×4', '555': '5×5',
-  '666': '6×6', '777': '7×7', '333bf': '3×3 BLD', '333oh': 'OH',
-  '333fm': 'FMC', clock: 'Clock', minx: 'Megaminx', pyram: 'Pyra',
-  skewb: 'Skewb', sq1: 'Sq-1', '444bf': '4×4 BLD', '555bf': '5×5 BLD',
-}
-
 function PlayIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
@@ -92,7 +94,17 @@ function LinkIcon() {
 export function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { profile } = useProfile()
   const { solves, loading } = useSolveHistory(user?.uid)
+  const { state: wcaState, lookup: wcaLookup } = useWCAData()
+
+  const wcaId = profile?.wcaId ?? null
+
+  useEffect(() => {
+    if (wcaId) {
+      wcaLookup(wcaId)
+    }
+  }, [wcaId, wcaLookup])
 
   const pbs = useMemo(
     () => DASHBOARD_EVENTS.map(({ event, label }) => ({ label, pb: computePB(solves, event) })),
@@ -101,8 +113,34 @@ export function DashboardPage() {
 
   const recentSessions = useMemo(() => groupIntoSessions(solves), [solves])
 
+  // Build WCA PB rows from API response
+  const wcaPbRows = useMemo(() => {
+    if (wcaState.status !== 'success') return []
+    const records = wcaState.data.personal_records
+    return (Object.entries(records) as [WCAEvent, (typeof records)[WCAEvent]][])
+      .filter(([, rec]) => rec?.single !== null)
+      .map(([event, rec]) => ({
+        event,
+        label: EVENT_LABELS[event] ?? event,
+        single: rec?.single ?? null,
+        average: rec?.average ?? null,
+      }))
+      .sort((a, b) => {
+        // Sort by world rank ascending (lower = better)
+        const rankA = a.single?.world_rank ?? Infinity
+        const rankB = b.single?.world_rank ?? Infinity
+        return rankA - rankB
+      })
+  }, [wcaState])
+
   return (
     <div style={{ padding: '32px', maxWidth: 880, margin: '0 auto', width: '100%' }}>
+      <style>{`
+        @media (min-width: 640px) {
+          .wca-pb-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+      `}</style>
+
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
@@ -141,7 +179,7 @@ export function DashboardPage() {
           {pbs.map(({ label, pb }) => (
             <div key={label} style={{
               backgroundColor: 'var(--surface-0)',
-              border: `1px solid ${pb ? 'var(--border)' : 'var(--border)'}`,
+              border: '1px solid var(--border)',
               borderRadius: 10, padding: '13px 15px',
               display: 'flex', flexDirection: 'column', gap: 3,
             }}>
@@ -158,6 +196,139 @@ export function DashboardPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* WCA Official PBs */}
+      <section style={{ marginBottom: 36 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>
+            Official PBs
+          </h2>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>via WCA</span>
+        </div>
+
+        {!wcaId ? (
+          /* No WCA ID set */
+          <div style={{
+            backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: '14px 18px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>Link your WCA ID</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Add your WCA ID in Settings to see your official PBs.</div>
+            </div>
+            <button
+              onClick={() => navigate('/settings')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px', borderRadius: 8,
+                border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)',
+                color: 'var(--text-primary)', fontSize: 12, fontWeight: 500,
+                cursor: 'pointer', whiteSpace: 'nowrap',
+                transition: 'border-color 150ms ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              <LinkIcon />
+              Add WCA ID
+            </button>
+          </div>
+        ) : wcaState.status === 'loading' ? (
+          /* Loading skeleton */
+          <div className="wca-pb-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} style={{
+                backgroundColor: 'var(--surface-0)',
+                border: '1px solid var(--border)',
+                borderRadius: 8, padding: '12px 14px',
+                opacity: 1 - (i - 1) * 0.1,
+              }}>
+                <div style={{ width: 40, height: 10, backgroundColor: 'var(--surface-1)', borderRadius: 4, marginBottom: 8 }} />
+                <div style={{ width: 70, height: 20, backgroundColor: 'var(--surface-1)', borderRadius: 4, marginBottom: 4 }} />
+                <div style={{ width: 55, height: 12, backgroundColor: 'var(--surface-1)', borderRadius: 4 }} />
+              </div>
+            ))}
+          </div>
+        ) : wcaState.status === 'not_found' || wcaState.status === 'error' ? (
+          /* Error/not found */
+          <div style={{
+            backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: '20px',
+            textAlign: 'center', color: 'var(--text-muted)', fontSize: 13,
+          }}>
+            {wcaState.status === 'not_found'
+              ? `WCA ID "${wcaId}" not found. `
+              : 'Could not load WCA data. '}
+            <button
+              onClick={() => navigate('/settings')}
+              style={{
+                background: 'none', border: 'none', color: 'var(--accent)',
+                fontSize: 13, cursor: 'pointer', textDecoration: 'underline', padding: 0,
+              }}
+            >
+              Update in Settings
+            </button>
+          </div>
+        ) : wcaState.status === 'success' && wcaPbRows.length === 0 ? (
+          <div style={{
+            backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: '20px',
+            textAlign: 'center', color: 'var(--text-muted)', fontSize: 13,
+          }}>
+            No competition results found for {wcaState.data.person.name}.
+          </div>
+        ) : wcaState.status === 'success' ? (
+          <div className="wca-pb-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+            {wcaPbRows.map(({ event, label, single, average }) => (
+              <div key={event} style={{
+                backgroundColor: 'var(--surface-0)',
+                border: '1px solid var(--border)',
+                borderRadius: 8, padding: '12px 14px',
+              }}>
+                <div style={{
+                  fontSize: 12, color: 'var(--text-muted)',
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  marginBottom: 6,
+                }}>
+                  {label}
+                </div>
+                <div style={{
+                  fontSize: 20, fontWeight: 700,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  color: 'var(--text-primary)',
+                  letterSpacing: '-0.02em',
+                  marginBottom: 2,
+                }}>
+                  {single ? formatTime(single.best * 10) : '—'}
+                </div>
+                {average && (
+                  <div style={{
+                    fontSize: 13,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color: 'var(--text-muted)',
+                    marginBottom: 4,
+                  }}>
+                    avg {formatTime(average.best * 10)}
+                  </div>
+                )}
+                {single && (
+                  <span style={{
+                    display: 'inline-block',
+                    backgroundColor: 'var(--accent-dim)',
+                    color: 'var(--accent)',
+                    fontSize: 10, fontWeight: 600,
+                    borderRadius: 4, padding: '2px 5px',
+                    letterSpacing: '0.03em',
+                  }}>
+                    WR #{single.world_rank}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       {/* Recent sessions */}
@@ -216,34 +387,6 @@ export function DashboardPage() {
           </div>
         )}
       </section>
-
-      {/* WCA ID prompt */}
-      <div style={{
-        backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
-        borderRadius: 10, padding: '14px 18px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-      }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>Link your WCA ID</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Track rivals and compare with official results.</div>
-        </div>
-        <button
-          onClick={() => navigate('/settings')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '7px 14px', borderRadius: 8,
-            border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)',
-            color: 'var(--text-primary)', fontSize: 12, fontWeight: 500,
-            cursor: 'pointer', whiteSpace: 'nowrap',
-            transition: 'border-color 150ms ease',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
-        >
-          <LinkIcon />
-          Add WCA ID
-        </button>
-      </div>
     </div>
   )
 }

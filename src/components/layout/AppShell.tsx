@@ -60,6 +60,23 @@ function CalendarIcon() {
   )
 }
 
+function TrophyIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path
+        d="M10 13c-3.314 0-6-2.686-6-6V3h12v4c0 3.314-2.686 6-6 6z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M4 5H2.5a1 1 0 00-1 1v1a3 3 0 003 3H5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M16 5h1.5a1 1 0 011 1v1a3 3 0 01-3 3H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M10 13v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M7 18h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function SettingsIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -74,13 +91,14 @@ function SettingsIcon() {
   )
 }
 
-// Desktop sidebar includes all 6 items; mobile bottom nav capped at 5 (Settings dropped — accessible via desktop profile strip or direct URL)
+// Desktop sidebar includes all 7 items; mobile bottom nav capped at 5 (Settings dropped — accessible via desktop profile strip or direct URL)
 const DESKTOP_NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/session', label: 'Session', icon: <SessionIcon /> },
   { to: '/history', label: 'History', icon: <HistoryIcon /> },
   { to: '/calendar', label: 'Calendar', icon: <CalendarIcon /> },
   { to: '/rivals', label: 'Rivals', icon: <RivalsIcon /> },
+  { to: '/competition', label: 'Compete', icon: <TrophyIcon /> },
   { to: '/settings', label: 'Settings', icon: <SettingsIcon /> },
 ]
 
@@ -88,7 +106,7 @@ const MOBILE_NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/session', label: 'Session', icon: <SessionIcon /> },
   { to: '/history', label: 'History', icon: <HistoryIcon /> },
-  { to: '/calendar', label: 'Calendar', icon: <CalendarIcon /> },
+  { to: '/competition', label: 'Compete', icon: <TrophyIcon /> },
   { to: '/rivals', label: 'Rivals', icon: <RivalsIcon /> },
 ]
 

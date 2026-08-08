@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { WCAEvent, NotesBehavior, UserSettings } from '@/types'
 import { useProfile } from '@/providers/ProfileProvider'
+import { useWCAData } from '@/hooks/useWCAData'
 
 const WCA_EVENTS: { value: WCAEvent; label: string }[] = [
   { value: '333', label: '3x3' },
@@ -124,6 +125,7 @@ function Toggle({ checked, onChange, label, description }: ToggleProps) {
 export function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
   const { profile, save: saveProfile, isSaving } = useProfile()
+  const { state: wcaVerifyState, lookup: wcaLookup, reset: wcaReset } = useWCAData()
 
   const [displayNameInput, setDisplayNameInput] = useState(profile?.displayName ?? '')
   const [wcaIdInput, setWcaIdInput] = useState(profile?.wcaId ?? '')
@@ -148,6 +150,21 @@ export function SettingsPage() {
     })
     setSavedIndicator(true)
     setTimeout(() => setSavedIndicator(false), 2000)
+  }
+
+  const handleVerifyWcaId = () => {
+    const id = wcaIdInput.trim()
+    if (!id) return
+    wcaReset()
+    wcaLookup(id)
+  }
+
+  // Reset verify state when input changes
+  const handleWcaIdChange = (val: string) => {
+    setWcaIdInput(val.toUpperCase())
+    if (wcaVerifyState.status !== 'idle') {
+      wcaReset()
+    }
   }
 
   return (
@@ -207,29 +224,92 @@ export function SettingsPage() {
           >
             WCA ID
           </label>
-          <input
-            id="wca-id"
-            type="text"
-            value={wcaIdInput}
-            onChange={(e) => setWcaIdInput(e.target.value.toUpperCase())}
-            placeholder="e.g. 2009ZEMD01"
-            maxLength={10}
-            style={{
-              width: '100%',
-              backgroundColor: 'var(--surface-1)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: '9px 12px',
-              color: 'var(--text-primary)',
-              fontSize: 14,
-              fontFamily: "'JetBrains Mono', monospace",
-              outline: 'none',
-              transition: 'border-color 150ms ease',
-              letterSpacing: '0.04em',
-            }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
-          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              id="wca-id"
+              type="text"
+              value={wcaIdInput}
+              onChange={(e) => handleWcaIdChange(e.target.value)}
+              placeholder="e.g. 2009ZEMD01"
+              maxLength={10}
+              style={{
+                flex: 1,
+                backgroundColor: 'var(--surface-1)',
+                border: `1px solid ${
+                  wcaVerifyState.status === 'success'
+                    ? 'var(--positive)'
+                    : wcaVerifyState.status === 'not_found' || wcaVerifyState.status === 'error'
+                    ? 'var(--penalty)'
+                    : 'var(--border)'
+                }`,
+                borderRadius: 8,
+                padding: '9px 12px',
+                color: 'var(--text-primary)',
+                fontSize: 14,
+                fontFamily: "'JetBrains Mono', monospace",
+                outline: 'none',
+                transition: 'border-color 150ms ease',
+                letterSpacing: '0.04em',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+              onBlur={(e) => {
+                const borderColor =
+                  wcaVerifyState.status === 'success'
+                    ? 'var(--positive)'
+                    : wcaVerifyState.status === 'not_found' || wcaVerifyState.status === 'error'
+                    ? 'var(--penalty)'
+                    : 'var(--border)'
+                e.currentTarget.style.borderColor = borderColor
+              }}
+            />
+            <button
+              onClick={handleVerifyWcaId}
+              disabled={!wcaIdInput.trim() || wcaVerifyState.status === 'loading'}
+              style={{
+                padding: '9px 14px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface-1)',
+                color: 'var(--text-primary)',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: !wcaIdInput.trim() || wcaVerifyState.status === 'loading' ? 'not-allowed' : 'pointer',
+                opacity: !wcaIdInput.trim() ? 0.5 : 1,
+                whiteSpace: 'nowrap',
+                transition: 'border-color 150ms ease, opacity 150ms ease',
+              }}
+              onMouseEnter={(e) => { if (wcaIdInput.trim()) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              {wcaVerifyState.status === 'loading' ? 'Verifying…' : 'Verify'}
+            </button>
+          </div>
+          {/* Verification feedback */}
+          {wcaVerifyState.status === 'success' && (
+            <div style={{
+              marginTop: 6, fontSize: 12,
+              color: 'var(--positive)',
+              display: 'flex', alignItems: 'center', gap: 4,
+            }}>
+              <span>✓</span>
+              <span>
+                Verified: <strong>{wcaVerifyState.data.person.name}</strong>
+                {wcaVerifyState.data.person.country_iso2
+                  ? ` (${wcaVerifyState.data.person.country_iso2})`
+                  : ''}
+              </span>
+            </div>
+          )}
+          {wcaVerifyState.status === 'not_found' && (
+            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--penalty)' }}>
+              WCA ID not found. Check the ID and try again.
+            </div>
+          )}
+          {wcaVerifyState.status === 'error' && (
+            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--penalty)' }}>
+              {wcaVerifyState.message}
+            </div>
+          )}
         </div>
 
         <button

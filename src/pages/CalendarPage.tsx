@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCalendar } from '@/hooks/useCalendar'
+import { useReminders } from '@/hooks/useReminders'
 import { formatTime } from '@/lib/utils'
 import type { DayActivity, PlannedSession, WCAEvent } from '@/types'
 
@@ -133,18 +134,17 @@ interface DayCellProps {
   gridDate: Date | null
   isToday: boolean
   isSelected: boolean
-  hasPlan: boolean
-  hasCompletedPlan: boolean
+  plans: PlannedSession[]
   hasActivity: boolean
   onClick: () => void
 }
 
-function DayCell({ gridDate, isToday, isSelected, hasPlan, hasCompletedPlan, hasActivity, onClick }: DayCellProps) {
-  if (!gridDate) return <div aria-hidden="true" style={{ minHeight: 52 }} />
+function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, onClick }: DayCellProps) {
+  if (!gridDate) return <div aria-hidden="true" style={{ minHeight: 64 }} />
 
-  const showPlanDot = hasPlan
-  const planDotColor = hasCompletedPlan ? 'var(--positive)' : 'var(--accent)'
-  const showActivityDot = hasActivity && !hasPlan
+  const hasPlan = plans.length > 0
+  const visiblePlans = plans.slice(0, 2)
+  const overflowCount = plans.length - visiblePlans.length
 
   return (
     <button
@@ -153,17 +153,20 @@ function DayCell({ gridDate, isToday, isSelected, hasPlan, hasCompletedPlan, has
       aria-pressed={isSelected}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'flex-start', paddingTop: 6, gap: 4,
-        minHeight: 52,
+        justifyContent: 'flex-start', paddingTop: 6, paddingBottom: 4, gap: 3,
+        minHeight: 64,
         background: isSelected ? 'var(--accent-dim)' : 'none',
         border: `1px solid ${isSelected ? 'var(--accent)' : 'transparent'}`,
         borderRadius: 8,
         cursor: 'pointer',
         transition: 'background 150ms ease, border-color 150ms ease',
+        overflow: 'hidden',
+        width: '100%',
       }}
     >
+      {/* Date number */}
       <span style={{
-        width: 28, height: 28,
+        width: 28, height: 28, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: '50%',
         fontSize: 13,
@@ -173,18 +176,63 @@ function DayCell({ gridDate, isToday, isSelected, hasPlan, hasCompletedPlan, has
       }}>
         {gridDate.getDate()}
       </span>
-      {/* Indicator dots */}
-      <div style={{ display: 'flex', gap: 3, height: 5, alignItems: 'center' }}>
-        {showPlanDot && (
-          <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: planDotColor }} />
-        )}
-        {hasActivity && hasPlan && (
-          <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'var(--positive)' }} />
-        )}
-        {showActivityDot && (
-          <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'var(--positive)' }} />
-        )}
-      </div>
+
+      {/* Plan pills */}
+      {hasPlan && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', padding: '0 3px' }}>
+          {visiblePlans.map((plan) => {
+            const done = plan.completedAt !== null
+            const timeLabel = new Date(plan.scheduledAt).toLocaleTimeString('en-US', {
+              hour: 'numeric', minute: '2-digit',
+            })
+            const label = EVENT_LABELS[plan.event]
+            return (
+              <div
+                key={plan.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 2,
+                  background: done ? 'rgba(34,211,238,0.04)' : 'var(--accent-dim)',
+                  border: `1px solid ${done ? 'rgba(34,211,238,0.15)' : 'var(--accent)'}`,
+                  borderRadius: 4,
+                  fontSize: 10,
+                  padding: '2px 5px',
+                  color: done ? 'var(--text-muted)' : 'var(--accent)',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  minWidth: 0,
+                }}
+              >
+                {done && (
+                  <svg width="8" height="7" viewBox="0 0 8 7" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+                    <path d="M1 3.5L3 5.5L7 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {timeLabel} {label}
+                </span>
+              </div>
+            )
+          })}
+          {overflowCount > 0 && (
+            <div style={{
+              fontSize: 9, color: 'var(--text-muted)',
+              paddingLeft: 5, lineHeight: '14px',
+            }}>
+              +{overflowCount} more
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Activity dot (only when there's no plan, or always show separately) */}
+      {hasActivity && (
+        <span style={{
+          width: 5, height: 5, borderRadius: '50%',
+          backgroundColor: 'var(--positive)',
+          flexShrink: 0,
+        }} />
+      )}
     </button>
   )
 }
@@ -625,9 +673,14 @@ export function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [createInitialDate, setCreateInitialDate] = useState(todayKey)
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+  )
 
-  const { activityByDay, plansByDay, streak, weeklyFrequency, createPlan, deletePlan, markComplete } =
+  const { activityByDay, plansByDay, plans, streak, weeklyFrequency, createPlan, deletePlan, markComplete } =
     useCalendar()
+
+  useReminders(plans)
 
   const grid = useMemo(() => getMonthGrid(year, month), [year, month])
   const currentTodayKey = todayKey()
@@ -648,6 +701,15 @@ export function CalendarPage() {
 
   const selectedPlans = selectedDate ? (plansByDay.get(selectedDate) ?? []) : []
   const selectedActivity = selectedDate ? activityByDay.get(selectedDate) : undefined
+
+  const requestNotifPermission = () => {
+    if (typeof Notification === 'undefined') return
+    Notification.requestPermission().then((perm) => {
+      setNotifPermission(perm)
+    }).catch(() => {
+      // ignore
+    })
+  }
 
   const navBtnStyle: React.CSSProperties = {
     width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -683,6 +745,40 @@ export function CalendarPage() {
           Schedule
         </button>
       </div>
+
+      {/* Notification permission banner */}
+      {notifPermission === 'default' && (
+        <div style={{ padding: '6px 24px 0' }}>
+          <button
+            onClick={requestNotifPermission}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '5px 12px', borderRadius: 6,
+              border: '1px solid var(--accent)',
+              backgroundColor: 'var(--accent-dim)',
+              color: 'var(--accent)',
+              fontSize: 12, fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'opacity 150ms ease',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path
+                d="M6 1a3.5 3.5 0 0 0-3.5 3.5c0 1.8-.5 2.9-.9 3.5h8.8c-.4-.6-.9-1.7-.9-3.5A3.5 3.5 0 0 0 6 1ZM4.5 9a1.5 1.5 0 0 0 3 0"
+                stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"
+              />
+            </svg>
+            Enable reminders
+          </button>
+        </div>
+      )}
+      {notifPermission === 'denied' && (
+        <div style={{ padding: '6px 24px 0' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            Reminders blocked in browser settings
+          </span>
+        </div>
+      )}
 
       {/* Month navigation */}
       <div style={{ padding: '14px 24px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -733,8 +829,7 @@ export function CalendarPage() {
                 gridDate={gridDate}
                 isToday={key === currentTodayKey}
                 isSelected={key === selectedDate}
-                hasPlan={dayPlans.length > 0}
-                hasCompletedPlan={dayPlans.some((p) => p.completedAt !== null)}
+                plans={dayPlans}
                 hasActivity={!!dayActivity && dayActivity.solveCount > 0}
                 onClick={() => key && setSelectedDate((prev) => (prev === key ? null : key))}
               />
