@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTimer } from '@/hooks/useTimer'
+import { ManualTimeInput } from '@/components/session/ManualTimeInput'
 import { generateScramble } from '@/lib/scramble'
 import { formatTime } from '@/lib/utils'
 import type { WCAEvent } from '@/types'
@@ -473,6 +474,8 @@ export function CompetitionPage() {
   const [compPhase, setCompPhase] = useState<CompPhase>('setup')
   const [selectedEvent, setSelectedEvent] = useState<WCAEvent>('333')
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('Club')
+  const [isManualMode, setIsManualMode] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(true)
 
   // ── Competition state ──
   const [competitors, setCompetitors] = useState<Competitor[]>([])
@@ -491,9 +494,10 @@ export function CompetitionPage() {
     displayTime,
     inspectionElapsed,
     pendingPenalty,
+    confirmManualTime,
     reset: resetTimer,
   } = useTimer({
-    mode: 'live',
+    mode: isManualMode ? 'manual' : 'live',
     onSolveComplete: useCallback(
       (result: import('@/hooks/useTimer').TimerResult) => {
         const effectiveTime =
@@ -608,11 +612,12 @@ export function CompetitionPage() {
 
   // ── Phase: hint text ──
   let timerHint = ''
-  if (timerPhase === 'idle') timerHint = 'Hold Space to start inspection'
+  if (timerPhase === 'idle') timerHint = isManualMode ? 'Press Space to enter time' : 'Hold Space to start inspection'
   else if (timerPhase === 'inspection') timerHint = 'Hold Space to start solving'
   else if (timerPhase === 'armed') timerHint = 'Release to start'
   else if (timerPhase === 'solving') timerHint = 'Press Space to stop'
   else if (timerPhase === 'stopped') timerHint = 'Next solve in a moment...'
+  else if (timerPhase === 'manual_entry') timerHint = ''
 
   // ─── Render: Setup ───────────────────────────────────────────────────────
 
@@ -926,29 +931,47 @@ export function CompetitionPage() {
             {selectedDifficulty}
           </span>
         </div>
-        <button
-          onClick={() => {
-            aiTimeoutsRef.current.forEach(clearTimeout)
-            setCompPhase('setup')
-            setUserSolves([])
-            setCompetitors([])
-            setSolveIndex(0)
-            setScrambles([])
-            resetTimer()
-          }}
-          style={{
-            padding: '6px 14px',
-            borderRadius: 6,
-            border: '1px solid var(--border)',
-            backgroundColor: 'transparent',
-            color: 'var(--text-muted)',
-            fontSize: 13,
-            cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif',
-          }}
-        >
-          Quit
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={() => setShowLeaderboard((p) => !p)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 6,
+              border: `1px solid ${showLeaderboard ? 'var(--accent)' : 'var(--border)'}`,
+              backgroundColor: showLeaderboard ? 'var(--accent-dim)' : 'transparent',
+              color: showLeaderboard ? 'var(--accent)' : 'var(--text-muted)',
+              fontSize: 13,
+              cursor: 'pointer',
+              fontFamily: 'Inter, sans-serif',
+              transition: 'all 150ms ease',
+            }}
+          >
+            Leaderboard
+          </button>
+          <button
+            onClick={() => {
+              aiTimeoutsRef.current.forEach(clearTimeout)
+              setCompPhase('setup')
+              setUserSolves([])
+              setCompetitors([])
+              setSolveIndex(0)
+              setScrambles([])
+              resetTimer()
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              backgroundColor: 'transparent',
+              color: 'var(--text-muted)',
+              fontSize: 13,
+              cursor: 'pointer',
+              fontFamily: 'Inter, sans-serif',
+            }}
+          >
+            Quit
+          </button>
+        </div>
       </div>
 
       {/* Body */}
@@ -1028,36 +1051,79 @@ export function CompetitionPage() {
               gap: 16,
               flex: 1,
               minHeight: 200,
+              position: 'relative',
             }}
           >
-            <TimerDisplay
-              phase={timerPhase}
-              displayTime={displayTime}
-              inspectionElapsed={inspectionElapsed}
-              pendingPenalty={pendingPenalty}
-            />
-            {pendingPenalty && (
-              <span
+            <AnimatePresence mode="wait">
+              {timerPhase === 'manual_entry' ? (
+                <ManualTimeInput
+                  key="manual-input"
+                  pendingPenalty={pendingPenalty}
+                  onConfirm={(ms) => confirmManualTime(ms)}
+                  onCancel={() => { resetTimer(); setIsManualMode(false) }}
+                />
+              ) : (
+                <motion.div
+                  key="live-timer"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}
+                >
+                  <TimerDisplay
+                    phase={timerPhase}
+                    displayTime={displayTime}
+                    inspectionElapsed={inspectionElapsed}
+                    pendingPenalty={pendingPenalty}
+                  />
+                  {pendingPenalty && (
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: 'var(--penalty)',
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    >
+                      {pendingPenalty}
+                    </span>
+                  )}
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, textAlign: 'center' }}>
+                    {timerHint}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Manual mode toggle (only visible when idle) */}
+            {timerPhase === 'idle' && (
+              <button
+                onClick={() => setIsManualMode((p) => !p)}
                 style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: 'var(--penalty)',
-                  fontFamily: "'JetBrains Mono', monospace",
+                  position: 'absolute',
+                  bottom: 14,
+                  left: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  background: isManualMode ? 'var(--accent-dim)' : 'none',
+                  border: `1px solid ${isManualMode ? 'var(--accent)' : 'var(--border)'}`,
+                  borderRadius: 8,
+                  padding: '5px 10px',
+                  color: isManualMode ? 'var(--accent)' : 'var(--text-muted)',
+                  fontSize: 11,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: 'Inter, sans-serif',
+                  transition: 'all 150ms ease',
                 }}
               >
-                {pendingPenalty}
-              </span>
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M2 6h8M6 2v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                {isManualMode ? 'Manual ON' : 'Manual entry'}
+              </button>
             )}
-            <p
-              style={{
-                fontSize: 13,
-                color: 'var(--text-muted)',
-                margin: 0,
-                textAlign: 'center',
-              }}
-            >
-              {timerHint}
-            </p>
           </div>
 
           {/* User's own solves so far */}
@@ -1104,22 +1170,33 @@ export function CompetitionPage() {
           )}
         </div>
 
-        {/* Right: Leaderboard */}
-        <div style={{ flex: '1 1 280px', minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: 'var(--text-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              marginBottom: 10,
-            }}
-          >
-            Leaderboard
-          </div>
-          <LeaderboardPanel entries={leaderboardEntries} solveIndex={solveIndex} />
-        </div>
+        {/* Right: Leaderboard (collapsible) */}
+        <AnimatePresence>
+          {showLeaderboard && (
+            <motion.div
+              key="leaderboard"
+              initial={{ opacity: 0, x: 24, width: 0 }}
+              animate={{ opacity: 1, x: 0, width: 'auto' }}
+              exit={{ opacity: 0, x: 24, width: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              style={{ flex: '1 1 280px', minWidth: 0, overflow: 'hidden' }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginBottom: 10,
+                }}
+              >
+                Leaderboard
+              </div>
+              <LeaderboardPanel entries={leaderboardEntries} solveIndex={solveIndex} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
