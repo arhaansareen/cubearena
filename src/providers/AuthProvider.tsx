@@ -7,6 +7,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 interface AuthContextValue {
   user: User | null
@@ -38,6 +39,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (firebaseUser) {
           setUser(firebaseUser)
           setLoading(false)
+          // Mirror into Supabase so users appear in the Supabase Auth dashboard
+          if (isSupabaseConfigured) {
+            supabase.auth.getSession().then(({ data }) => {
+              if (!data.session) {
+                supabase.auth.signInAnonymously().catch((err) => {
+                  console.warn('[AuthProvider] Supabase anonymous sign-in failed:', err)
+                })
+              }
+            })
+          }
         } else {
           // Sign in anonymously so there is always a uid for Firestore writes
           signInAnonymously(auth).catch((err) => {

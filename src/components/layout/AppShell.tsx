@@ -88,6 +88,15 @@ function LeaderboardIcon() {
   )
 }
 
+function ProfileNavIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function SettingsIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -111,6 +120,7 @@ const DESKTOP_NAV: NavItem[] = [
   { to: '/rivals', label: 'Rivals', icon: <RivalsIcon /> },
   { to: '/competition', label: 'Compete', icon: <TrophyIcon /> },
   { to: '/leaderboard', label: 'Leaderboard', icon: <LeaderboardIcon /> },
+  { to: '/profile', label: 'Profile', icon: <ProfileNavIcon /> },
   { to: '/settings', label: 'Settings', icon: <SettingsIcon /> },
 ]
 
@@ -135,7 +145,7 @@ function ProfileStrip() {
 
   return (
     <NavLink
-      to="/settings"
+      to="/profile"
       style={{
         display: 'flex',
         alignItems: 'center',

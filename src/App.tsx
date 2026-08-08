@@ -11,6 +11,7 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { CompetitionPage } from '@/pages/CompetitionPage'
 import { LeaderboardPage } from '@/pages/LeaderboardPage'
+import { ProfilePage } from '@/pages/ProfilePage'
 
 function AuthPage() {
   return (
@@ -98,6 +99,10 @@ const router = createBrowserRouter([
       {
         path: 'leaderboard',
         element: <LeaderboardPage />,
+      },
+      {
+        path: 'profile',
+        element: <ProfilePage />,
       },
       {
         path: 'settings',
