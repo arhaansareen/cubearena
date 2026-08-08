@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useProfile } from '@/providers/ProfileProvider'
 
 interface NavItem {
@@ -194,22 +195,38 @@ function ProfileStrip() {
 }
 
 export function AppShell() {
+  const [collapsed, setCollapsed] = useState(false)
+
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="app-shell-desktop" style={{
-        width: 240,
-        minHeight: '100dvh',
-        backgroundColor: 'var(--surface-0)',
-        borderRight: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '24px 0 0',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        zIndex: 100,
-      }}>
+      <motion.div
+        className="app-shell-desktop"
+        animate={{ width: collapsed ? 0 : 240 }}
+        transition={{ duration: 0.22, ease: 'easeInOut' }}
+        style={{
+          minHeight: '100dvh',
+          backgroundColor: 'var(--surface-0)',
+          borderRight: collapsed ? 'none' : '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: collapsed ? 0 : '24px 0 0',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          zIndex: 100,
+          overflow: 'hidden',
+        }}
+      >
+        <AnimatePresence>
+          {!collapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 240 }}
+            >
         <div style={{ padding: '0 20px 24px', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
           <span style={{
             fontFamily: "'JetBrains Mono', monospace",
@@ -264,17 +281,62 @@ export function AppShell() {
           ))}
         </nav>
         <ProfileStrip />
-      </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Collapse toggle button */}
+      <motion.button
+        className="app-shell-desktop"
+        animate={{ left: collapsed ? 8 : 248 }}
+        transition={{ duration: 0.22, ease: 'easeInOut' }}
+        onClick={() => setCollapsed((p) => !p)}
+        title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
+        style={{
+          position: 'fixed',
+          top: 28,
+          zIndex: 101,
+          width: 20,
+          height: 20,
+          borderRadius: '50%',
+          border: '1px solid var(--border)',
+          backgroundColor: 'var(--surface-0)',
+          color: 'var(--text-muted)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 0,
+          transition: 'color 150ms ease, border-color 150ms ease',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+          <path
+            d={collapsed ? 'M3 2l4 3-4 3' : 'M7 2L3 5l4 3'}
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </motion.button>
 
       {/* Main content */}
-      <div className="app-shell-content" style={{
-        marginLeft: 240,
-        flex: 1,
-        minHeight: '100dvh',
-        backgroundColor: 'var(--bg)',
-      }}>
+      <motion.div
+        className="app-shell-content"
+        animate={{ marginLeft: collapsed ? 0 : 240 }}
+        transition={{ duration: 0.22, ease: 'easeInOut' }}
+        style={{
+          flex: 1,
+          minHeight: '100dvh',
+          backgroundColor: 'var(--bg)',
+        }}
+      >
         <Outlet />
-      </div>
+      </motion.div>
 
       {/* Mobile bottom nav */}
       <div className="app-shell-mobile-nav" style={{
