@@ -1,5 +1,6 @@
 import type { WCAEvent } from '@/types'
 import { ScrambleViz } from './ScrambleViz'
+import { EventTabs } from './EventTabs'
 
 interface ScramblePanelProps {
   scramble: string
@@ -8,25 +9,6 @@ interface ScramblePanelProps {
   onNewScramble: () => void
   onEventChange: (event: WCAEvent) => void
 }
-
-const WCA_EVENTS: { value: WCAEvent; label: string }[] = [
-  { value: '333', label: '3x3' },
-  { value: '222', label: '2x2' },
-  { value: '444', label: '4x4' },
-  { value: '555', label: '5x5' },
-  { value: '666', label: '6x6' },
-  { value: '777', label: '7x7' },
-  { value: '333bf', label: '3BLD' },
-  { value: '333oh', label: '3OH' },
-  { value: '333fm', label: 'FMC' },
-  { value: 'clock', label: 'Clock' },
-  { value: 'minx', label: 'Megaminx' },
-  { value: 'pyram', label: 'Pyraminx' },
-  { value: 'skewb', label: 'Skewb' },
-  { value: 'sq1', label: 'Square-1' },
-  { value: '444bf', label: '4BLD' },
-  { value: '555bf', label: '5BLD' },
-]
 
 
 function RefreshIcon() {
@@ -61,36 +43,11 @@ export function ScramblePanel({
         gap: 12,
       }}
     >
-      {/* Top row: event selector + refresh */}
+      {/* Top row: event tabs + refresh */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <select
-          value={event}
-          onChange={(e) => onEventChange(e.target.value as WCAEvent)}
-          style={{
-            backgroundColor: 'var(--surface-1)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: '6px 10px',
-            fontSize: 13,
-            fontWeight: 500,
-            outline: 'none',
-            transition: 'border-color 150ms ease',
-            cursor: 'pointer',
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = 'var(--accent)'
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border)'
-          }}
-        >
-          {WCA_EVENTS.map((ev) => (
-            <option key={ev.value} value={ev.value}>
-              {ev.label}
-            </option>
-          ))}
-        </select>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <EventTabs value={event} onChange={onEventChange} />
+        </div>
 
         <button
           onClick={onNewScramble}

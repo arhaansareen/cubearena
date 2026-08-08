@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Solve } from '@/types'
 import { computeAo, formatTime } from '@/lib/utils'
+import { HoldDeleteButton } from './HoldDeleteButton'
 
 interface SessionSolveListProps {
   solves: Solve[]
@@ -110,27 +111,7 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
 
       {/* Delete last solve */}
       {solves.length > 0 && (
-        <button
-          onClick={onDeleteLast}
-          style={{
-            padding: '8px',
-            borderTop: '1px solid var(--border)',
-            color: 'var(--text-muted)',
-            fontSize: 11,
-            fontWeight: 500,
-            cursor: 'pointer',
-            transition: 'color 150ms ease, background-color 150ms ease',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--penalty)'; e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.06)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.backgroundColor = 'transparent' }}
-        >
-          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-            <path d="M2 2.5h7M4.5 2.5V2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v.5M3.5 4v4.5M5.5 4v4.5M7.5 4v4.5M2.5 2.5l.5 7h5l.5-7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Delete last
-        </button>
+        <HoldDeleteButton onDelete={onDeleteLast} />
       )}
     </div>
   )

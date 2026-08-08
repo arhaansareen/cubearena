@@ -1,4 +1,4 @@
-import { StatCell } from '@/components/shared/StatCell'
+import { SpotlightStatCell } from '@/components/shared/SpotlightStatCell'
 import { formatTime } from '@/lib/utils'
 
 interface SessionStatsBarProps {
@@ -27,7 +27,7 @@ export function SessionStatsBar({ solveCount, ao5, ao12, mean }: SessionStatsBar
         overflowX: 'auto',
       }}
     >
-      <StatCell
+      <SpotlightStatCell
         label="Solves"
         value={solveCount}
         highlight={false}
@@ -40,10 +40,11 @@ export function SessionStatsBar({ solveCount, ao5, ao12, mean }: SessionStatsBar
           flexShrink: 0,
         }}
       />
-      <StatCell
+      <SpotlightStatCell
         label="Ao5"
         value={formatStat(ao5)}
         highlight={ao5 !== null}
+        color="var(--accent)"
       />
       <div
         style={{
@@ -53,10 +54,11 @@ export function SessionStatsBar({ solveCount, ao5, ao12, mean }: SessionStatsBar
           flexShrink: 0,
         }}
       />
-      <StatCell
+      <SpotlightStatCell
         label="Ao12"
         value={formatStat(ao12)}
         highlight={ao12 !== null}
+        color="var(--accent)"
       />
       <div
         style={{
@@ -66,7 +68,7 @@ export function SessionStatsBar({ solveCount, ao5, ao12, mean }: SessionStatsBar
           flexShrink: 0,
         }}
       />
-      <StatCell
+      <SpotlightStatCell
         label="Mean"
         value={formatStat(mean)}
         highlight={false}
