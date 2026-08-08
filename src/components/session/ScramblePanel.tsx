@@ -3,7 +3,7 @@ import { ScrambleViz } from './ScrambleViz'
 
 interface ScramblePanelProps {
   scramble: string
-  loading: boolean
+  loading?: boolean
   event: WCAEvent
   onNewScramble: () => void
   onEventChange: (event: WCAEvent) => void
@@ -45,7 +45,7 @@ function RefreshIcon() {
 
 export function ScramblePanel({
   scramble,
-  loading,
+  loading = false,
   event,
   onNewScramble,
   onEventChange,

@@ -50,7 +50,7 @@ export function SessionPage() {
   const currentScrambleRef = useRef<string>('')
   const solveStartTimeRef = useRef<number | null>(null)
 
-  const { scramble, loading: scrambleLoading, next: nextScramble } = useScramble(event)
+  const { scramble, next: nextScramble } = useScramble(event)
   const { playInspectionCallout, startAmbient, stopAmbient } = useAudioContext()
   const { user } = useAuth()
   const { persistSolve } = useSolveHistory(user?.uid)
@@ -151,7 +151,7 @@ export function SessionPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', backgroundColor: 'var(--bg)', overflow: 'hidden' }}>
       <ScramblePanel
         scramble={scramble}
-        loading={scrambleLoading}
+        loading={false}
         event={event}
         onNewScramble={nextScramble}
         onEventChange={setEvent}
