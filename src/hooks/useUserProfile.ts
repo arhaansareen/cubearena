@@ -1,10 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import {
-  doc,
-  getDoc,
-  setDoc,
-} from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import type { UserProfile } from '@/types'
 
 const LS_KEY = 'cubearena:profile'
@@ -24,20 +19,37 @@ function saveToStorage(profile: UserProfile) {
   } catch {}
 }
 
-async function loadFromFirestore(uid: string): Promise<UserProfile | null> {
+async function loadFromSupabase(uid: string): Promise<UserProfile | null> {
+  if (!isSupabaseConfigured) return null
   try {
-    const snap = await getDoc(doc(db, 'users', uid, 'profile', 'data'))
-    return snap.exists() ? (snap.data() as UserProfile) : null
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', uid)
+      .single()
+    if (error || !data) return null
+    return {
+      displayName: (data.display_name as string) ?? '',
+      wcaId: (data.wca_id as string | null) ?? null,
+      updatedAt: new Date(data.updated_at as string).getTime(),
+    }
   } catch {
     return null
   }
 }
 
-async function saveToFirestore(uid: string, profile: UserProfile): Promise<void> {
+async function saveToSupabase(uid: string, profile: UserProfile): Promise<void> {
+  if (!isSupabaseConfigured) return
   try {
-    await setDoc(doc(db, 'users', uid, 'profile', 'data'), profile, { merge: true })
+    const { error } = await supabase.from('profiles').upsert({
+      id: uid,
+      display_name: profile.displayName,
+      wca_id: profile.wcaId,
+      updated_at: new Date(profile.updatedAt).toISOString(),
+    })
+    if (error) console.warn('[useUserProfile] Supabase save failed:', error)
   } catch (err) {
-    console.warn('[useUserProfile] Firestore save failed, data saved locally only:', err)
+    console.warn('[useUserProfile] save failed:', err)
   }
 }
 
@@ -62,12 +74,11 @@ export function useUserProfile(uid: string | null): UseUserProfileReturn {
     async function load() {
       let loaded: UserProfile | null = null
       if (uid) {
-        loaded = await loadFromFirestore(uid)
+        loaded = await loadFromSupabase(uid)
       }
       if (!loaded) {
         loaded = loadFromStorage()
       }
-
       if (!cancelled) {
         setProfile(loaded)
         setLoading(false)
@@ -92,7 +103,7 @@ export function useUserProfile(uid: string | null): UseUserProfileReturn {
     saveToStorage(next)
 
     if (uidRef.current) {
-      await saveToFirestore(uidRef.current, next)
+      await saveToSupabase(uidRef.current, next)
     }
 
     setIsSaving(false)
