@@ -10,6 +10,7 @@ import { RivalsPage } from '@/pages/RivalsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { CompetitionPage } from '@/pages/CompetitionPage'
+import { LeaderboardPage } from '@/pages/LeaderboardPage'
 
 function AuthPage() {
   return (
@@ -93,6 +94,10 @@ const router = createBrowserRouter([
       {
         path: 'competition',
         element: <CompetitionPage />,
+      },
+      {
+        path: 'leaderboard',
+        element: <LeaderboardPage />,
       },
       {
         path: 'settings',
