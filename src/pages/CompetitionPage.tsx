@@ -296,12 +296,14 @@ function LeaderboardPanel({ entries, solveIndex }: LeaderboardPanelProps) {
             display: 'grid',
             gridTemplateColumns: '36px 1fr 100px auto',
             gap: 8,
-            padding: '10px 16px',
+            padding: entry.rank === 1 ? '12px 16px' : '10px 16px',
             borderBottom: '1px solid var(--border)',
             backgroundColor: entry.isUser
               ? 'var(--accent-dim)'
               : 'transparent',
-            border: entry.isUser
+            border: entry.rank === 1
+              ? '2px solid var(--accent)'
+              : entry.isUser
               ? '1px solid rgba(34,211,238,0.3)'
               : undefined,
             alignItems: 'center',
@@ -728,12 +730,12 @@ export function CompetitionPage() {
                     onClick={() => setSelectedDifficulty(d)}
                     style={{
                       flex: 1,
-                      padding: '8px 4px',
+                      padding: '10px 4px',
                       borderRadius: 8,
                       border: isSelected
-                        ? '1px solid var(--accent)'
+                        ? '2px solid var(--accent)'
                         : '1px solid var(--border)',
-                      backgroundColor: isSelected ? 'var(--accent-dim)' : 'var(--surface-1)',
+                      backgroundColor: isSelected ? 'var(--accent-dim)' : 'transparent',
                       color: isSelected ? 'var(--accent)' : 'var(--text-muted)',
                       fontSize: 13,
                       fontWeight: isSelected ? 700 : 500,
@@ -914,13 +916,32 @@ export function CompetitionPage() {
           flexShrink: 0,
         }}
       >
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+            {Array.from({ length: NUM_SOLVES }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: i === solveIndex ? 16 : 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: i < solveIndex
+                    ? 'var(--accent)'
+                    : i === solveIndex
+                    ? 'var(--accent)'
+                    : 'var(--surface-1)',
+                  border: i === solveIndex ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  opacity: i === solveIndex ? 1 : i < solveIndex ? 0.6 : 0.3,
+                  transition: 'width 200ms ease, background-color 200ms ease',
+                }}
+              />
+            ))}
+          </div>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>
-            Solve {Math.min(solveIndex + 1, NUM_SOLVES)} / {NUM_SOLVES}
+            Solve {Math.min(solveIndex + 1, NUM_SOLVES)} of {NUM_SOLVES}
           </span>
           <span
             style={{
-              marginLeft: 12,
               fontSize: 12,
               color: 'var(--text-muted)',
               fontWeight: 500,

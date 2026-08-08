@@ -209,13 +209,25 @@ export function RivalsPage() {
         </p>
       </div>
 
-      {/* Search */}
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
+      {/* Search — pill container */}
+      <form
+        onSubmit={handleSearch}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          borderRadius: 999,
+          border: '1px solid var(--border)',
+          backgroundColor: 'var(--surface-0)',
+          overflow: 'hidden',
+          maxWidth: 440,
+          marginBottom: 24,
+        }}
+      >
+        <div style={{ position: 'relative', flex: 1 }}>
           <div
             style={{
               position: 'absolute',
-              left: 12,
+              left: 16,
               top: '50%',
               transform: 'translateY(-50%)',
               color: 'var(--text-muted)',
@@ -235,34 +247,32 @@ export function RivalsPage() {
             spellCheck={false}
             style={{
               width: '100%',
-              backgroundColor: 'var(--surface-0)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: '10px 12px 10px 38px',
+              backgroundColor: 'transparent',
+              border: 'none',
+              padding: '11px 12px 11px 42px',
               color: 'var(--text-primary)',
               fontSize: 14,
               outline: 'none',
-              transition: 'border-color 150ms ease',
               fontFamily: "'JetBrains Mono', monospace",
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
           />
         </div>
+        {/* Divider */}
+        <div style={{ width: 1, height: 28, backgroundColor: 'var(--border)', flexShrink: 0 }} />
         <button
           type="submit"
           disabled={!searchQuery.trim() || state.status === 'loading'}
           style={{
-            padding: '10px 20px',
-            backgroundColor: 'var(--accent)',
-            color: '#020617',
-            borderRadius: 8,
+            padding: '11px 20px',
+            backgroundColor: 'transparent',
+            color: searchQuery.trim() && state.status !== 'loading' ? 'var(--accent)' : 'var(--text-muted)',
+            border: 'none',
             fontSize: 14,
             fontWeight: 600,
-            border: 'none',
             cursor: searchQuery.trim() && state.status !== 'loading' ? 'pointer' : 'not-allowed',
             opacity: searchQuery.trim() && state.status !== 'loading' ? 1 : 0.5,
-            transition: 'opacity 150ms ease',
+            transition: 'opacity 150ms ease, color 150ms ease',
+            whiteSpace: 'nowrap',
           }}
         >
           Look up
@@ -309,52 +319,78 @@ export function RivalsPage() {
       {/* Tracked rivals */}
       {rivals.length > 0 && (
         <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
+          <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 12 }}>
             Tracked ({rivals.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {rivals.map((rival) => (
-              <div
-                key={rival.id}
-                style={{
-                  backgroundColor: 'var(--surface-0)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 10,
-                  padding: '14px 18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 16,
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {rival.name}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
-                    {rival.wcaId}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleRemoveRival(rival.id)}
-                  aria-label={`Remove ${rival.name}`}
+            {rivals.map((rival) => {
+              // Hash wcaId chars to pick avatar color
+              const colorSum = rival.wcaId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+              const avatarColors = ['#7C3AED', '#DC2626', '#D97706', '#059669']
+              const avatarBg = avatarColors[colorSum % 4]
+              const initials = rival.name.trim().split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+              return (
+                <div
+                  key={rival.id}
                   style={{
-                    background: 'none',
+                    backgroundColor: 'var(--surface-0)',
                     border: '1px solid var(--border)',
-                    borderRadius: 6,
-                    padding: '4px 10px',
-                    color: 'var(--text-muted)',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    transition: 'color 150ms ease, border-color 150ms ease',
+                    borderRadius: 10,
+                    padding: '14px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 16,
                   }}
-                  onMouseOver={(e) => { e.currentTarget.style.color = 'var(--penalty)'; e.currentTarget.style.borderColor = 'var(--penalty)' }}
-                  onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
                 >
-                  Remove
-                </button>
-              </div>
-            ))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {/* Avatar circle */}
+                    <div style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      backgroundColor: avatarBg,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: '#fff',
+                      fontFamily: "'JetBrains Mono', monospace",
+                      flexShrink: 0,
+                    }}>
+                      {initials}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {rival.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
+                        {rival.wcaId}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveRival(rival.id)}
+                    aria-label={`Remove ${rival.name}`}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      padding: '4px 10px',
+                      color: 'var(--text-muted)',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      transition: 'color 150ms ease, border-color 150ms ease',
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.color = 'var(--penalty)'; e.currentTarget.style.borderColor = 'var(--penalty)' }}
+                    onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -372,32 +408,15 @@ export function RivalsPage() {
             border: '1px solid var(--border)',
             borderRadius: 12,
             textAlign: 'center',
-            gap: 12,
+            gap: 8,
           }}
         >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              backgroundColor: 'var(--surface-1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 4,
-            }}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="8" cy="8" r="4" stroke="var(--text-muted)" strokeWidth="1.5" />
-              <circle cx="16" cy="8" r="4" stroke="var(--text-muted)" strokeWidth="1.5" />
-              <path d="M4 20c0-3.314 1.79-6 4-6M20 20c0-3.314-1.79-6-4-6" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </div>
-          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
-            No rivals tracked yet
+          <p style={{ fontSize: 28, margin: 0 }}>🔍</p>
+          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-muted)', margin: 0 }}>
+            Search for a WCA competitor above
           </p>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 300 }}>
-            Search for a competitor by their WCA ID to start tracking their stats.
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 300, opacity: 0.7 }}>
+            Enter a WCA ID to find a competitor and start tracking their stats.
           </p>
         </div>
       )}

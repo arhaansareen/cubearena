@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import type { WCAEvent, NotesBehavior, UserSettings } from '@/types'
 import { useProfile } from '@/providers/ProfileProvider'
 import { useWCAData } from '@/hooks/useWCAData'
@@ -44,20 +45,25 @@ function Section({ title, description, children }: SectionProps) {
   return (
     <section
       style={{
-        backgroundColor: 'var(--surface-0)',
+        background: 'var(--surface-0)',
         border: '1px solid var(--border)',
-        borderRadius: 12,
-        overflow: 'hidden',
+        borderRadius: 16,
+        padding: 24,
         marginBottom: 16,
       }}
     >
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-        <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{title}</h2>
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{
+          fontSize: 14, fontWeight: 700, color: 'var(--text-primary)',
+          borderLeft: '3px solid var(--accent)',
+          paddingLeft: 10,
+          margin: 0,
+        }}>{title}</h2>
         {description && (
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{description}</p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, marginLeft: 13 }}>{description}</p>
         )}
       </div>
-      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {children}
       </div>
     </section>
@@ -89,13 +95,14 @@ function Toggle({ checked, onChange, label, description }: ToggleProps) {
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{description}</div>
         )}
       </div>
+      {/* Animated pill toggle */}
       <div
         role="switch"
         aria-checked={checked}
         style={{
-          width: 44,
-          height: 24,
-          borderRadius: 12,
+          width: 40,
+          height: 22,
+          borderRadius: 11,
           backgroundColor: checked ? 'var(--accent)' : 'var(--surface-1)',
           border: `1px solid ${checked ? 'var(--accent)' : 'var(--border)'}`,
           position: 'relative',
@@ -104,7 +111,9 @@ function Toggle({ checked, onChange, label, description }: ToggleProps) {
           cursor: 'pointer',
         }}
       >
-        <div
+        <motion.div
+          animate={{ x: checked ? 18 : 0 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
           style={{
             position: 'absolute',
             width: 18,
@@ -112,8 +121,8 @@ function Toggle({ checked, onChange, label, description }: ToggleProps) {
             borderRadius: '50%',
             backgroundColor: '#fff',
             top: '50%',
-            transform: `translate(${checked ? '21px' : '2px'}, -50%)`,
-            transition: 'transform 200ms ease',
+            left: 1,
+            y: '-50%',
             boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
           }}
         />
@@ -454,27 +463,38 @@ export function SettingsPage() {
             <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 8 }}>
               Difficulty
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {(['easy', 'medium', 'hard', 'custom'] as const).map((d) => (
-                <button
-                  key={d}
-                  onClick={() => update('aiDifficulty', d)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 8,
-                    border: `1px solid ${settings.aiDifficulty === d ? 'var(--accent)' : 'var(--border)'}`,
-                    backgroundColor: settings.aiDifficulty === d ? 'var(--accent-dim)' : 'var(--surface-1)',
-                    color: settings.aiDifficulty === d ? 'var(--accent)' : 'var(--text-muted)',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'all 150ms ease',
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {d}
-                </button>
-              ))}
+            {/* Segmented control */}
+            <div style={{
+              display: 'flex',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              overflow: 'hidden',
+              backgroundColor: 'var(--surface-1)',
+            }}>
+              {(['easy', 'medium', 'hard', 'custom'] as const).map((d) => {
+                const isSelected = settings.aiDifficulty === d
+                return (
+                  <button
+                    key={d}
+                    onClick={() => update('aiDifficulty', d)}
+                    style={{
+                      flex: 1,
+                      padding: '8px 4px',
+                      borderRadius: 0,
+                      border: 'none',
+                      backgroundColor: isSelected ? 'var(--accent)' : 'transparent',
+                      color: isSelected ? 'var(--bg)' : 'var(--text-muted)',
+                      fontSize: 13,
+                      fontWeight: isSelected ? 700 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 150ms ease',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {d}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}

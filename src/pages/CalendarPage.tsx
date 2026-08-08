@@ -76,25 +76,16 @@ function StreakBadge({ streak }: { streak: number }) {
   const hot = streak >= 7
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 5,
-      padding: '3px 10px', borderRadius: 20,
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '8px 16px', borderRadius: 20,
       border: `1px solid ${hot ? 'var(--inspection)' : 'var(--border)'}`,
       backgroundColor: hot ? 'rgba(245,158,11,0.12)' : 'var(--surface-1)',
-      fontSize: 12, fontWeight: 600,
+      fontSize: 15, fontWeight: 700,
       color: hot ? 'var(--inspection)' : 'var(--text-muted)',
     }}>
-      {/* Flame icon */}
-      <svg width="10" height="13" viewBox="0 0 10 13" fill="none" aria-hidden="true">
-        <path
-          d="M5 0.5C5 0.5 2.5 3.5 2.5 6C2.5 7.66 3.62 9 5 9C6.38 9 7.5 7.66 7.5 6C7.5 4.5 6.5 3.5 6.5 3.5C6.5 3.5 6 5 5 5C4 5 3.5 4 3.5 3.5C3.5 3.5 5 2 5 0.5Z"
-          fill="currentColor" opacity="0.7"
-        />
-        <path
-          d="M5 12.5C7.21 12.5 9 10.98 9 9.17C9 7.33 7.5 6.33 7.5 6.33C7.5 6.33 7 7.5 5.5 7.5C4 7.5 3.5 6.33 3.5 6.33C3.5 6.33 1 7.33 1 9.17C1 10.98 2.79 12.5 5 12.5Z"
-          fill="currentColor"
-        />
-      </svg>
-      {streak} {streak === 1 ? 'day' : 'days'}
+      🔥
+      <span style={{ fontSize: 15, fontWeight: 700 }}>{streak}</span>
+      <span style={{ fontSize: 12, fontWeight: 500 }}>{streak === 1 ? 'day' : 'days'}</span>
     </div>
   )
 }
@@ -107,9 +98,12 @@ function ConsistencyChart({ data }: { data: number[] }) {
         const isCurrentWeek = i === data.length - 1
         const heightPct = count > 0 ? Math.max((count / max) * 100, 12) : 4
         return (
-          <div
+          <motion.div
             key={i}
             title={`${count} solve${count !== 1 ? 's' : ''}`}
+            initial={{ scaleY: 0 }}
+            animate={{ scaleY: 1 }}
+            transition={{ delay: i * 0.03, duration: 0.3, ease: 'easeOut' }}
             style={{
               flex: 1,
               height: `${heightPct}%`,
@@ -119,7 +113,7 @@ function ConsistencyChart({ data }: { data: number[] }) {
                 : count > 0
                 ? 'rgba(34,211,238,0.35)'
                 : 'var(--surface-1)',
-              transition: 'height 300ms ease',
+              transformOrigin: 'bottom',
             }}
           />
         )
@@ -136,10 +130,11 @@ interface DayCellProps {
   isSelected: boolean
   plans: PlannedSession[]
   hasActivity: boolean
+  activityCount?: number
   onClick: () => void
 }
 
-function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, onClick }: DayCellProps) {
+function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, activityCount = 0, onClick }: DayCellProps) {
   if (!gridDate) return <div aria-hidden="true" style={{ minHeight: 64 }} />
 
   const hasPlan = plans.length > 0
@@ -162,6 +157,9 @@ function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, onClick }:
         transition: 'background 150ms ease, border-color 150ms ease',
         overflow: 'hidden',
         width: '100%',
+        position: 'relative',
+        outline: isToday ? '2px solid var(--accent)' : 'none',
+        outlineOffset: -2,
       }}
     >
       {/* Date number */}
@@ -225,12 +223,16 @@ function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, onClick }:
         </div>
       )}
 
-      {/* Activity dot (only when there's no plan, or always show separately) */}
+      {/* Activity bar at bottom of cell */}
       {hasActivity && (
-        <span style={{
-          width: 5, height: 5, borderRadius: '50%',
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          height: 3,
+          width: `${Math.min(20 + (activityCount / 10) * 80, 100)}%`,
           backgroundColor: 'var(--positive)',
-          flexShrink: 0,
+          borderRadius: '0 2px 0 0',
         }} />
       )}
     </button>
@@ -831,6 +833,7 @@ export function CalendarPage() {
                 isSelected={key === selectedDate}
                 plans={dayPlans}
                 hasActivity={!!dayActivity && dayActivity.solveCount > 0}
+                activityCount={dayActivity?.solveCount ?? 0}
                 onClick={() => key && setSelectedDate((prev) => (prev === key ? null : key))}
               />
             )

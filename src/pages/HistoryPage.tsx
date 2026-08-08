@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
 import { formatTime } from '@/lib/utils'
@@ -73,13 +74,36 @@ function DownloadIcon() {
 export function HistoryPage() {
   const { user } = useAuth()
   const { solves, loading } = useSolveHistory(user?.uid)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredSolves = searchQuery.trim()
+    ? solves.filter((s) => {
+        const q = searchQuery.toLowerCase()
+        return (
+          (EVENT_LABELS[s.event] ?? s.event).toLowerCase().includes(q) ||
+          s.scramble.toLowerCase().includes(q) ||
+          (s.notes ?? '').toLowerCase().includes(q)
+        )
+      })
+    : solves
+
+  const bestTime = filteredSolves.length > 0
+    ? Math.min(...filteredSolves.filter((s) => s.penalty !== 'DNF' && isFinite(s.effectiveTime)).map((s) => s.effectiveTime))
+    : null
+
+  const sessionMean = filteredSolves.length > 0
+    ? (() => {
+        const finite = filteredSolves.filter((s) => isFinite(s.effectiveTime))
+        return finite.length > 0 ? finite.reduce((a, b) => a + b.effectiveTime, 0) / finite.length : null
+      })()
+    : null
 
   return (
     <div style={{ padding: '32px 24px', maxWidth: 900, margin: '0 auto', width: '100%' }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-        marginBottom: 28, gap: 16, flexWrap: 'wrap',
+        marginBottom: 20, gap: 16, flexWrap: 'wrap',
       }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
@@ -90,27 +114,89 @@ export function HistoryPage() {
           </p>
         </div>
         <button
-          onClick={() => exportCSV(solves)}
-          disabled={solves.length === 0}
+          onClick={() => exportCSV(filteredSolves)}
+          disabled={filteredSolves.length === 0}
           style={{
             display: 'flex', alignItems: 'center', gap: 7,
-            padding: '8px 14px',
-            backgroundColor: 'var(--surface-0)',
+            padding: '6px 14px',
+            backgroundColor: 'transparent',
             border: '1px solid var(--border)',
             borderRadius: 8,
-            color: solves.length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+            color: filteredSolves.length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
             fontSize: 13, fontWeight: 500,
-            cursor: solves.length > 0 ? 'pointer' : 'not-allowed',
-            opacity: solves.length > 0 ? 1 : 0.45,
+            cursor: filteredSolves.length > 0 ? 'pointer' : 'not-allowed',
+            opacity: filteredSolves.length > 0 ? 1 : 0.45,
             transition: 'border-color 150ms ease',
           }}
-          onMouseEnter={(e) => { if (solves.length > 0) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+          onMouseEnter={(e) => { if (filteredSolves.length > 0) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
         >
           <DownloadIcon />
           Export CSV
         </button>
       </div>
+
+      {/* Search input */}
+      <div style={{ marginBottom: 16, position: 'relative' }}>
+        <svg
+          width="14" height="14" viewBox="0 0 16 16" fill="none"
+          style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}
+          aria-hidden="true"
+        >
+          <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Filter by event, scramble, or notes…"
+          style={{
+            width: '100%',
+            backgroundColor: 'var(--surface-0)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '9px 12px 9px 34px',
+            color: 'var(--text-primary)',
+            fontSize: 14,
+            outline: 'none',
+            transition: 'border-color 150ms ease',
+            boxSizing: 'border-box',
+          }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+        />
+      </div>
+
+      {/* Stats summary bar */}
+      {!loading && filteredSolves.length > 0 && (
+        <div style={{
+          padding: '8px 16px',
+          backgroundColor: 'var(--surface-0)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          marginBottom: 16,
+          fontSize: 13,
+          color: 'var(--text-muted)',
+          display: 'flex',
+          gap: 4,
+          flexWrap: 'wrap',
+        }}>
+          <span>{filteredSolves.length} total</span>
+          {bestTime !== null && isFinite(bestTime) && (
+            <>
+              <span>·</span>
+              <span>best: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--positive)', fontWeight: 600 }}>{formatTime(bestTime)}</span></span>
+            </>
+          )}
+          {sessionMean !== null && (
+            <>
+              <span>·</span>
+              <span>avg: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-primary)', fontWeight: 600 }}>{formatTime(sessionMean)}</span></span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Loading skeleton */}
       {loading && (
@@ -153,7 +239,7 @@ export function HistoryPage() {
       )}
 
       {/* Solve table */}
-      {!loading && solves.length > 0 && (
+      {!loading && filteredSolves.length > 0 && (
         <div style={{
           backgroundColor: 'var(--surface-0)',
           border: '1px solid var(--border)',
@@ -178,15 +264,15 @@ export function HistoryPage() {
           </div>
 
           {/* Rows */}
-          <div style={{ overflowY: 'auto', maxHeight: 'calc(100dvh - 240px)' }}>
-            {solves.map((solve, i) => (
+          <div style={{ overflowY: 'auto', maxHeight: 'calc(100dvh - 300px)' }}>
+            {filteredSolves.map((solve, i) => (
               <div
                 key={solve.id}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '40px 80px 72px 110px 1fr',
                   padding: '9px 16px',
-                  borderBottom: i < solves.length - 1 ? '1px solid var(--border)' : 'none',
+                  borderBottom: '1px solid var(--border)',
                   alignItems: 'center',
                   fontSize: 13,
                   transition: 'background-color 100ms ease',
@@ -195,7 +281,7 @@ export function HistoryPage() {
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
               >
                 <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-                  {solves.length - i}
+                  {filteredSolves.length - i}
                 </span>
                 <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
                   {formatDate(solve.timestamp)}
@@ -229,6 +315,18 @@ export function HistoryPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* No results from search */}
+      {!loading && solves.length > 0 && filteredSolves.length === 0 && (
+        <div style={{
+          textAlign: 'center', padding: '48px 32px',
+          backgroundColor: 'var(--surface-0)',
+          border: '1px solid var(--border)',
+          borderRadius: 10, color: 'var(--text-muted)', fontSize: 14,
+        }}>
+          No solves match your search.
         </div>
       )}
     </div>

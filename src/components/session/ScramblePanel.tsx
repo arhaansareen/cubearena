@@ -86,7 +86,8 @@ export function ScramblePanel({
           className="font-mono"
           style={{
             flex: 1,
-            fontSize: 15,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 17,
             fontWeight: 500,
             letterSpacing: '0.04em',
             lineHeight: 1.6,

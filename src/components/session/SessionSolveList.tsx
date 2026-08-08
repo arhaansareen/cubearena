@@ -60,7 +60,7 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
       {/* Solve rows */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <AnimatePresence initial={false}>
-        {reversed.map(({ solve, index, ao5, ao12, isBest }) => (
+        {reversed.map(({ solve, index, ao5, ao12, isBest }, rowIdx) => (
           <motion.div
             key={solve.id}
             initial={{ opacity: 0, x: 16 }}
@@ -75,6 +75,7 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
               borderBottom: '1px solid var(--border)',
               alignItems: 'center',
               fontSize: 12,
+              borderLeft: rowIdx === 0 ? '3px solid var(--accent)' : 'none',
             }}
           >
             <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{index + 1}</span>

@@ -78,6 +78,16 @@ function TrophyIcon() {
   )
 }
 
+function LeaderboardIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <rect x="2"  y="10" width="4" height="8" rx="1" fill="currentColor" opacity="0.7" />
+      <rect x="8"  y="6"  width="4" height="12" rx="1" fill="currentColor" opacity="0.9" />
+      <rect x="14" y="2"  width="4" height="16" rx="1" fill="currentColor" />
+    </svg>
+  )
+}
+
 function SettingsIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -100,14 +110,15 @@ const DESKTOP_NAV: NavItem[] = [
   { to: '/calendar', label: 'Calendar', icon: <CalendarIcon /> },
   { to: '/rivals', label: 'Rivals', icon: <RivalsIcon /> },
   { to: '/competition', label: 'Compete', icon: <TrophyIcon /> },
+  { to: '/leaderboard', label: 'Leaderboard', icon: <LeaderboardIcon /> },
   { to: '/settings', label: 'Settings', icon: <SettingsIcon /> },
 ]
 
 const MOBILE_NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/session', label: 'Session', icon: <SessionIcon /> },
-  { to: '/history', label: 'History', icon: <HistoryIcon /> },
   { to: '/competition', label: 'Compete', icon: <TrophyIcon /> },
+  { to: '/leaderboard', label: 'Rankings', icon: <LeaderboardIcon /> },
   { to: '/rivals', label: 'Rivals', icon: <RivalsIcon /> },
 ]
 
@@ -142,22 +153,39 @@ function ProfileStrip() {
       <div
         aria-hidden="true"
         style={{
-          width: 32,
-          height: 32,
-          borderRadius: '50%',
-          backgroundColor: 'var(--accent-dim)',
-          border: '1px solid var(--accent)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          position: 'relative',
           flexShrink: 0,
-          fontSize: 12,
-          fontWeight: 700,
-          color: 'var(--accent)',
-          fontFamily: "'JetBrains Mono', monospace",
         }}
       >
-        {initials}
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            backgroundColor: 'var(--accent-dim)',
+            border: '1px solid var(--accent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 12,
+            fontWeight: 700,
+            color: 'var(--accent)',
+            fontFamily: "'JetBrains Mono', monospace",
+          }}
+        >
+          {initials}
+        </div>
+        {/* Online dot */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          right: 0,
+          width: 9,
+          height: 9,
+          borderRadius: '50%',
+          backgroundColor: '#22c55e',
+          border: '2px solid var(--surface-0)',
+        }} />
       </div>
       <div style={{ minWidth: 0 }}>
         <div
@@ -232,8 +260,12 @@ export function AppShell() {
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 18,
             fontWeight: 700,
-            color: 'var(--accent)',
             letterSpacing: '-0.02em',
+            background: 'linear-gradient(135deg, var(--accent), var(--text-primary))',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            display: 'inline-block',
           }}>
             CubeArena
           </span>
@@ -258,7 +290,8 @@ export function AppShell() {
                 margin: '2px 8px',
                 cursor: 'pointer',
                 textDecoration: 'none',
-                borderLeft: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                borderLeft: `3px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                position: 'relative',
               })}
               onMouseOver={(e) => {
                 const el = e.currentTarget as HTMLElement

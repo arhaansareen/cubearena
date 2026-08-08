@@ -127,8 +127,28 @@ export function TimerDisplay({
         <motion.span
           key={phase === 'idle' || phase === 'armed' ? 'label' : 'timer'}
           initial={{ opacity: 0.7 }}
-          animate={{ opacity: 1, fontSize }}
-          transition={{ fontSize: { duration: 0.2, ease: 'easeOut' }, opacity: { duration: 0.15 } }}
+          animate={
+            phase === 'armed'
+              ? {
+                  opacity: 1,
+                  fontSize,
+                  textShadow: [
+                    '0 0 20px rgba(34,211,238,0)',
+                    '0 0 20px rgba(34,211,238,0.6)',
+                    '0 0 20px rgba(34,211,238,0)',
+                  ],
+                }
+              : { opacity: 1, fontSize }
+          }
+          transition={
+            phase === 'armed'
+              ? {
+                  fontSize: { duration: 0.2, ease: 'easeOut' },
+                  opacity: { duration: 0.15 },
+                  textShadow: { duration: 1.2, repeat: Infinity, ease: 'easeInOut' },
+                }
+              : { fontSize: { duration: 0.2, ease: 'easeOut' }, opacity: { duration: 0.15 } }
+          }
           style={{
             fontFamily: isMonoFont
               ? "'JetBrains Mono', monospace"

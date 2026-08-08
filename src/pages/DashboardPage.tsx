@@ -1,5 +1,6 @@
 import { useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
 import { useProfile } from '@/providers/ProfileProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
@@ -134,7 +135,12 @@ export function DashboardPage() {
   }, [wcaState])
 
   return (
-    <div style={{ padding: '32px', maxWidth: 880, margin: '0 auto', width: '100%' }}>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      style={{ padding: '32px', maxWidth: 880, margin: '0 auto', width: '100%' }}
+    >
       <style>{`
         @media (min-width: 640px) {
           .wca-pb-grid { grid-template-columns: repeat(3, 1fr) !important; }
@@ -151,43 +157,78 @@ export function DashboardPage() {
         </p>
       </div>
 
-      {/* Quick start */}
-      <button
-        onClick={() => navigate('/session')}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '16px 28px',
-          backgroundColor: 'var(--accent)', color: '#020617',
-          borderRadius: 12, fontSize: 16, fontWeight: 700,
-          cursor: 'pointer', border: 'none', marginBottom: 36,
-          boxShadow: '0 0 28px rgba(34,211,238,0.18)',
-          transition: 'opacity 150ms ease, transform 150ms ease',
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
-      >
-        <PlayIcon />
-        Start Session
-      </button>
+      {/* Quick Stats strip + Start CTA */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        marginBottom: 36,
+        flexWrap: 'wrap',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 20,
+          padding: '16px 24px',
+          backgroundColor: 'var(--surface-0)',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+          flex: '0 0 auto',
+        }}>
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>
+              Total Solves
+            </div>
+            <div style={{
+              fontSize: 28, fontWeight: 700,
+              fontFamily: "'JetBrains Mono', monospace",
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.02em',
+            }}>
+              {loading ? '—' : solves.length}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => navigate('/session')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '16px 28px',
+            backgroundColor: 'var(--accent)', color: '#020617',
+            borderRadius: 12, fontSize: 16, fontWeight: 700,
+            cursor: 'pointer', border: 'none',
+            boxShadow: '0 0 28px rgba(34,211,238,0.18)',
+            transition: 'opacity 150ms ease, transform 150ms ease',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+        >
+          <PlayIcon />
+          Start Session
+        </button>
+      </div>
 
       {/* Personal bests */}
       <section style={{ marginBottom: 36 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 14, letterSpacing: '-0.01em' }}>
+        <h2 style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 12 }}>
           Personal Bests
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
           {pbs.map(({ label, pb }) => (
             <div key={label} style={{
-              backgroundColor: 'var(--surface-0)',
+              background: 'var(--surface-0)',
               border: '1px solid var(--border)',
-              borderRadius: 10, padding: '13px 15px',
-              display: 'flex', flexDirection: 'column', gap: 3,
+              borderRadius: 16, padding: '20px 24px',
+              display: 'flex', flexDirection: 'column', gap: 6,
+              boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
             }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
                 {label}
               </span>
               <span style={{
-                fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em',
+                fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em',
                 fontFamily: "'JetBrains Mono', monospace",
                 color: pb ? 'var(--text-primary)' : 'var(--text-muted)',
               }}>
@@ -200,11 +241,11 @@ export function DashboardPage() {
 
       {/* WCA Official PBs */}
       <section style={{ marginBottom: 36 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <h2 style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, margin: 0 }}>
             Official PBs
           </h2>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>via WCA</span>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400, opacity: 0.6 }}>via WCA</span>
         </div>
 
         {!wcaId ? (
@@ -333,7 +374,7 @@ export function DashboardPage() {
 
       {/* Recent sessions */}
       <section style={{ marginBottom: 36 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 14, letterSpacing: '-0.01em' }}>
+        <h2 style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 12 }}>
           Recent Sessions
         </h2>
         {loading ? (
@@ -387,6 +428,6 @@ export function DashboardPage() {
           </div>
         )}
       </section>
-    </div>
+    </motion.div>
   )
 }
