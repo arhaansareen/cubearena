@@ -1,3 +1,5 @@
+import { motion, AnimatePresence } from 'framer-motion'
+
 interface StatCellProps {
   label: string
   value: string | number
@@ -30,19 +32,26 @@ export function StatCell({ label, value, highlight = false }: StatCellProps) {
       >
         {label}
       </span>
-      <span
-        className="font-mono"
-        style={{
-          fontSize: 18,
-          fontWeight: 700,
-          color: highlight ? 'var(--accent)' : 'var(--text-primary)',
-          letterSpacing: '-0.02em',
-          fontVariantNumeric: 'tabular-nums',
-          transition: 'color 200ms ease',
-        }}
-      >
-        {value}
-      </span>
+      <AnimatePresence mode="popLayout">
+        <motion.span
+          key={String(value)}
+          initial={highlight ? { opacity: 0, y: -6, scale: 0.92 } : { opacity: 0 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 6, scale: 0.92 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="font-mono"
+          style={{
+            fontSize: 18,
+            fontWeight: 700,
+            color: highlight ? 'var(--accent)' : 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+            display: 'block',
+          }}
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
     </div>
   )
 }

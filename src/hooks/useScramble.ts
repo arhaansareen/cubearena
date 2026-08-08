@@ -9,28 +9,65 @@ export interface UseScrambleReturn {
 }
 
 export function useScramble(event: WCAEvent): UseScrambleReturn {
-  const [scramble, setScramble] = useState<string>('')
+  const [scramble, setScramble] = useState('')
   const [loading, setLoading] = useState(true)
-  // Track in-flight requests so stale responses from previous events are dropped
-  const reqIdRef = useRef(0)
+  // Buffer is a pending promise — always one step ahead
+  const bufferRef = useRef<Promise<string> | null>(null)
+  const activeEventRef = useRef(event)
 
-  const generate = useCallback(async (ev: WCAEvent) => {
-    const id = ++reqIdRef.current
-    setLoading(true)
-    const s = await generateScramble(ev)
-    if (reqIdRef.current === id) {
-      setScramble(s)
-      setLoading(false)
-    }
+  const prefetch = useCallback((ev: WCAEvent) => {
+    bufferRef.current = generateScramble(ev).catch(() => generateScramble(ev))
   }, [])
 
   useEffect(() => {
-    generate(event)
-  }, [event, generate])
+    activeEventRef.current = event
+    bufferRef.current = null
+    setLoading(true)
+
+    let cancelled = false
+    generateScramble(event).then((s) => {
+      if (cancelled) return
+      setScramble(s)
+      setLoading(false)
+      prefetch(event)
+    }).catch(() => {})
+
+    return () => { cancelled = true }
+  }, [event, prefetch])
 
   const next = useCallback(() => {
-    generate(event)
-  }, [event, generate])
+    const buf = bufferRef.current
+    bufferRef.current = null
+
+    if (buf) {
+      // Check if already resolved (fast path) or still pending (show brief loading)
+      let resolved = false
+      buf.then((s) => {
+        resolved = true
+        if (activeEventRef.current) {
+          setScramble(s)
+          setLoading(false)
+          prefetch(activeEventRef.current)
+        }
+      }).catch(() => {
+        // fallback — generate fresh
+        generateScramble(activeEventRef.current).then((s) => {
+          setScramble(s)
+          setLoading(false)
+          prefetch(activeEventRef.current)
+        })
+      })
+      // Only show loading if promise doesn't resolve synchronously
+      setTimeout(() => { if (!resolved) setLoading(true) }, 0)
+    } else {
+      setLoading(true)
+      generateScramble(activeEventRef.current).then((s) => {
+        setScramble(s)
+        setLoading(false)
+        prefetch(activeEventRef.current)
+      }).catch(() => {})
+    }
+  }, [prefetch])
 
   return { scramble, loading, next }
 }

@@ -1,6 +1,27 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Solve, Penalty } from '@/types'
 import { computeAo, computeMean, generateId } from '@/lib/utils'
+
+const STORAGE_KEY = 'cubearena:session-v1'
+
+interface PersistedSession {
+  sessionId: string
+  solves: Solve[]
+}
+
+function loadSession(): PersistedSession {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return JSON.parse(raw) as PersistedSession
+  } catch {}
+  return { sessionId: generateId(), solves: [] }
+}
+
+function saveSession(data: PersistedSession) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  } catch {}
+}
 
 export interface UseSessionReturn {
   solves: Solve[]
@@ -21,8 +42,14 @@ function computeEffectiveTime(time: number, penalty: Penalty): number {
 }
 
 export function useSession(): UseSessionReturn {
-  const sessionIdRef = useRef<string>(generateId())
-  const [solves, setSolves] = useState<Solve[]>([])
+  const initial = useMemo(() => loadSession(), [])
+  const sessionIdRef = useRef<string>(initial.sessionId)
+  const [solves, setSolves] = useState<Solve[]>(initial.solves)
+
+  // Persist whenever solves change
+  useEffect(() => {
+    saveSession({ sessionId: sessionIdRef.current, solves })
+  }, [solves])
 
   const addSolve = useCallback((solve: Solve) => {
     setSolves((prev) => [...prev, solve])
@@ -32,8 +59,7 @@ export function useSession(): UseSessionReturn {
     setSolves((prev) =>
       prev.map((s) => {
         if (s.id !== solveId) return s
-        const effectiveTime = computeEffectiveTime(s.time, penalty)
-        return { ...s, penalty, effectiveTime }
+        return { ...s, penalty, effectiveTime: computeEffectiveTime(s.time, penalty) }
       })
     )
   }, [])

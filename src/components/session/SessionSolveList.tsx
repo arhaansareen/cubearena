@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { Solve } from '@/types'
 import { computeAo, formatTime } from '@/lib/utils'
 
@@ -57,9 +58,15 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
 
       {/* Solve rows */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
+        <AnimatePresence initial={false}>
         {reversed.map(({ solve, index, ao5, ao12, isBest }) => (
-          <div
+          <motion.div
             key={solve.id}
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -16 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            layout="position"
             style={{
               display: 'grid',
               gridTemplateColumns: '28px 1fr 60px 60px',
@@ -96,8 +103,9 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
             }}>
               {ao12 !== null ? formatTime(ao12) : '—'}
             </span>
-          </div>
+          </motion.div>
         ))}
+        </AnimatePresence>
       </div>
 
       {/* Delete last solve */}

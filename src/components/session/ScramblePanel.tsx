@@ -1,4 +1,5 @@
 import type { WCAEvent } from '@/types'
+import { ScrambleViz } from './ScrambleViz'
 
 interface ScramblePanelProps {
   scramble: string
@@ -122,21 +123,27 @@ export function ScramblePanel({
         </button>
       </div>
 
-      {/* Scramble string */}
-      <div
-        className="font-mono"
-        style={{
-          fontSize: 15,
-          fontWeight: 500,
-          letterSpacing: '0.04em',
-          lineHeight: 1.6,
-          wordBreak: 'break-word',
-          color: loading ? 'var(--text-muted)' : 'var(--text-primary)',
-          transition: 'color 150ms ease',
-          minHeight: '1.6em',
-        }}
-      >
-        {loading ? 'Generating…' : scramble}
+      {/* Scramble string + cube net */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div
+          className="font-mono"
+          style={{
+            flex: 1,
+            fontSize: 15,
+            fontWeight: 500,
+            letterSpacing: '0.04em',
+            lineHeight: 1.6,
+            wordBreak: 'break-word',
+            color: loading ? 'var(--text-muted)' : 'var(--text-primary)',
+            transition: 'color 150ms ease',
+            minHeight: '1.6em',
+          }}
+        >
+          {loading ? 'Generating…' : scramble}
+        </div>
+        {!loading && scramble && (
+          <ScrambleViz scramble={scramble} event={event} size={100} />
+        )}
       </div>
     </div>
   )

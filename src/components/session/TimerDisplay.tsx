@@ -2,6 +2,39 @@ import { motion } from 'framer-motion'
 import type { TimerPhase, Penalty } from '@/types'
 import { formatTime } from '@/lib/utils'
 
+const RING_R = 88
+const RING_CIRC = 2 * Math.PI * RING_R
+
+function InspectionRing({ elapsed, penalty }: { elapsed: number; penalty: Penalty }) {
+  const progress = Math.min(elapsed / 15000, 1)
+  const offset = RING_CIRC * (1 - progress)
+  const color = penalty === 'DNF' || penalty === '+2' ? '#EF4444' : elapsed > 12000 ? '#EF4444' : elapsed > 8000 ? '#F59E0B' : '#22D3EE'
+  return (
+    <svg
+      width={200}
+      height={200}
+      viewBox="0 0 200 200"
+      style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}
+      aria-hidden="true"
+    >
+      <circle cx={100} cy={100} r={RING_R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={3} />
+      <circle
+        cx={100}
+        cy={100}
+        r={RING_R}
+        fill="none"
+        stroke={color}
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeDasharray={RING_CIRC}
+        strokeDashoffset={offset}
+        transform="rotate(-90 100 100)"
+        style={{ transition: 'stroke-dashoffset 100ms linear, stroke 300ms ease' }}
+      />
+    </svg>
+  )
+}
+
 interface TimerDisplayProps {
   phase: TimerPhase
   displayTime: number
@@ -85,8 +118,12 @@ export function TimerDisplay({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          position: 'relative',
         }}
       >
+        {phase === 'inspection' && (
+          <InspectionRing elapsed={inspectionElapsed} penalty={pendingPenalty} />
+        )}
         <motion.span
           key={phase === 'idle' || phase === 'armed' ? 'label' : 'timer'}
           initial={{ opacity: 0.7 }}
