@@ -78,6 +78,16 @@ function TrophyIcon() {
   )
 }
 
+function GlobeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5" />
+      <ellipse cx="10" cy="10" rx="3" ry="7.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2.5 10h15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function LeaderboardIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -117,6 +127,7 @@ const DESKTOP_NAV: NavItem[] = [
   { to: '/session', label: 'Session', icon: <SessionIcon /> },
   { to: '/history', label: 'History', icon: <HistoryIcon /> },
   { to: '/calendar', label: 'Calendar', icon: <CalendarIcon /> },
+  { to: '/upcoming', label: 'Upcoming', icon: <GlobeIcon /> },
   { to: '/rivals', label: 'Rivals', icon: <RivalsIcon /> },
   { to: '/competition', label: 'Compete', icon: <TrophyIcon /> },
   { to: '/leaderboard', label: 'Leaderboard', icon: <LeaderboardIcon /> },

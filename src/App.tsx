@@ -10,6 +10,7 @@ import { RivalsPage } from '@/pages/RivalsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { CompetitionPage } from '@/pages/CompetitionPage'
+import { UpcomingCompsPage } from '@/pages/UpcomingCompsPage'
 import { LeaderboardPage } from '@/pages/LeaderboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 
@@ -95,6 +96,10 @@ const router = createBrowserRouter([
       {
         path: 'competition',
         element: <CompetitionPage />,
+      },
+      {
+        path: 'upcoming',
+        element: <UpcomingCompsPage />,
       },
       {
         path: 'leaderboard',

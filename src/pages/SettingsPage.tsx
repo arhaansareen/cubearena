@@ -139,6 +139,8 @@ export function SettingsPage() {
   const [displayNameInput, setDisplayNameInput] = useState(profile?.displayName ?? '')
   const [wcaIdInput, setWcaIdInput] = useState(profile?.wcaId ?? '')
   const [savedIndicator, setSavedIndicator] = useState(false)
+  const [importingWca, setImportingWca] = useState(false)
+  const [importToast, setImportToast] = useState<'success' | 'error' | null>(null)
 
   // Sync inputs if profile loads after mount
   const prevProfileRef = useState<string | null>(null)
@@ -173,6 +175,31 @@ export function SettingsPage() {
     setWcaIdInput(val.toUpperCase())
     if (wcaVerifyState.status !== 'idle') {
       wcaReset()
+    }
+  }
+
+  const handleImportFromWCA = async () => {
+    const id = wcaIdInput.trim()
+    if (!id) return
+    setImportingWca(true)
+    setImportToast(null)
+    try {
+      const res = await fetch(`https://www.worldcubeassociation.org/api/v0/persons/${encodeURIComponent(id)}`, {
+        headers: { Accept: 'application/json' },
+      })
+      if (!res.ok) throw new Error(`${res.status}`)
+      const json = await res.json()
+      const wcaName: string = json.person?.name ?? ''
+      if (!wcaName) throw new Error('No name found')
+      setDisplayNameInput(wcaName)
+      await saveProfile({ displayName: wcaName, wcaId: id.toUpperCase() })
+      setImportToast('success')
+      setTimeout(() => setImportToast(null), 3000)
+    } catch {
+      setImportToast('error')
+      setTimeout(() => setImportToast(null), 3000)
+    } finally {
+      setImportingWca(false)
     }
   }
 
@@ -317,6 +344,42 @@ export function SettingsPage() {
           {wcaVerifyState.status === 'error' && (
             <div style={{ marginTop: 6, fontSize: 12, color: 'var(--penalty)' }}>
               {wcaVerifyState.message}
+            </div>
+          )}
+          {/* Import from WCA button */}
+          {wcaIdInput.trim() && (
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={handleImportFromWCA}
+                disabled={importingWca}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 7,
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface-1)',
+                  color: 'var(--text-primary)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: importingWca ? 'not-allowed' : 'pointer',
+                  opacity: importingWca ? 0.6 : 1,
+                  transition: 'border-color 150ms ease, opacity 150ms ease',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={(e) => { if (!importingWca) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+              >
+                {importingWca ? 'Importing…' : 'Import from WCA'}
+              </button>
+              {importToast === 'success' && (
+                <span style={{ fontSize: 12, color: 'var(--positive)', fontWeight: 600 }}>
+                  Profile imported from WCA ✓
+                </span>
+              )}
+              {importToast === 'error' && (
+                <span style={{ fontSize: 12, color: 'var(--penalty)' }}>
+                  Import failed — check the WCA ID
+                </span>
+              )}
             </div>
           )}
         </div>
