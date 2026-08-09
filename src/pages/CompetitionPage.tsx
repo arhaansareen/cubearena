@@ -13,16 +13,12 @@ import type { CompetitorWithPB } from '@/hooks/useCompetitionWCIF'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Difficulty = 'Beginner' | 'Club' | 'National' | 'Elite'
 type CompPhase = 'setup' | 'competing' | 'results'
-type SimulationMode = 'ai' | 'real'
-
-// Real mode sub-steps
 type RealModeStep = 'pick_comp' | 'pick_event' | 'loading_competitors' | 'ready'
 
 interface CompetitorSolve {
-  time: number // ms, Infinity = DNF
-  resolved: boolean
+  time: number        // ms, Infinity = DNF
+  resolved: boolean   // false = hidden (competitor hasn't "finished" yet)
 }
 
 interface Competitor {
@@ -33,11 +29,11 @@ interface Competitor {
   targetMean: number
   sigma: number
   solves: CompetitorSolve[]
-  realPB: number | null  // WCA single best in ms (for display)
+  realPB: number | null
 }
 
 interface UserSolve {
-  time: number // ms, Infinity = DNF
+  time: number
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -65,26 +61,6 @@ const EVENT_LABELS: Record<string, string> = Object.fromEntries(
   WCA_EVENTS.map((e) => [e.value, e.label]),
 )
 
-const DIFFICULTIES: Difficulty[] = ['Beginner', 'Club', 'National', 'Elite']
-
-const DIFFICULTY_PARAMS: Record<Difficulty, { meanMin: number; meanMax: number; sigma: number }> = {
-  Beginner: { meanMin: 40000, meanMax: 70000, sigma: 8000 },
-  Club:     { meanMin: 18000, meanMax: 30000, sigma: 3000 },
-  National: { meanMin: 10000, meanMax: 16000, sigma: 1500 },
-  Elite:    { meanMin: 6000,  meanMax: 9500,  sigma: 700  },
-}
-
-const FIRST_NAMES = [
-  'Max', 'Felix', 'Tymon', 'Patrick', 'Sebastian', 'Lucas', 'Mateus',
-  'Philipp', 'Mats', 'Nathan', 'Drew', 'Brest', 'Jayden', 'Kyle', 'Kai',
-]
-
-const LAST_NAMES = [
-  'Park', 'Kotzabassis', 'Zemdegs', 'Kowalczyk', 'Weyer', 'Etter', 'Costa',
-  'Weixler', 'Valk', 'Bahrani', 'Brads', 'Sungchul', 'Lim', 'Choo', 'Martin',
-]
-
-const NUM_COMPETITORS = 8
 const NUM_SOLVES = 5
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -96,7 +72,6 @@ const COUNTRY_FLAGS: Record<string, string> = {
   PT: '🇵🇹', AT: '🇦🇹', CH: '🇨🇭', BE: '🇧🇪', DK: '🇩🇰', FI: '🇫🇮', NO: '🇳🇴',
 }
 
-// Fallback means by event for competitors with no PB
 const EVENT_FALLBACK_MEANS: Partial<Record<string, number>> = {
   '333': 20000, '222': 5000, '444': 50000, '555': 90000, '666': 180000, '777': 280000,
   '333bf': 120000, '333oh': 30000, 'clock': 15000, 'minx': 90000,
@@ -113,24 +88,12 @@ function sampleGaussian(mean: number, sigma: number): number {
   return Math.max(3000, mean + z * sigma)
 }
 
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
-
-function generateWcaId(surname: string, year: number, suffix: number): string {
-  const last4 = surname.replace(/[^A-Za-z]/g, '').toUpperCase().padEnd(4, 'X').slice(0, 4)
-  const suf = String(suffix).padStart(2, '0')
-  return `${year}${last4}${suf}`
-}
-
 function computeAo5Simple(times: number[]): number | null {
-  const completed = times.filter((t) => isFinite(t))
   if (times.length < 5) return null
   const sorted = [...times].sort((a, b) => a - b)
   const trimmed = sorted.slice(1, 4)
   if (trimmed.some((t) => !isFinite(t))) return Infinity
   return trimmed.reduce((a, b) => a + b, 0) / trimmed.length
-  void completed
 }
 
 function computeCurrentBest(times: number[]): number | null {
@@ -138,62 +101,15 @@ function computeCurrentBest(times: number[]): number | null {
   return Math.min(...times.filter((t) => isFinite(t)))
 }
 
-function generateCompetitors(difficulty: Difficulty): Competitor[] {
-  const params = DIFFICULTY_PARAMS[difficulty]
-  const usedNames = new Set<string>()
-  const competitors: Competitor[] = []
-
-  for (let i = 0; i < NUM_COMPETITORS; i++) {
-    let firstName: string
-    let lastName: string
-    let fullName: string
-    let attempts = 0
-    do {
-      firstName = pickRandom(FIRST_NAMES)
-      lastName = pickRandom(LAST_NAMES)
-      fullName = `${firstName} ${lastName}`
-      attempts++
-    } while (usedNames.has(fullName) && attempts < 50)
-
-    usedNames.add(fullName)
-
-    const year = 2015 + Math.floor(Math.random() * 9)
-    const suffix = 1 + Math.floor(Math.random() * 9)
-    const wcaId = generateWcaId(lastName, year, suffix)
-    const targetMean = params.meanMin + Math.random() * (params.meanMax - params.meanMin)
-
-    competitors.push({
-      id: `comp-${i}`,
-      name: fullName,
-      wcaId,
-      countryIso2: null,
-      targetMean,
-      sigma: params.sigma,
-      solves: [],
-      realPB: null,
-    })
-  }
-
-  return competitors
-}
-
 function competitorsFromReal(realData: CompetitorWithPB[], eventId: string): Competitor[] {
   const fallbackMean = EVENT_FALLBACK_MEANS[eventId] ?? 20000
-
   return realData.map((r, i) => {
-    // Use pbAvg as targetMean if available, else pb * 1.05, else fallback
     let targetMean: number
-    if (r.pbAvg !== null) {
-      targetMean = r.pbAvg
-    } else if (r.pb !== null) {
-      targetMean = r.pb * 1.05
-    } else {
-      targetMean = fallbackMean
-    }
+    if (r.pbAvg !== null) targetMean = r.pbAvg
+    else if (r.pb !== null) targetMean = r.pb * 1.05
+    else targetMean = fallbackMean
 
-    // Sigma: ~8% of mean, clamped
     const sigma = Math.max(500, targetMean * 0.08)
-
     return {
       id: `real-${i}-${r.wcaId}`,
       name: r.name,
@@ -246,14 +162,13 @@ function buildLeaderboard(
       realPB: c.realPB,
       isUser: false,
       solves: c.solves.map((s) => ({ time: s.time, resolved: s.resolved })),
-      ao5: computeAo5Simple(c.solves.map((s) => s.time)),
+      ao5: computeAo5Simple(c.solves.filter((s) => s.resolved).map((s) => s.time)),
     })),
   ]
 
   entries.sort((a, b) => {
     const aAo5 = a.ao5
     const bAo5 = b.ao5
-
     if (aAo5 !== null && bAo5 !== null) {
       if (!isFinite(aAo5) && !isFinite(bAo5)) return 0
       if (!isFinite(aAo5)) return 1
@@ -262,9 +177,8 @@ function buildLeaderboard(
     }
     if (aAo5 !== null) return -1
     if (bAo5 !== null) return 1
-
-    const aBest = computeCurrentBest(a.solves.map((s) => s.time ?? Infinity)) ?? Infinity
-    const bBest = computeCurrentBest(b.solves.map((s) => s.time ?? Infinity)) ?? Infinity
+    const aBest = computeCurrentBest(a.solves.filter((s) => s.resolved).map((s) => s.time ?? Infinity)) ?? Infinity
+    const bBest = computeCurrentBest(b.solves.filter((s) => s.resolved).map((s) => s.time ?? Infinity)) ?? Infinity
     return aBest - bBest
   })
 
@@ -292,7 +206,10 @@ function SolveChip({ time, resolved }: { time: number | null; resolved: boolean 
   }
 
   return (
-    <span
+    <motion.span
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2 }}
       className="font-mono"
       style={{
         display: 'inline-block',
@@ -306,7 +223,7 @@ function SolveChip({ time, resolved }: { time: number | null; resolved: boolean 
       }}
     >
       {label}
-    </span>
+    </motion.span>
   )
 }
 
@@ -315,10 +232,9 @@ function SolveChip({ time, resolved }: { time: number | null; resolved: boolean 
 interface LeaderboardPanelProps {
   entries: LeaderboardEntry[]
   solveIndex: number
-  showRealData?: boolean
 }
 
-function LeaderboardPanel({ entries, solveIndex, showRealData }: LeaderboardPanelProps) {
+function LeaderboardPanel({ entries, solveIndex }: LeaderboardPanelProps) {
   return (
     <div
       style={{
@@ -333,7 +249,7 @@ function LeaderboardPanel({ entries, solveIndex, showRealData }: LeaderboardPane
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: showRealData ? '36px 1fr 80px 100px auto' : '36px 1fr 100px auto',
+          gridTemplateColumns: '36px 1fr 80px 120px auto',
           gap: 8,
           padding: '10px 16px',
           borderBottom: '1px solid var(--border)',
@@ -346,7 +262,7 @@ function LeaderboardPanel({ entries, solveIndex, showRealData }: LeaderboardPane
       >
         <span>#</span>
         <span>Competitor</span>
-        {showRealData && <span>WCA PB</span>}
+        <span>WCA PB</span>
         <span>Solves</span>
         <span style={{ textAlign: 'right' }}>Ao5</span>
       </div>
@@ -359,16 +275,19 @@ function LeaderboardPanel({ entries, solveIndex, showRealData }: LeaderboardPane
           transition={{ duration: 0.3, ease: 'easeInOut' }}
           style={{
             display: 'grid',
-            gridTemplateColumns: showRealData ? '36px 1fr 80px 100px auto' : '36px 1fr 100px auto',
+            gridTemplateColumns: '36px 1fr 80px 120px auto',
             gap: 8,
             padding: entry.rank === 1 ? '12px 16px' : '10px 16px',
             borderBottom: '1px solid var(--border)',
-            backgroundColor: entry.isUser ? 'var(--accent-dim)' : 'transparent',
-            border: entry.rank === 1
+            backgroundColor: entry.isUser
+              ? 'rgba(34,211,238,0.06)'
+              : 'transparent',
+            outline: entry.rank === 1
               ? '2px solid var(--accent)'
               : entry.isUser
               ? '1px solid rgba(34,211,238,0.3)'
-              : undefined,
+              : 'none',
+            outlineOffset: entry.rank === 1 ? '-2px' : '-1px',
             alignItems: 'center',
           }}
         >
@@ -420,29 +339,37 @@ function LeaderboardPanel({ entries, solveIndex, showRealData }: LeaderboardPane
               )}
             </div>
             {entry.wcaId && (
-              <div
+              <a
+                href={`https://www.worldcubeassociation.org/persons/${entry.wcaId}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="font-mono"
-                style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}
+                style={{
+                  fontSize: 10,
+                  color: 'var(--accent)',
+                  marginTop: 1,
+                  display: 'block',
+                  textDecoration: 'none',
+                  opacity: 0.7,
+                }}
               >
                 {entry.wcaId}
-              </div>
+              </a>
             )}
           </div>
 
-          {/* Real PB badge */}
-          {showRealData && (
-            <span
-              className="font-mono"
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: entry.realPB !== null ? 'var(--positive)' : 'var(--text-muted)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {entry.realPB !== null ? formatTime(entry.realPB) : '—'}
-            </span>
-          )}
+          {/* Real WCA PB */}
+          <span
+            className="font-mono"
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: entry.realPB !== null ? 'var(--positive)' : 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {entry.realPB !== null ? formatTime(entry.realPB) : '—'}
+          </span>
 
           {/* Solve chips */}
           <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
@@ -549,56 +476,7 @@ function TimerDisplay({ phase, displayTime, inspectionElapsed, pendingPenalty }:
   )
 }
 
-// ─── SegmentedControl ────────────────────────────────────────────────────────
-
-function SegmentedControl({
-  value,
-  options,
-  onChange,
-}: {
-  value: string
-  options: { value: string; label: string }[]
-  onChange: (v: string) => void
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        borderRadius: 8,
-        border: '1px solid var(--border)',
-        overflow: 'hidden',
-        backgroundColor: 'var(--surface-1)',
-      }}
-    >
-      {options.map((opt) => {
-        const isSelected = opt.value === value
-        return (
-          <button
-            key={opt.value}
-            onClick={() => onChange(opt.value)}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              borderRadius: 0,
-              border: 'none',
-              backgroundColor: isSelected ? 'var(--accent)' : 'transparent',
-              color: isSelected ? '#000' : 'var(--text-muted)',
-              fontSize: 13,
-              fontWeight: isSelected ? 700 : 500,
-              cursor: 'pointer',
-              transition: 'all 150ms ease',
-              fontFamily: 'Inter, sans-serif',
-            }}
-          >
-            {opt.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// ─── Real Mode: Pick Competition ─────────────────────────────────────────────
+// ─── PickCompetition ─────────────────────────────────────────────────────────
 
 function PickCompetition({
   onSelect,
@@ -616,7 +494,6 @@ function PickCompetition({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // If a preselected comp id was passed from the URL, wait for comps to load then auto-select
   useEffect(() => {
     if (state.status === 'success' && preselectedId) {
       const found = state.comps.find((c) => c.id === preselectedId)
@@ -768,6 +645,12 @@ function PickCompetition({
                   <span>{dateStr}</span>
                   <span>·</span>
                   <span>{comp.city}</span>
+                  {comp.event_ids.length > 0 && (
+                    <>
+                      <span>·</span>
+                      <span>{comp.event_ids.length} event{comp.event_ids.length !== 1 ? 's' : ''}</span>
+                    </>
+                  )}
                 </div>
               </button>
             )
@@ -790,13 +673,8 @@ export function CompetitionPage() {
   const [searchParams] = useSearchParams()
   const preselectedCompId = searchParams.get('compId')
 
-  // ── Top-level mode ──
-  const [mode, setMode] = useState<SimulationMode>(preselectedCompId ? 'real' : 'ai')
-
   // ── Setup state ──
   const [compPhase, setCompPhase] = useState<CompPhase>('setup')
-  const [selectedEvent, setSelectedEvent] = useState<WCAEvent>('333')
-  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('Club')
   const [isManualMode, setIsManualMode] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(true)
 
@@ -815,8 +693,10 @@ export function CompetitionPage() {
   const [advancePending, setAdvancePending] = useState(false)
 
   // Refs
-  const aiTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const userNameRef = useRef('You')
+  const solveIndexRef = useRef(0)
+  // Keep ref in sync so onSolveComplete closure always sees current index
+  useEffect(() => { solveIndexRef.current = solveIndex }, [solveIndex])
 
   // ── Timer ──
   const {
@@ -839,16 +719,18 @@ export function CompetitionPage() {
 
         setUserSolves((prev) => [...prev, { time: effectiveTime }])
 
+        // Reveal competitors' times for this solve slot
+        const idx = solveIndexRef.current
         setCompetitors((prev) =>
           prev.map((c) => ({
             ...c,
-            solves: c.solves.map((s) => ({ ...s, resolved: true })),
+            solves: c.solves.map((s, i) => (i === idx ? { ...s, resolved: true } : s)),
           }))
         )
 
         setAdvancePending(true)
       },
-      []
+      [],
     ),
   })
 
@@ -867,53 +749,30 @@ export function CompetitionPage() {
     return () => clearTimeout(tid)
   }, [advancePending, resetTimer])
 
-  // ── Simulate AI solve ──
+  // ── Pre-generate competitor times when user starts solving ──
   useEffect(() => {
-    if (timerPhase !== 'solving') return
     if (compPhase !== 'competing') return
+    // Trigger on both live and manual entry start
+    if (timerPhase !== 'solving' && timerPhase !== 'manual_entry') return
 
-    aiTimeoutsRef.current.forEach(clearTimeout)
-    aiTimeoutsRef.current = []
+    const currentSolveIdx = solveIndexRef.current
 
-    const currentSolveIdx = solveIndex
-
+    // Pre-generate each competitor's time for this solve, hidden until user finishes
     setCompetitors((prev) =>
       prev.map((c) => {
+        // Don't regenerate if already set
+        if (c.solves[currentSolveIdx] !== undefined) return c
         const sampledTime = sampleGaussian(c.targetMean, c.sigma)
-        const tid = setTimeout(() => {
-          setCompetitors((inner) =>
-            inner.map((ic) => {
-              if (ic.id !== c.id) return ic
-              const updatedSolves = [...ic.solves]
-              updatedSolves[currentSolveIdx] = { time: sampledTime, resolved: true }
-              return { ...ic, solves: updatedSolves }
-            })
-          )
-        }, sampledTime)
-
-        aiTimeoutsRef.current.push(tid)
-
         const updatedSolves = [...c.solves]
         updatedSolves[currentSolveIdx] = { time: sampledTime, resolved: false }
         return { ...c, solves: updatedSolves }
       })
     )
-
-    return () => {
-      aiTimeoutsRef.current.forEach(clearTimeout)
-      aiTimeoutsRef.current = []
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timerPhase])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => { aiTimeoutsRef.current.forEach(clearTimeout) }
-  }, [])
+  }, [timerPhase, compPhase])
 
   // ── Handlers ──
   function resetAll() {
-    aiTimeoutsRef.current.forEach(clearTimeout)
     setCompPhase('setup')
     setUserSolves([])
     setCompetitors([])
@@ -923,21 +782,17 @@ export function CompetitionPage() {
   }
 
   function startRound(comps: Competitor[]) {
-    const eventId = mode === 'real' ? selectedRealEvent : selectedEvent
     const newScrambles = Array.from({ length: NUM_SOLVES }, () =>
-      generateScramble((eventId as WCAEvent) || '333')
+      generateScramble((selectedRealEvent as WCAEvent) || '333')
     )
     setScrambles(newScrambles)
     setCompetitors(comps)
     setUserSolves([])
     setSolveIndex(0)
+    solveIndexRef.current = 0
     setAdvancePending(false)
     resetTimer()
     setCompPhase('competing')
-  }
-
-  function startAIRound() {
-    startRound(generateCompetitors(selectedDifficulty))
   }
 
   async function handleCompSelected(comp: WCACompetition) {
@@ -962,8 +817,7 @@ export function CompetitionPage() {
     }
   }, [wcif.pbState, realStep])
 
-  // ── Leaderboard data ──
-  const isRealMode = mode === 'real'
+  // ── Leaderboard ──
   const leaderboardEntries = buildLeaderboard(competitors, userSolves, userNameRef.current)
   const userEntry = leaderboardEntries.find((e) => e.isUser)
   const userRank = userEntry?.rank ?? 0
@@ -976,7 +830,8 @@ export function CompetitionPage() {
   else if (timerPhase === 'inspection') timerHint = 'Hold Space to start solving'
   else if (timerPhase === 'armed') timerHint = 'Release to start'
   else if (timerPhase === 'solving') timerHint = 'Press Space to stop'
-  else if (timerPhase === 'stopped') timerHint = 'Next solve in a moment...'
+  else if (timerPhase === 'stopped') timerHint = 'Revealing times...'
+  else if (timerPhase === 'manual_entry') timerHint = ''
 
   // ─── Render: Setup ─────────────────────────────────────────────────────────
 
@@ -1003,465 +858,303 @@ export function CompetitionPage() {
             borderRadius: 16,
             padding: 40,
             width: '100%',
-            maxWidth: 520,
+            maxWidth: 540,
             marginTop: 40,
           }}
         >
           {/* Title */}
-          <h1
-            style={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              marginBottom: 4,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Competition Round
-          </h1>
-          <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24 }}>
-            Simulate a WCA competition round against {NUM_COMPETITORS} competitors.
-          </p>
-
-          {/* Mode toggle */}
           <div style={{ marginBottom: 28 }}>
-            <label
+            <h1
               style={{
-                display: 'block',
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                marginBottom: 8,
+                fontSize: 24,
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                marginBottom: 4,
+                letterSpacing: '-0.02em',
               }}
             >
-              Mode
-            </label>
-            <SegmentedControl
-              value={mode}
-              options={[
-                { value: 'ai', label: 'AI Simulation' },
-                { value: 'real', label: 'Real WCA Competition' },
-              ]}
-              onChange={(v) => {
-                setMode(v as SimulationMode)
-                setRealStep('pick_comp')
-                setSelectedComp(null)
-                wcif.reset()
-              }}
-            />
+              Competition Simulator
+            </h1>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+              Compete against real registered competitors from upcoming WCA competitions.
+            </p>
           </div>
 
-          <AnimatePresence mode="wait">
-            {mode === 'ai' ? (
-              <motion.div
-                key="ai-mode"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
+          {/* Step: pick_comp */}
+          {realStep === 'pick_comp' && (
+            <div>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginBottom: 12,
+                }}
               >
-                {/* Event selector */}
-                <div style={{ marginBottom: 24 }}>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: 'var(--text-muted)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.06em',
-                      marginBottom: 8,
-                    }}
-                  >
-                    Event
-                  </label>
-                  <select
-                    value={selectedEvent}
-                    onChange={(e) => setSelectedEvent(e.target.value as WCAEvent)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      backgroundColor: 'var(--surface-1)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 8,
-                      color: 'var(--text-primary)',
-                      fontSize: 14,
-                      fontFamily: 'Inter, sans-serif',
-                      outline: 'none',
-                      cursor: 'pointer',
-                      appearance: 'none',
-                      WebkitAppearance: 'none',
-                    }}
-                  >
-                    {WCA_EVENTS.map((ev) => (
-                      <option key={ev.value} value={ev.value}>
-                        {ev.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                Step 1 — Select a Competition
+              </div>
+              <PickCompetition
+                onSelect={handleCompSelected}
+                preselectedId={preselectedCompId}
+              />
+            </div>
+          )}
 
-                {/* Difficulty */}
-                <div style={{ marginBottom: 32 }}>
-                  <label
+          {/* Step: pick_event */}
+          {realStep === 'pick_event' && selectedComp && (
+            <div>
+              <button
+                onClick={() => { setRealStep('pick_comp'); setSelectedComp(null); wcif.reset() }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 13,
+                  color: 'var(--accent)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontFamily: 'Inter, sans-serif',
+                  marginBottom: 16,
+                }}
+              >
+                ← Back
+              </button>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginBottom: 6,
+                }}
+              >
+                Step 2 — Pick an Event
+              </div>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  marginBottom: 16,
+                }}
+              >
+                {selectedComp.name}
+              </div>
+
+              {wcif.wcifState.status === 'loading' && (
+                <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                  <div
                     style={{
-                      display: 'block',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: 'var(--text-muted)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.06em',
-                      marginBottom: 8,
+                      width: 18,
+                      height: 18,
+                      border: '2px solid var(--border)',
+                      borderTopColor: 'var(--accent)',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite',
+                      margin: '0 auto 10px',
                     }}
-                  >
-                    Round Difficulty
-                  </label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {DIFFICULTIES.map((d) => {
-                      const isSelected = d === selectedDifficulty
-                      return (
-                        <button
-                          key={d}
-                          onClick={() => setSelectedDifficulty(d)}
+                  />
+                  Loading competition data...
+                </div>
+              )}
+
+              {wcif.wcifState.status === 'error' && (
+                <div style={{ color: 'var(--penalty)', fontSize: 13 }}>{wcif.wcifState.message}</div>
+              )}
+
+              {wcif.wcifState.status === 'success' && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {selectedComp.event_ids.map((evId) => (
+                    <button
+                      key={evId}
+                      onClick={() => handleEventSelectedForReal(evId)}
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--surface-1)',
+                        color: 'var(--text-primary)',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                        fontFamily: 'Inter, sans-serif',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--accent)'
+                        e.currentTarget.style.color = 'var(--accent)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border)'
+                        e.currentTarget.style.color = 'var(--text-primary)'
+                      }}
+                    >
+                      {EVENT_LABELS[evId] ?? evId}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step: loading_competitors */}
+          {realStep === 'loading_competitors' && (
+            <div style={{ padding: 32, textAlign: 'center' }}>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  border: '2px solid var(--border)',
+                  borderTopColor: 'var(--accent)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite',
+                  margin: '0 auto 16px',
+                }}
+              />
+              <div style={{ fontSize: 15, color: 'var(--text-primary)', fontWeight: 600, marginBottom: 6 }}>
+                Fetching competitor data
+              </div>
+              {wcif.pbState.status === 'loading' && (
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  {wcif.pbState.fetched} / {wcif.pbState.total} competitors loaded...
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step: ready */}
+          {realStep === 'ready' && (
+            <div>
+              <button
+                onClick={() => {
+                  setRealStep('pick_event')
+                  setRealCompetitors([])
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 13,
+                  color: 'var(--accent)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontFamily: 'Inter, sans-serif',
+                  marginBottom: 16,
+                }}
+              >
+                ← Back
+              </button>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginBottom: 6,
+                }}
+              >
+                Step 3 — Ready to Compete
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
+                {selectedComp?.name}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+                {EVENT_LABELS[selectedRealEvent] ?? selectedRealEvent} · {realCompetitors.length} competitors
+              </div>
+
+              {/* Competitor preview */}
+              <div
+                style={{
+                  marginBottom: 20,
+                  maxHeight: 220,
+                  overflowY: 'auto',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  backgroundColor: 'var(--surface-1)',
+                }}
+              >
+                {realCompetitors.map((c) => {
+                  const flag = c.countryIso2 ? (COUNTRY_FLAGS[c.countryIso2] ?? '') : ''
+                  return (
+                    <div
+                      key={c.wcaId}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        borderBottom: '1px solid var(--border)',
+                        fontSize: 13,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {flag && <span>{flag}</span>}
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{c.name}</span>
+                        <a
+                          href={`https://www.worldcubeassociation.org/persons/${c.wcaId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono"
+                          style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'none', opacity: 0.7 }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {c.wcaId}
+                        </a>
+                      </div>
+                      {c.pb !== null && (
+                        <span
+                          className="font-mono"
                           style={{
-                            flex: 1,
-                            padding: '10px 4px',
-                            borderRadius: 8,
-                            border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
-                            backgroundColor: isSelected ? 'var(--accent-dim)' : 'transparent',
-                            color: isSelected ? 'var(--accent)' : 'var(--text-muted)',
-                            fontSize: 13,
-                            fontWeight: isSelected ? 700 : 500,
-                            cursor: 'pointer',
-                            transition: 'all 150ms ease',
-                            fontFamily: 'Inter, sans-serif',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: 'var(--positive)',
+                            backgroundColor: 'rgba(34,197,94,0.08)',
+                            padding: '2px 6px',
+                            borderRadius: 4,
                           }}
                         >
-                          {d}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                          {formatTime(c.pb)}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
 
-                <button
-                  onClick={startAIRound}
-                  style={{
-                    width: '100%',
-                    padding: '14px 0',
-                    borderRadius: 10,
-                    border: 'none',
-                    backgroundColor: 'var(--accent)',
-                    color: '#000',
-                    fontSize: 15,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    fontFamily: 'Inter, sans-serif',
-                    letterSpacing: '-0.01em',
-                    transition: 'opacity 150ms ease',
-                  }}
-                  onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
-                  onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
-                >
-                  Start Round
-                </button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="real-mode"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
+              <button
+                onClick={() => startRound(competitorsFromReal(realCompetitors, selectedRealEvent))}
+                style={{
+                  width: '100%',
+                  padding: '14px 0',
+                  borderRadius: 10,
+                  border: 'none',
+                  backgroundColor: 'var(--accent)',
+                  color: '#000',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'Inter, sans-serif',
+                  letterSpacing: '-0.01em',
+                  transition: 'opacity 150ms ease',
+                }}
+                onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
               >
-                {/* Step: pick_comp */}
-                {realStep === 'pick_comp' && (
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.06em',
-                        marginBottom: 10,
-                      }}
-                    >
-                      1 · Select Competition
-                    </div>
-                    <PickCompetition
-                      onSelect={handleCompSelected}
-                      preselectedId={preselectedCompId}
-                    />
-                  </div>
-                )}
-
-                {/* Step: pick_event */}
-                {realStep === 'pick_event' && selectedComp && (
-                  <div>
-                    <div style={{ marginBottom: 12 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: 'var(--text-muted)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.06em',
-                          marginBottom: 4,
-                        }}
-                      >
-                        2 · Pick Event
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 600,
-                          color: 'var(--text-primary)',
-                          marginBottom: 2,
-                        }}
-                      >
-                        {selectedComp.name}
-                      </div>
-                      <button
-                        onClick={() => { setRealStep('pick_comp'); setSelectedComp(null); wcif.reset() }}
-                        style={{
-                          fontSize: 12,
-                          color: 'var(--accent)',
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: 0,
-                          fontFamily: 'Inter, sans-serif',
-                        }}
-                      >
-                        ← Change competition
-                      </button>
-                    </div>
-
-                    {wcif.wcifState.status === 'loading' && (
-                      <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                        <div
-                          style={{
-                            width: 18,
-                            height: 18,
-                            border: '2px solid var(--border)',
-                            borderTopColor: 'var(--accent)',
-                            borderRadius: '50%',
-                            animation: 'spin 0.8s linear infinite',
-                            margin: '0 auto 10px',
-                          }}
-                        />
-                        Loading competition data...
-                      </div>
-                    )}
-
-                    {wcif.wcifState.status === 'error' && (
-                      <div style={{ color: 'var(--penalty)', fontSize: 13 }}>
-                        {wcif.wcifState.message}
-                      </div>
-                    )}
-
-                    {wcif.wcifState.status === 'success' && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {selectedComp.event_ids.map((evId) => (
-                          <button
-                            key={evId}
-                            onClick={() => handleEventSelectedForReal(evId)}
-                            style={{
-                              padding: '9px 16px',
-                              borderRadius: 8,
-                              border: '1px solid var(--border)',
-                              backgroundColor: 'var(--surface-1)',
-                              color: 'var(--text-primary)',
-                              fontSize: 13,
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              transition: 'all 150ms ease',
-                              fontFamily: 'Inter, sans-serif',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.borderColor = 'var(--accent)'
-                              e.currentTarget.style.color = 'var(--accent)'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.borderColor = 'var(--border)'
-                              e.currentTarget.style.color = 'var(--text-primary)'
-                            }}
-                          >
-                            {EVENT_LABELS[evId] ?? evId}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Step: loading_competitors */}
-                {realStep === 'loading_competitors' && (
-                  <div style={{ padding: 32, textAlign: 'center' }}>
-                    <div
-                      style={{
-                        width: 24,
-                        height: 24,
-                        border: '2px solid var(--border)',
-                        borderTopColor: 'var(--accent)',
-                        borderRadius: '50%',
-                        animation: 'spin 0.8s linear infinite',
-                        margin: '0 auto 14px',
-                      }}
-                    />
-                    <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600, marginBottom: 4 }}>
-                      Fetching competitor data
-                    </div>
-                    {wcif.pbState.status === 'loading' && (
-                      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                        {wcif.pbState.fetched} / {wcif.pbState.total} competitors loaded...
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Step: ready */}
-                {realStep === 'ready' && (
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.06em',
-                        marginBottom: 8,
-                      }}
-                    >
-                      3 · Ready to Compete
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 14,
-                        color: 'var(--text-primary)',
-                        fontWeight: 600,
-                        marginBottom: 2,
-                      }}
-                    >
-                      {selectedComp?.name}
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
-                      {EVENT_LABELS[selectedRealEvent] ?? selectedRealEvent} · {realCompetitors.length} competitors loaded
-                    </div>
-
-                    {/* Competitor preview */}
-                    <div
-                      style={{
-                        marginBottom: 20,
-                        maxHeight: 200,
-                        overflowY: 'auto',
-                        border: '1px solid var(--border)',
-                        borderRadius: 8,
-                      }}
-                    >
-                      {realCompetitors.slice(0, 8).map((c) => {
-                        const flag = c.countryIso2 ? (COUNTRY_FLAGS[c.countryIso2] ?? '') : ''
-                        return (
-                          <div
-                            key={c.wcaId}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '8px 12px',
-                              borderBottom: '1px solid var(--border)',
-                              fontSize: 13,
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              {flag && <span>{flag}</span>}
-                              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{c.name}</span>
-                              <span
-                                className="font-mono"
-                                style={{ fontSize: 10, color: 'var(--text-muted)' }}
-                              >
-                                {c.wcaId}
-                              </span>
-                            </div>
-                            {c.pb !== null && (
-                              <span
-                                className="font-mono"
-                                style={{
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                  color: 'var(--positive)',
-                                  backgroundColor: 'rgba(34,197,94,0.08)',
-                                  padding: '2px 6px',
-                                  borderRadius: 4,
-                                }}
-                              >
-                                {formatTime(c.pb)}
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button
-                        onClick={() => {
-                          setRealStep('pick_event')
-                          setRealCompetitors([])
-                          wcif.reset()
-                        }}
-                        style={{
-                          flex: '0 0 auto',
-                          padding: '12px 16px',
-                          borderRadius: 10,
-                          border: '1px solid var(--border)',
-                          backgroundColor: 'transparent',
-                          color: 'var(--text-muted)',
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          fontFamily: 'Inter, sans-serif',
-                          transition: 'background-color 150ms ease',
-                        }}
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-1)' }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                      >
-                        Back
-                      </button>
-                      <button
-                        onClick={() => startRound(competitorsFromReal(realCompetitors, selectedRealEvent))}
-                        style={{
-                          flex: 1,
-                          padding: '12px 0',
-                          borderRadius: 10,
-                          border: 'none',
-                          backgroundColor: 'var(--accent)',
-                          color: '#000',
-                          fontSize: 15,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          fontFamily: 'Inter, sans-serif',
-                          transition: 'opacity 150ms ease',
-                        }}
-                        onMouseOver={(e) => { e.currentTarget.style.opacity = '0.85' }}
-                        onMouseOut={(e) => { e.currentTarget.style.opacity = '1' }}
-                      >
-                        Start Round
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                Start Round →
+              </button>
+            </div>
+          )}
         </motion.div>
 
-        <style>{`
-          @keyframes spin { to { transform: rotate(360deg); } }
-        `}</style>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
@@ -1484,9 +1177,8 @@ export function CompetitionPage() {
           transition={{ duration: 0.35 }}
           style={{ maxWidth: 820, margin: '0 auto' }}
         >
-          {/* Header */}
           <div style={{ marginBottom: 32 }}>
-            {isRealMode && selectedComp && (
+            {selectedComp && (
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 {selectedComp.name} · {EVENT_LABELS[selectedRealEvent] ?? selectedRealEvent}
               </div>
@@ -1514,7 +1206,7 @@ export function CompetitionPage() {
               </span>
               {userAo5 !== null && (
                 <>
-                  {' '}with an ao5 of{' '}
+                  {' '}with an Ao5 of{' '}
                   <span
                     className="font-mono"
                     style={{ color: 'var(--accent)', fontWeight: 700 }}
@@ -1527,20 +1219,14 @@ export function CompetitionPage() {
           </div>
 
           <div style={{ marginBottom: 32 }}>
-            <LeaderboardPanel
-              entries={leaderboardEntries}
-              solveIndex={NUM_SOLVES}
-              showRealData={isRealMode}
-            />
+            <LeaderboardPanel entries={leaderboardEntries} solveIndex={NUM_SOLVES} />
           </div>
 
           <div style={{ display: 'flex', gap: 12 }}>
             <button
               onClick={() => {
                 resetAll()
-                if (isRealMode) {
-                  setRealStep('ready')
-                }
+                setRealStep('ready')
               }}
               style={{
                 flex: 1,
@@ -1588,7 +1274,7 @@ export function CompetitionPage() {
 
   // ─── Render: Competing ─────────────────────────────────────────────────────
 
-  const displayEvent = isRealMode ? (EVENT_LABELS[selectedRealEvent] ?? selectedRealEvent) : (WCA_EVENTS.find((e) => e.value === selectedEvent)?.label ?? '')
+  const displayEvent = EVENT_LABELS[selectedRealEvent] ?? selectedRealEvent
 
   return (
     <div
@@ -1612,6 +1298,7 @@ export function CompetitionPage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Solve progress dots */}
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
             {Array.from({ length: NUM_SOLVES }).map((_, i) => (
               <div
@@ -1622,8 +1309,7 @@ export function CompetitionPage() {
                   borderRadius: 4,
                   backgroundColor:
                     i < solveIndex ? 'var(--accent)' : i === solveIndex ? 'var(--accent)' : 'var(--surface-1)',
-                  border:
-                    i === solveIndex ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  border: i === solveIndex ? '1px solid var(--accent)' : '1px solid var(--border)',
                   opacity: i === solveIndex ? 1 : i < solveIndex ? 0.6 : 0.3,
                   transition: 'width 200ms ease, background-color 200ms ease',
                 }}
@@ -1635,8 +1321,7 @@ export function CompetitionPage() {
           </span>
           <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
             {displayEvent}
-            {isRealMode && selectedComp && ` · ${selectedComp.name}`}
-            {!isRealMode && ` · ${selectedDifficulty}`}
+            {selectedComp && ` · ${selectedComp.name}`}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1866,7 +1551,7 @@ export function CompetitionPage() {
               animate={{ opacity: 1, x: 0, width: 'auto' }}
               exit={{ opacity: 0, x: 24, width: 0 }}
               transition={{ duration: 0.25, ease: 'easeInOut' }}
-              style={{ flex: '1 1 280px', minWidth: 0, overflow: 'hidden' }}
+              style={{ flex: '1 1 320px', minWidth: 0, overflow: 'hidden' }}
             >
               <div
                 style={{
@@ -1881,26 +1566,23 @@ export function CompetitionPage() {
                   gap: 8,
                 }}
               >
-                <span>Leaderboard</span>
-                {isRealMode && (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: 'var(--accent)',
-                      backgroundColor: 'rgba(34,211,238,0.12)',
-                      padding: '1px 6px',
-                      borderRadius: 3,
-                    }}
-                  >
-                    REAL WCA DATA
-                  </span>
-                )}
+                <span>Live Standings</span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: 'var(--accent)',
+                    backgroundColor: 'rgba(34,211,238,0.12)',
+                    padding: '1px 6px',
+                    borderRadius: 3,
+                  }}
+                >
+                  REAL WCA DATA
+                </span>
               </div>
               <LeaderboardPanel
                 entries={leaderboardEntries}
                 solveIndex={solveIndex}
-                showRealData={isRealMode}
               />
             </motion.div>
           )}
