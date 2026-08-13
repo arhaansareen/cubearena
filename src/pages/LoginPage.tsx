@@ -23,8 +23,8 @@ export function LoginPage() {
     setError(null)
     try {
       await signInWithGoogle()
-    } catch {
-      setError('Sign-in failed. Please try again.')
+    } catch (err: any) {
+      setError(err?.code ?? err?.message ?? 'Unknown error')
       setLoading(false)
     }
   }
