@@ -18,15 +18,15 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleGoogle = async () => {
+  const handleGoogle = () => {
     setLoading(true)
     setError(null)
-    try {
-      await signInWithGoogle()
-    } catch (err: any) {
-      setError(err?.code ?? err?.message ?? 'Unknown error')
+    // Must call signInWithGoogle synchronously inside the click handler
+    // so the browser doesn't treat the popup as unsolicited
+    signInWithGoogle().catch((err: any) => {
+      setError(err?.code ?? err?.message ?? 'Sign-in failed')
       setLoading(false)
-    }
+    })
   }
 
   return (

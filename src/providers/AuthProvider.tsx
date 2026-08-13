@@ -3,8 +3,7 @@ import {
   onAuthStateChanged,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   type User,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -31,16 +30,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // Handle returning from Google redirect
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) setUser(result.user)
-      })
-      .catch(() => {})
-      .finally(() => {
-        // onAuthStateChanged will also fire — this just resolves any race
-      })
-
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
@@ -55,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async (): Promise<void> => {
     if (!auth || typeof auth.onAuthStateChanged !== 'function') return
-    await signInWithRedirect(auth, googleProvider)
+    await signInWithPopup(auth, googleProvider)
   }
 
   const signOut = async (): Promise<void> => {
