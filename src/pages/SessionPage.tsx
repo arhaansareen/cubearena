@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { ScramblePanel } from '@/components/session/ScramblePanel'
 import { TimerDisplay } from '@/components/session/TimerDisplay'
@@ -13,6 +13,7 @@ import { useScramble } from '@/hooks/useScramble'
 import { useAudioContext } from '@/providers/AudioProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
+import { computeMean } from '@/lib/utils'
 import type { AIOpponent, Penalty, Solve, WCAEvent, NotesBehavior } from '@/types'
 
 const DEFAULT_AI_OPPONENTS: AIOpponent[] = [
@@ -55,6 +56,7 @@ export function SessionPage() {
   const { user } = useAuth()
   const { persistSolve } = useSolveHistory(user?.uid)
   const { solves, ao5, ao12, mean, sessionId, addSolve, deleteLastSolve } = useSession()
+  const mo3 = useMemo(() => computeMean(solves, 3), [solves])
 
   currentScrambleRef.current = scramble
 
@@ -234,7 +236,7 @@ export function SessionPage() {
         )}
       </div>
 
-      <SessionStatsBar solveCount={solves.length} ao5={ao5} ao12={ao12} mean={mean} />
+      <SessionStatsBar solveCount={solves.length} ao5={ao5} ao12={ao12} mean={mean} mo3={mo3} event={event} />
 
       <PostSolveModal
         isOpen={showModal}
