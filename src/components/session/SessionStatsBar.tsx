@@ -32,10 +32,8 @@ function StatPill({ label, value, active = false }: StatPillProps) {
     }}>
       <span style={{
         fontSize: 10,
-        fontWeight: 600,
+        fontWeight: 500,
         color: 'var(--text-muted)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.07em',
       }}>
         {label}
       </span>

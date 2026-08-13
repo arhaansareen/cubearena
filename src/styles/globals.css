@@ -12,6 +12,9 @@
   --positive: #22C55E;
   --accent: #22D3EE;
   --accent-dim: rgba(34, 211, 238, 0.12);
+  --shadow-soft: 0 4px 24px rgba(2, 6, 23, 0.55);
+  --shadow-deep: 0 8px 40px rgba(2, 6, 23, 0.7);
+  --shadow-accent: 0 0 28px rgba(34, 211, 238, 0.18);
 }
 
 *,
@@ -59,7 +62,7 @@ body::after {
 body {
   background-color: var(--bg);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   font-size: 1rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -146,6 +149,13 @@ p {
 
 .font-mono {
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .sr-only {

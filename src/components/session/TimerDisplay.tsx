@@ -152,7 +152,7 @@ export function TimerDisplay({
           style={{
             fontFamily: isMonoFont
               ? "'JetBrains Mono', monospace"
-              : "'Inter', system-ui, sans-serif",
+              : "'Plus Jakarta Sans', system-ui, sans-serif",
             fontWeight: 700,
             letterSpacing: isMonoFont ? '-0.04em' : '-0.01em',
             fontVariantNumeric: 'tabular-nums',

@@ -278,14 +278,11 @@ export function AppShell() {
             >
         <div style={{ padding: '0 20px 24px', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
           <span style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 18,
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-            background: 'linear-gradient(135deg, var(--accent), var(--text-primary))',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
+            fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+            fontSize: 16,
+            fontWeight: 800,
+            letterSpacing: '-0.03em',
+            color: 'var(--accent)',
             display: 'inline-block',
           }}>
             CubeArena
@@ -304,7 +301,7 @@ export function AppShell() {
                 padding: '10px 16px 10px 18px',
                 fontSize: 14,
                 fontWeight: isActive ? 600 : 500,
-                color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                color: isActive ? 'var(--accent)' : 'var(--text-muted)',
                 backgroundColor: isActive ? 'var(--accent-dim)' : 'transparent',
                 transition: 'color 150ms ease, background-color 150ms ease, border-color 150ms ease',
                 borderRadius: 8,
@@ -349,10 +346,10 @@ export function AppShell() {
         title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
         style={{
           position: 'fixed',
-          top: 28,
+          top: 24,
           zIndex: 101,
-          width: 20,
-          height: 20,
+          width: 28,
+          height: 28,
           borderRadius: '50%',
           border: '1px solid var(--border)',
           backgroundColor: 'var(--surface-0)',

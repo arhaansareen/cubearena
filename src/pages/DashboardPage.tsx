@@ -149,7 +149,7 @@ export function DashboardPage() {
 
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4, letterSpacing: '-0.03em' }}>
           Dashboard
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
@@ -173,7 +173,7 @@ export function DashboardPage() {
           backgroundColor: 'var(--surface-0)',
           border: '1px solid var(--border)',
           borderRadius: 12,
-          boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+          boxShadow: 'var(--shadow-soft)',
           flex: '0 0 auto',
         }}>
           <div>
@@ -199,11 +199,13 @@ export function DashboardPage() {
             backgroundColor: 'var(--accent)', color: '#020617',
             borderRadius: 12, fontSize: 16, fontWeight: 700,
             cursor: 'pointer', border: 'none',
-            boxShadow: '0 0 28px rgba(34,211,238,0.18)',
+            boxShadow: 'var(--shadow-accent)',
             transition: 'opacity 150ms ease, transform 150ms ease',
           }}
           onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)' }}
           onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+          onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.97)' }}
+          onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-1px)' }}
         >
           <PlayIcon />
           Start Session
@@ -212,19 +214,27 @@ export function DashboardPage() {
 
       {/* Personal bests */}
       <section style={{ marginBottom: 36 }}>
-        <h2 style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 12 }}>
-          Personal Bests
+        <h2 style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 12 }}>
+          Personal bests
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+        <motion.div
+          variants={{ animate: { transition: { staggerChildren: 0.04 } } }}
+          initial="initial"
+          animate="animate"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}
+        >
           {pbs.map(({ label, pb }) => (
-            <div key={label} style={{
+            <motion.div
+              key={label}
+              variants={{ initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] } } }}
+              style={{
               background: 'var(--surface-0)',
               border: '1px solid var(--border)',
               borderRadius: 16, padding: '20px 24px',
               display: 'flex', flexDirection: 'column', gap: 6,
-              boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+              boxShadow: 'var(--shadow-soft)',
             }}>
-              <span style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>
                 {label}
               </span>
               <span style={{
@@ -234,15 +244,15 @@ export function DashboardPage() {
               }}>
                 {pb !== null ? formatTime(pb) : '—'}
               </span>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </section>
 
       {/* WCA Official PBs */}
       <section style={{ marginBottom: 36 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <h2 style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, margin: 0 }}>
+          <h2 style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, margin: 0 }}>
             Official PBs
           </h2>
           <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400, opacity: 0.6 }}>via WCA</span>
@@ -374,8 +384,8 @@ export function DashboardPage() {
 
       {/* Recent sessions */}
       <section style={{ marginBottom: 36 }}>
-        <h2 style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 12 }}>
-          Recent Sessions
+        <h2 style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 12 }}>
+          Recent sessions
         </h2>
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
