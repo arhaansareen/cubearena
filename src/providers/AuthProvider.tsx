@@ -3,7 +3,8 @@ import {
   onAuthStateChanged,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   type User,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -30,6 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    // Pick up the result if we just came back from a Google redirect
+    getRedirectResult(auth).catch(() => {})
+
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
@@ -44,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async (): Promise<void> => {
     if (!auth || typeof auth.onAuthStateChanged !== 'function') return
-    await signInWithPopup(auth, googleProvider)
+    await signInWithRedirect(auth, googleProvider)
   }
 
   const signOut = async (): Promise<void> => {

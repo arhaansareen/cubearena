@@ -117,7 +117,7 @@ export function LoginPage() {
           onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
         >
           <GoogleIcon />
-          {loading ? 'Signing in…' : 'Continue with Google'}
+          {loading ? 'Redirecting…' : 'Continue with Google'}
         </button>
 
         {error && (
