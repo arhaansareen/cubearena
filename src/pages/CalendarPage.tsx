@@ -135,10 +135,10 @@ interface DayCellProps {
 }
 
 function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, activityCount = 0, onClick }: DayCellProps) {
-  if (!gridDate) return <div aria-hidden="true" style={{ minHeight: 64 }} />
+  if (!gridDate) return <div aria-hidden="true" style={{ minHeight: 100 }} />
 
   const hasPlan = plans.length > 0
-  const visiblePlans = plans.slice(0, 2)
+  const visiblePlans = plans.slice(0, 3)
   const overflowCount = plans.length - visiblePlans.length
 
   return (
@@ -147,54 +147,61 @@ function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, activityCo
       aria-label={gridDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
       aria-pressed={isSelected}
       style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'flex-start', paddingTop: 6, paddingBottom: 4, gap: 3,
-        minHeight: 64,
-        background: isSelected ? 'var(--accent-dim)' : 'none',
-        border: `1px solid ${isSelected ? 'var(--accent)' : 'transparent'}`,
-        borderRadius: 8,
+        display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+        justifyContent: 'flex-start', padding: '8px 8px 6px', gap: 4,
+        minHeight: 100,
+        background: isSelected ? 'var(--accent-dim)' : 'var(--surface-0)',
+        border: `1px solid ${isSelected ? 'var(--accent)' : isToday ? 'rgba(34,211,238,0.35)' : 'var(--border)'}`,
+        borderRadius: 10,
         cursor: 'pointer',
         transition: 'background 150ms ease, border-color 150ms ease',
         overflow: 'hidden',
         width: '100%',
         position: 'relative',
-        outline: isToday ? '2px solid var(--accent)' : 'none',
-        outlineOffset: -2,
+        textAlign: 'left',
       }}
     >
       {/* Date number */}
       <span style={{
-        width: 28, height: 28, flexShrink: 0,
+        width: 26, height: 26, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: '50%',
         fontSize: 13,
-        fontWeight: isToday ? 700 : 400,
+        fontWeight: isToday ? 700 : 500,
         color: isToday ? '#020617' : isSelected ? 'var(--accent)' : 'var(--text-primary)',
         backgroundColor: isToday ? 'var(--accent)' : 'transparent',
       }}>
         {gridDate.getDate()}
       </span>
 
+      {/* Activity count badge */}
+      {hasActivity && (
+        <div style={{
+          fontSize: 10, fontWeight: 600,
+          color: 'var(--positive)',
+          fontFamily: "'JetBrains Mono', monospace",
+          lineHeight: 1,
+        }}>
+          {activityCount} solve{activityCount !== 1 ? 's' : ''}
+        </div>
+      )}
+
       {/* Plan pills */}
       {hasPlan && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', padding: '0 3px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
           {visiblePlans.map((plan) => {
             const done = plan.completedAt !== null
-            const timeLabel = new Date(plan.scheduledAt).toLocaleTimeString('en-US', {
-              hour: 'numeric', minute: '2-digit',
-            })
             const label = EVENT_LABELS[plan.event]
             return (
               <div
                 key={plan.id}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 2,
-                  background: done ? 'rgba(34,211,238,0.04)' : 'var(--accent-dim)',
-                  border: `1px solid ${done ? 'rgba(34,211,238,0.15)' : 'var(--accent)'}`,
+                  display: 'flex', alignItems: 'center', gap: 3,
+                  background: done ? 'rgba(34,197,94,0.08)' : 'var(--accent-dim)',
                   borderRadius: 4,
-                  fontSize: 10,
-                  padding: '2px 5px',
-                  color: done ? 'var(--text-muted)' : 'var(--accent)',
+                  fontSize: 10, fontWeight: 500,
+                  padding: '2px 6px',
+                  color: done ? 'var(--positive)' : 'var(--accent)',
                   overflow: 'hidden',
                   whiteSpace: 'nowrap',
                   textOverflow: 'ellipsis',
@@ -207,32 +214,25 @@ function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, activityCo
                   </svg>
                 )}
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {timeLabel} {label}
+                  {label}
                 </span>
               </div>
             )
           })}
           {overflowCount > 0 && (
-            <div style={{
-              fontSize: 9, color: 'var(--text-muted)',
-              paddingLeft: 5, lineHeight: '14px',
-            }}>
+            <div style={{ fontSize: 9, color: 'var(--text-muted)', paddingLeft: 2 }}>
               +{overflowCount} more
             </div>
           )}
         </div>
       )}
 
-      {/* Activity bar at bottom of cell */}
+      {/* Activity fill bar at bottom */}
       {hasActivity && (
         <div style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          height: 3,
-          width: `${Math.min(20 + (activityCount / 10) * 80, 100)}%`,
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: 2,
           backgroundColor: 'var(--positive)',
-          borderRadius: '0 2px 0 0',
+          opacity: 0.5,
         }} />
       )}
     </button>
