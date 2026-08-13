@@ -1,18 +1,22 @@
 import { useMemo, useState } from 'react'
 import {
-  ResponsiveContainer,
-  ComposedChart,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
   Line,
-  Scatter,
+  ReferenceLine,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-  BarChart,
-  Bar,
-  Cell,
 } from 'recharts'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart'
 import { formatTime } from '@/lib/utils'
 import type { Solve, WCAEvent } from '@/types'
 
@@ -29,75 +33,17 @@ function rollingAo(times: number[], n: number): (number | null)[] {
   })
 }
 
-function last14Days(): { label: string; dateStr: string }[] {
-  const result: { label: string; dateStr: string }[] = []
-  for (let i = 13; i >= 0; i--) {
+function last14Days() {
+  return Array.from({ length: 14 }, (_, i) => {
     const d = new Date()
-    d.setDate(d.getDate() - i)
+    d.setDate(d.getDate() - (13 - i))
     d.setHours(0, 0, 0, 0)
-    result.push({
-      label: i === 0 ? 'Today' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    return {
+      label: i === 13 ? 'Today' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       dateStr: d.toDateString(),
-    })
-  }
-  return result
+    }
+  })
 }
-
-// ─── Tooltip components ───────────────────────────────────────────────────────
-
-function ProgressTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
-  if (!active || !payload?.length) return null
-  const d = payload[0]?.payload
-  if (!d) return null
-  return (
-    <div style={{
-      backgroundColor: 'var(--surface-1)',
-      border: '1px solid var(--border)',
-      borderRadius: 8,
-      padding: '8px 12px',
-      fontSize: 12,
-      lineHeight: 1.6,
-      minWidth: 120,
-    }}>
-      <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>Solve #{d.index + 1}</div>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--accent)', fontSize: 14 }}>
-        {isFinite(d.time) ? formatTime(d.time) : 'DNF'}
-      </div>
-      {d.ao5 !== null && (
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", color: 'rgba(34,211,238,0.6)', fontSize: 12, marginTop: 2 }}>
-          Ao5 {formatTime(d.ao5)}
-        </div>
-      )}
-      {d.ao12 !== null && (
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-muted)', fontSize: 11 }}>
-          Ao12 {formatTime(d.ao12)}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ActivityTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
-  if (!active || !payload?.length) return null
-  const d = payload[0]?.payload
-  if (!d) return null
-  return (
-    <div style={{
-      backgroundColor: 'var(--surface-1)',
-      border: '1px solid var(--border)',
-      borderRadius: 8,
-      padding: '8px 12px',
-      fontSize: 12,
-    }}>
-      <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>{d.label}</div>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--accent)' }}>
-        {d.count} solve{d.count !== 1 ? 's' : ''}
-      </div>
-    </div>
-  )
-}
-
-// ─── Event selector ───────────────────────────────────────────────────────────
 
 const EVENTS: { value: WCAEvent; label: string }[] = [
   { value: '333', label: '3×3' },
@@ -113,23 +59,24 @@ const EVENTS: { value: WCAEvent; label: string }[] = [
   { value: '333bf', label: 'BLD' },
 ]
 
+const progressConfig = {
+  time: { label: 'Time', color: '#22D3EE' },
+  ao5: { label: 'Ao5', color: 'rgba(34,211,238,0.5)' },
+  ao12: { label: 'Ao12', color: 'rgba(255,255,255,0.25)' },
+} satisfies ChartConfig
+
+const activityConfig = {
+  count: { label: 'Solves', color: '#22D3EE' },
+} satisfies ChartConfig
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
-interface Props {
-  solves: Solve[]
-  loading: boolean
-}
-
-export function SolveProgressChart({ solves, loading }: Props) {
-  // Pick default event: whichever has the most solves
+export function SolveProgressChart({ solves, loading }: { solves: Solve[]; loading: boolean }) {
   const defaultEvent = useMemo<WCAEvent>(() => {
     const counts = new Map<WCAEvent, number>()
     for (const s of solves) counts.set(s.event, (counts.get(s.event) ?? 0) + 1)
-    let best: WCAEvent = '333'
-    let max = 0
-    for (const [ev, n] of counts) {
-      if (n > max) { max = n; best = ev }
-    }
+    let best: WCAEvent = '333'; let max = 0
+    for (const [ev, n] of counts) { if (n > max) { max = n; best = ev } }
     return best
   }, [solves])
 
@@ -142,42 +89,36 @@ export function SolveProgressChart({ solves, loading }: Props) {
     return EVENTS.map((e) => e.value).filter((e) => s.has(e))
   }, [solves])
 
-  // ── Progress chart data ──
   const progressData = useMemo(() => {
     const filtered = solves
       .filter((s) => s.event === event)
       .sort((a, b) => a.timestamp - b.timestamp)
       .slice(-100)
-
     const times = filtered.map((s) => s.effectiveTime)
     const ao5s = rollingAo(times, 5)
     const ao12s = rollingAo(times, 12)
-
     return filtered.map((s, i) => ({
       index: i,
-      time: isFinite(s.effectiveTime) ? s.effectiveTime : null,
-      ao5: ao5s[i],
-      ao12: ao12s[i],
+      label: `#${i + 1}`,
+      time: isFinite(s.effectiveTime) ? s.effectiveTime : undefined,
+      ao5: ao5s[i] ?? undefined,
+      ao12: ao12s[i] ?? undefined,
     }))
   }, [solves, event])
 
-  // Y-axis domain: ignore DNFs, add 10% headroom
   const yDomain = useMemo(() => {
-    const finiteTimes = progressData.map((d) => d.time).filter((t): t is number => t !== null && isFinite(t))
-    if (finiteTimes.length === 0) return ['auto', 'auto'] as const
-    const min = Math.min(...finiteTimes)
-    const max = Math.max(...finiteTimes)
+    const valid = progressData.map((d) => d.time).filter((t): t is number => t !== undefined)
+    if (!valid.length) return ['auto', 'auto'] as const
+    const min = Math.min(...valid), max = Math.max(...valid)
     const pad = (max - min) * 0.15 || min * 0.1
     return [Math.max(0, min - pad), max + pad] as const
   }, [progressData])
 
-  // Best time for reference line
   const bestTime = useMemo(() => {
-    const valid = progressData.map((d) => d.time).filter((t): t is number => t !== null && isFinite(t))
-    return valid.length > 0 ? Math.min(...valid) : null
+    const valid = progressData.map((d) => d.time).filter((t): t is number => t !== undefined)
+    return valid.length ? Math.min(...valid) : null
   }, [progressData])
 
-  // ── Activity chart data ──
   const activityData = useMemo(() => {
     const days = last14Days()
     const countByDay = new Map<string, number>()
@@ -185,71 +126,41 @@ export function SolveProgressChart({ solves, loading }: Props) {
       const ds = new Date(s.timestamp).toDateString()
       countByDay.set(ds, (countByDay.get(ds) ?? 0) + 1)
     }
-    return days.map((d) => ({ label: d.label, dateStr: d.dateStr, count: countByDay.get(d.dateStr) ?? 0 }))
+    return days.map((d) => ({ ...d, count: countByDay.get(d.dateStr) ?? 0 }))
   }, [solves])
 
   const maxActivity = useMemo(() => Math.max(...activityData.map((d) => d.count), 1), [activityData])
 
-  if (loading) {
-    return (
-      <div style={{ height: 200, borderRadius: 12, backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)' }} />
-    )
-  }
+  if (loading) return <div style={{ height: 320, borderRadius: 12, backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)' }} />
 
-  if (solves.length < 3) {
-    return (
-      <div style={{
-        height: 160,
-        borderRadius: 12,
-        backgroundColor: 'var(--surface-0)',
-        border: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'var(--text-muted)',
-        fontSize: 13,
-      }}>
-        Solve at least 3 times to see your progress chart.
-      </div>
-    )
-  }
+  if (solves.length < 3) return (
+    <div style={{ height: 160, borderRadius: 12, backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+      Solve at least 3 times to see your progress.
+    </div>
+  )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
       {/* ── Progress chart ── */}
-      <div style={{
-        backgroundColor: 'var(--surface-0)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: '20px 20px 12px',
-      }}>
-        {/* Header */}
+      <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 20px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-          <div>
-            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>Progress</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.5, marginLeft: 8 }}>last {Math.min(progressData.length, 100)} solves</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Progress</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>last {Math.min(progressData.length, 100)} solves</span>
           </div>
-          {/* Event tabs */}
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {eventsWithSolves.map((ev) => {
               const label = EVENTS.find((e) => e.value === ev)?.label ?? ev
               const active = event === ev
               return (
-                <button
-                  key={ev}
-                  onClick={() => setSelectedEvent(ev)}
-                  style={{
-                    padding: '3px 10px',
-                    borderRadius: 6,
-                    border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                    backgroundColor: active ? 'var(--accent-dim)' : 'transparent',
-                    color: active ? 'var(--accent)' : 'var(--text-muted)',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 120ms ease',
-                  }}
-                >
+                <button key={ev} onClick={() => setSelectedEvent(ev)} style={{
+                  padding: '3px 10px', borderRadius: 6,
+                  border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                  backgroundColor: active ? 'var(--accent-dim)' : 'transparent',
+                  color: active ? 'var(--accent)' : 'var(--text-muted)',
+                  fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 120ms ease',
+                }}>
                   {label}
                 </button>
               )
@@ -258,134 +169,91 @@ export function SolveProgressChart({ solves, loading }: Props) {
         </div>
 
         {/* Legend */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
-          <LegendItem color="var(--accent)" label="Solve time" dotted={false} />
-          <LegendItem color="rgba(34,211,238,0.55)" label="Ao5" dotted />
-          <LegendItem color="rgba(255,255,255,0.2)" label="Ao12" dotted />
+        <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+          {[
+            { color: '#22D3EE', label: 'Time' },
+            { color: 'rgba(34,211,238,0.5)', label: 'Ao5', dashed: false },
+            { color: 'rgba(255,255,255,0.25)', label: 'Ao12', dashed: true },
+          ].map(({ color, label, dashed }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="20" height="2"><line x1="0" y1="1" x2="20" y2="1" stroke={color} strokeWidth="2" strokeDasharray={dashed ? '4 3' : undefined} /></svg>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{label}</span>
+            </div>
+          ))}
+          {bestTime && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="20" height="2"><line x1="0" y1="1" x2="20" y2="1" stroke="rgba(34,197,94,0.5)" strokeWidth="1.5" strokeDasharray="4 3" /></svg>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>PB {formatTime(bestTime)}</span>
+            </div>
+          )}
         </div>
 
-        <ResponsiveContainer width="100%" height={220}>
-          <ComposedChart data={progressData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="rgba(255,255,255,0.05)"
-              vertical={false}
+        <ChartContainer config={progressConfig} style={{ height: 240, width: '100%' }}>
+          <AreaChart data={progressData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id="timeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#22D3EE" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+            <YAxis domain={yDomain} tick={{ fill: 'var(--text-muted)', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }} tickLine={false} axisLine={false} tickFormatter={(v) => formatTime(v)} width={52} />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={(value, name) => [
+                    <span key={name} style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
+                      {formatTime(value as number)}
+                    </span>,
+                    name === 'time' ? 'Time' : name === 'ao5' ? 'Ao5' : 'Ao12',
+                  ]}
+                  labelFormatter={(label) => <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{label}</span>}
+                />
+              }
+              cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
             />
-            <XAxis
-              dataKey="index"
-              tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => `#${v + 1}`}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              domain={yDomain}
-              tick={{ fill: 'var(--text-muted)', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => formatTime(v)}
-              width={52}
-            />
-            <Tooltip content={<ProgressTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
-            {bestTime !== null && (
-              <ReferenceLine
-                y={bestTime}
-                stroke="rgba(34,197,94,0.35)"
-                strokeDasharray="4 4"
-                strokeWidth={1}
-              />
-            )}
-            {/* Individual times as dots */}
-            <Scatter
-              dataKey="time"
-              fill="var(--accent)"
-              opacity={0.7}
-              r={2.5}
-              line={false}
-            />
-            {/* Ao5 */}
-            <Line
-              dataKey="ao5"
-              stroke="rgba(34,211,238,0.55)"
-              strokeWidth={2}
-              dot={false}
-              activeDot={false}
-              connectNulls={false}
-              type="monotone"
-            />
-            {/* Ao12 */}
-            <Line
-              dataKey="ao12"
-              stroke="rgba(255,255,255,0.2)"
-              strokeWidth={1.5}
-              dot={false}
-              activeDot={false}
-              connectNulls={false}
-              type="monotone"
-              strokeDasharray="4 3"
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+            {bestTime && <ReferenceLine y={bestTime} stroke="rgba(34,197,94,0.4)" strokeDasharray="4 4" strokeWidth={1} />}
+            <Area dataKey="time" type="monotone" stroke="#22D3EE" strokeWidth={2} fill="url(#timeGradient)" dot={{ r: 2.5, fill: '#22D3EE', strokeWidth: 0 }} activeDot={{ r: 4, fill: '#22D3EE' }} connectNulls={false} />
+            <Line dataKey="ao5" type="monotone" stroke="rgba(34,211,238,0.55)" strokeWidth={2} dot={false} activeDot={false} connectNulls={false} />
+            <Line dataKey="ao12" type="monotone" stroke="rgba(255,255,255,0.2)" strokeWidth={1.5} strokeDasharray="4 3" dot={false} activeDot={false} connectNulls={false} />
+          </AreaChart>
+        </ChartContainer>
       </div>
 
       {/* ── Activity chart ── */}
-      <div style={{
-        backgroundColor: 'var(--surface-0)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: '20px 20px 12px',
-      }}>
-        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 16 }}>
-          Activity — last 14 days
+      <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 20px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Activity</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>last 14 days</span>
         </div>
-        <ResponsiveContainer width="100%" height={100}>
-          <BarChart data={activityData} margin={{ top: 0, right: 4, bottom: 0, left: 0 }} barCategoryGap="30%">
+        <ChartContainer config={activityConfig} style={{ height: 110, width: '100%' }}>
+          <BarChart data={activityData} margin={{ top: 0, right: 4, bottom: 0, left: 0 }} barCategoryGap="35%">
             <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fill: 'var(--text-muted)', fontSize: 9 }}
-              tickLine={false}
-              axisLine={false}
-              interval={2}
-            />
+            <XAxis dataKey="label" tick={{ fill: 'var(--text-muted)', fontSize: 9 }} tickLine={false} axisLine={false} interval={2} />
             <YAxis hide />
-            <Tooltip content={<ActivityTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={(value) => [`${value} solve${value !== 1 ? 's' : ''}`, '']}
+                  labelFormatter={(label) => <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{label}</span>}
+                />
+              }
+              cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+            />
             <Bar dataKey="count" radius={[3, 3, 0, 0]}>
               {activityData.map((entry, i) => (
-                <Cell
-                  key={i}
-                  fill={
-                    entry.count === 0
-                      ? 'rgba(255,255,255,0.05)'
-                      : entry.count >= maxActivity * 0.8
-                      ? 'var(--accent)'
-                      : entry.count >= maxActivity * 0.4
-                      ? 'rgba(34,211,238,0.5)'
-                      : 'rgba(34,211,238,0.25)'
-                  }
-                />
+                <Cell key={i} fill={
+                  entry.count === 0 ? 'rgba(255,255,255,0.05)'
+                  : entry.count >= maxActivity * 0.8 ? '#22D3EE'
+                  : entry.count >= maxActivity * 0.4 ? 'rgba(34,211,238,0.5)'
+                  : 'rgba(34,211,238,0.25)'
+                } />
               ))}
             </Bar>
           </BarChart>
-        </ResponsiveContainer>
+        </ChartContainer>
       </div>
-    </div>
-  )
-}
-
-function LegendItem({ color, label, dotted }: { color: string; label: string; dotted: boolean }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <svg width="20" height="2" aria-hidden="true">
-        <line
-          x1="0" y1="1" x2="20" y2="1"
-          stroke={color}
-          strokeWidth="2"
-          strokeDasharray={dotted ? '4 3' : undefined}
-        />
-      </svg>
-      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{label}</span>
     </div>
   )
 }
