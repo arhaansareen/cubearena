@@ -6,6 +6,7 @@ import { useProfile } from '@/providers/ProfileProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
 import { useWCAData } from '@/hooks/useWCAData'
 import { formatTime } from '@/lib/utils'
+import { SolveProgressChart } from '@/components/dashboard/SolveProgressChart'
 import type { Solve, WCAEvent } from '@/types'
 
 const DASHBOARD_EVENTS: { event: WCAEvent; label: string }[] = [
@@ -288,6 +289,14 @@ export function DashboardPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Progress charts */}
+      <section style={{ marginBottom: 36 }}>
+        <h2 style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 12 }}>
+          Charts
+        </h2>
+        <SolveProgressChart solves={solves} loading={loading} />
       </section>
 
       {/* Personal bests */}
