@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useProfile } from '@/providers/ProfileProvider'
 
@@ -121,7 +121,6 @@ function SettingsIcon() {
   )
 }
 
-// Desktop sidebar includes all 7 items; mobile bottom nav capped at 5 (Settings dropped — accessible via desktop profile strip or direct URL)
 const DESKTOP_NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/session', label: 'Session', icon: <SessionIcon /> },
@@ -143,9 +142,22 @@ const MOBILE_NAV: NavItem[] = [
   { to: '/rivals', label: 'Rivals', icon: <RivalsIcon /> },
 ]
 
-function ProfileStrip() {
-  const { profile, loading } = useProfile()
+const MIN_WIDTH = 180
+const MAX_WIDTH = 340
+const DEFAULT_WIDTH = 240
 
+function loadWidth(): number {
+  try {
+    const v = localStorage.getItem('cubearena:sidebar-width')
+    const n = v ? parseInt(v, 10) : DEFAULT_WIDTH
+    return isNaN(n) ? DEFAULT_WIDTH : Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, n))
+  } catch {
+    return DEFAULT_WIDTH
+  }
+}
+
+function ProfileStrip({ compact }: { compact: boolean }) {
+  const { profile, loading } = useProfile()
   const displayName = profile?.displayName || null
   const wcaId = profile?.wcaId || null
   const initials = displayName
@@ -160,8 +172,9 @@ function ProfileStrip() {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '12px 20px',
+        gap: compact ? 0 : 10,
+        padding: compact ? '12px 0' : '12px 20px',
+        justifyContent: compact ? 'center' : 'flex-start',
         borderTop: '1px solid var(--border)',
         marginTop: 'auto',
         cursor: 'pointer',
@@ -171,100 +184,110 @@ function ProfileStrip() {
       onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--accent-dim)' }}
       onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
     >
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'relative',
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            backgroundColor: 'var(--accent-dim)',
-            border: '1px solid var(--accent)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 12,
-            fontWeight: 700,
-            color: 'var(--accent)',
-            fontFamily: "'JetBrains Mono', monospace",
-          }}
-        >
+      <div style={{ position: 'relative', flexShrink: 0 }} aria-hidden="true">
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          backgroundColor: 'var(--accent-dim)',
+          border: '1px solid var(--accent)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 12, fontWeight: 700, color: 'var(--accent)',
+          fontFamily: "'JetBrains Mono', monospace",
+        }}>
           {initials}
         </div>
-        {/* Online dot */}
         <div style={{
-          position: 'absolute',
-          bottom: 0,
-          right: 0,
-          width: 9,
-          height: 9,
-          borderRadius: '50%',
-          backgroundColor: '#22c55e',
-          border: '2px solid var(--surface-0)',
+          position: 'absolute', bottom: 0, right: 0,
+          width: 9, height: 9, borderRadius: '50%',
+          backgroundColor: '#22c55e', border: '2px solid var(--surface-0)',
         }} />
       </div>
-      <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {displayName ?? 'Set your name'}
+      {!compact && (
+        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+          <div style={{
+            fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {displayName ?? 'Set your name'}
+          </div>
+          {wcaId ? (
+            <div style={{ fontSize: 11, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginTop: 1 }}>
+              {wcaId}
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Settings</div>
+          )}
         </div>
-        {wcaId && (
-          <div
-            style={{
-              fontSize: 11,
-              color: 'var(--accent)',
-              fontFamily: "'JetBrains Mono', monospace",
-              marginTop: 1,
-            }}
-          >
-            {wcaId}
-          </div>
-        )}
-        {!displayName && (
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
-            Settings
-          </div>
-        )}
-      </div>
+      )}
     </NavLink>
   )
 }
 
 export function AppShell() {
+  const [sidebarWidth, setSidebarWidth] = useState(loadWidth)
   const [collapsed, setCollapsed] = useState(false)
+  const [handleHovered, setHandleHovered] = useState(false)
+  const dragging = useRef(false)
+  const startX = useRef(0)
+  const startWidth = useRef(0)
+  const widthRef = useRef(sidebarWidth)
+  widthRef.current = sidebarWidth
+
+  // compact mode: labels hidden when width is narrow
+  const compact = !collapsed && sidebarWidth < 210
+
+  const onHandlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragging.current = false
+    startX.current = e.clientX
+    startWidth.current = widthRef.current
+  }, [])
+
+  const onHandlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!(e.buttons & 1)) return
+    const dx = e.clientX - startX.current
+    if (!dragging.current && Math.abs(dx) < 4) return
+    dragging.current = true
+    if (collapsed) return
+    const next = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth.current + dx))
+    setSidebarWidth(next)
+    try { localStorage.setItem('cubearena:sidebar-width', String(Math.round(next))) } catch {}
+  }, [collapsed])
+
+  const onHandlePointerUp = useCallback(() => {
+    if (!dragging.current) {
+      setCollapsed((p) => !p)
+    }
+    dragging.current = false
+  }, [])
+
+  // Prevent text selection while dragging
+  useEffect(() => {
+    const prevent = (e: Event) => { if (dragging.current) e.preventDefault() }
+    document.addEventListener('selectstart', prevent)
+    return () => document.removeEventListener('selectstart', prevent)
+  }, [])
+
+  const effectiveWidth = collapsed ? 0 : sidebarWidth
 
   return (
     <>
       {/* Desktop sidebar */}
-      <motion.div
+      <div
         className="app-shell-desktop"
-        animate={{ width: collapsed ? 0 : 240 }}
-        transition={{ duration: 0.22, ease: 'easeInOut' }}
         style={{
+          width: effectiveWidth,
           minHeight: '100dvh',
           backgroundColor: 'var(--surface-0)',
-          borderRight: collapsed ? 'none' : '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column',
-          padding: collapsed ? 0 : '24px 0 0',
           position: 'fixed',
           top: 0,
           left: 0,
           zIndex: 100,
           overflow: 'hidden',
+          transition: 'width 0.2s ease',
+          flexShrink: 0,
         }}
       >
         <AnimatePresence>
@@ -273,121 +296,147 @@ export function AppShell() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 240 }}
+              transition={{ duration: 0.12 }}
+              style={{ display: 'flex', flexDirection: 'column', flex: 1, width: sidebarWidth, minWidth: sidebarWidth }}
             >
-        <div style={{ padding: '0 20px 24px', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
-          <span style={{
-            fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
-            fontSize: 16,
-            fontWeight: 800,
-            letterSpacing: '-0.03em',
-            color: 'var(--accent)',
-            display: 'inline-block',
-          }}>
-            CubeArena
-          </span>
-        </div>
-        <nav style={{ flex: 1 }}>
-          {DESKTOP_NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              style={({ isActive }) => ({
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '10px 16px 10px 18px',
-                fontSize: 14,
-                fontWeight: isActive ? 600 : 500,
-                color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                backgroundColor: isActive ? 'var(--accent-dim)' : 'transparent',
-                transition: 'color 150ms ease, background-color 150ms ease, border-color 150ms ease',
-                borderRadius: 8,
-                margin: '2px 8px',
-                cursor: 'pointer',
-                textDecoration: 'none',
-                borderLeft: `3px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
-                position: 'relative',
-              })}
-              onMouseOver={(e) => {
-                const el = e.currentTarget as HTMLElement
-                if (!el.dataset.active) {
-                  el.style.color = 'var(--text-primary)'
-                  el.style.backgroundColor = 'rgba(255,255,255,0.04)'
-                }
-              }}
-              onMouseOut={(e) => {
-                const el = e.currentTarget as HTMLElement
-                if (!el.dataset.active) {
-                  el.style.color = ''
-                  el.style.backgroundColor = ''
-                }
-              }}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-        <ProfileStrip />
+              {/* Logo */}
+              <div style={{ padding: compact ? '24px 0 24px' : '24px 20px 24px', borderBottom: '1px solid var(--border)', marginBottom: 8, textAlign: compact ? 'center' : 'left' }}>
+                <span style={{
+                  fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+                  fontSize: compact ? 13 : 16,
+                  fontWeight: 800,
+                  letterSpacing: '-0.03em',
+                  color: 'var(--accent)',
+                }}>
+                  {compact ? 'CA' : 'CubeArena'}
+                </span>
+              </div>
+
+              {/* Nav */}
+              <nav style={{ flex: 1, padding: '0 8px' }}>
+                {DESKTOP_NAV.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/'}
+                    title={compact ? item.label : undefined}
+                    style={({ isActive }) => ({
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: compact ? 0 : 12,
+                      justifyContent: compact ? 'center' : 'flex-start',
+                      padding: compact ? '10px 0' : '10px 10px 10px 12px',
+                      fontSize: 14,
+                      fontWeight: isActive ? 600 : 500,
+                      color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                      backgroundColor: isActive ? 'var(--accent-dim)' : 'transparent',
+                      transition: 'color 150ms ease, background-color 150ms ease, border-color 150ms ease',
+                      borderRadius: 8,
+                      margin: '2px 0',
+                      cursor: 'pointer',
+                      textDecoration: 'none',
+                      borderLeft: compact ? 'none' : `3px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                    })}
+                    onMouseOver={(e) => {
+                      const el = e.currentTarget as HTMLElement
+                      el.style.color = 'var(--text-primary)'
+                      el.style.backgroundColor = 'rgba(255,255,255,0.04)'
+                    }}
+                    onMouseOut={(e) => {
+                      const el = e.currentTarget as HTMLElement
+                      el.style.color = ''
+                      el.style.backgroundColor = ''
+                    }}
+                  >
+                    {item.icon}
+                    {!compact && <span>{item.label}</span>}
+                  </NavLink>
+                ))}
+              </nav>
+
+              <ProfileStrip compact={compact} />
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
 
-      {/* Collapse toggle button */}
-      <motion.button
-        className="app-shell-desktop"
-        animate={{ left: collapsed ? 8 : 248 }}
-        transition={{ duration: 0.22, ease: 'easeInOut' }}
-        onClick={() => setCollapsed((p) => !p)}
-        title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={{
-          position: 'fixed',
-          top: 24,
-          zIndex: 101,
-          width: 28,
-          height: 28,
-          borderRadius: '50%',
-          border: '1px solid var(--border)',
-          backgroundColor: 'var(--surface-0)',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 0,
-          transition: 'color 150ms ease, border-color 150ms ease',
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-          <path
-            d={collapsed ? 'M3 2l4 3-4 3' : 'M7 2L3 5l4 3'}
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </motion.button>
+        {/* Drag handle — right edge of sidebar */}
+        <div
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerUp}
+          onMouseEnter={() => setHandleHovered(true)}
+          onMouseLeave={() => setHandleHovered(false)}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: 6,
+            height: '100%',
+            cursor: collapsed ? 'e-resize' : 'col-resize',
+            zIndex: 102,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Visual indicator */}
+          <div style={{
+            width: 2,
+            height: '100%',
+            backgroundColor: handleHovered ? 'var(--accent)' : 'var(--border)',
+            opacity: handleHovered ? 0.7 : 1,
+            transition: 'background-color 150ms ease, opacity 150ms ease',
+          }} />
+        </div>
+      </div>
+
+      {/* Collapsed expand button — slim tab on left edge */}
+      {collapsed && (
+        <button
+          className="app-shell-desktop"
+          onClick={() => setCollapsed(false)}
+          title="Show sidebar"
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: 0,
+            transform: 'translateY(-50%)',
+            zIndex: 101,
+            width: 16,
+            height: 56,
+            borderRadius: '0 6px 6px 0',
+            border: '1px solid var(--border)',
+            borderLeft: 'none',
+            backgroundColor: 'var(--surface-0)',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-1)'; e.currentTarget.style.color = 'var(--accent)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-0)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+        >
+          <svg width="6" height="10" viewBox="0 0 6 10" fill="none" aria-hidden="true">
+            <path d="M1 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
 
       {/* Main content */}
-      <motion.div
+      <div
         className="app-shell-content"
-        animate={{ marginLeft: collapsed ? 0 : 240 }}
-        transition={{ duration: 0.22, ease: 'easeInOut' }}
         style={{
+          marginLeft: effectiveWidth,
           flex: 1,
           minHeight: '100dvh',
           backgroundColor: 'var(--bg)',
+          transition: 'margin-left 0.2s ease',
         }}
       >
         <Outlet />
-      </motion.div>
+      </div>
 
       {/* Mobile bottom nav */}
       <div className="app-shell-mobile-nav" style={{
@@ -430,14 +479,10 @@ export function AppShell() {
 
       <style>{`
         @media (min-width: 768px) {
-          .app-shell-mobile-nav {
-            display: none !important;
-          }
+          .app-shell-mobile-nav { display: none !important; }
         }
         @media (max-width: 767px) {
-          .app-shell-desktop {
-            display: none !important;
-          }
+          .app-shell-desktop { display: none !important; }
           .app-shell-content {
             margin-left: 0 !important;
             padding-bottom: calc(60px + env(safe-area-inset-bottom));
