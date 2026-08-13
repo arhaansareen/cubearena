@@ -114,6 +114,54 @@ export function DashboardPage() {
 
   const recentSessions = useMemo(() => groupIntoSessions(solves), [solves])
 
+  const bestSingle = useMemo(() => {
+    const valid = solves.filter(s => s.penalty !== 'DNF' && isFinite(s.effectiveTime))
+    if (valid.length === 0) return null
+    return valid.reduce((b, s) => s.effectiveTime < b.effectiveTime ? s : b, valid[0])
+  }, [solves])
+
+  const ao5 = useMemo(() => {
+    const valid = solves.filter(s => isFinite(s.effectiveTime))
+    if (valid.length < 5) return null
+    const last5 = valid.slice(-5).map(s => s.effectiveTime)
+    const sorted = [...last5].sort((a,b)=>a-b)
+    const trimmed = sorted.slice(1,-1)
+    return trimmed.reduce((s,t)=>s+t,0)/trimmed.length
+  }, [solves])
+
+  const ao12 = useMemo(() => {
+    const valid = solves.filter(s => isFinite(s.effectiveTime))
+    if (valid.length < 12) return null
+    const last12 = valid.slice(-12).map(s => s.effectiveTime)
+    const sorted = [...last12].sort((a,b)=>a-b)
+    const trimmed = sorted.slice(1,-1)
+    return trimmed.reduce((s,t)=>s+t,0)/trimmed.length
+  }, [solves])
+
+  const todayCount = useMemo(() => {
+    const todayStr = new Date().toDateString()
+    return solves.filter(s => new Date(s.timestamp).toDateString() === todayStr).length
+  }, [solves])
+
+  const weekCount = useMemo(() => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+    return solves.filter(s => s.timestamp >= cutoff).length
+  }, [solves])
+
+  const sessionCount = useMemo(() => new Set(solves.map(s => s.sessionId)).size, [solves])
+
+  const streak = useMemo(() => {
+    const daySet = new Set(solves.map(s => new Date(s.timestamp).toDateString()))
+    let count = 0
+    const d = new Date()
+    d.setHours(0,0,0,0)
+    while (daySet.has(d.toDateString())) {
+      count++
+      d.setDate(d.getDate()-1)
+    }
+    return count
+  }, [solves])
+
   // Build WCA PB rows from API response
   const wcaPbRows = useMemo(() => {
     if (wcaState.status !== 'success') return []
@@ -177,8 +225,8 @@ export function DashboardPage() {
           flex: '0 0 auto',
         }}>
           <div>
-            <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>
-              Total Solves
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 4 }}>
+              Total solves
             </div>
             <div style={{
               fontSize: 28, fontWeight: 700,
@@ -211,6 +259,36 @@ export function DashboardPage() {
           Start Session
         </button>
       </div>
+
+      {/* Stats grid */}
+      <section style={{ marginBottom: 36 }}>
+        <h2 style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 12 }}>
+          Your stats
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+          {[
+            { label: 'Best single', value: bestSingle ? formatTime(bestSingle.effectiveTime) : '—', sub: bestSingle ? (EVENT_LABELS[bestSingle.event] ?? bestSingle.event) : null, color: bestSingle ? 'var(--positive)' : 'var(--text-muted)' },
+            { label: 'Ao5', value: ao5 !== null ? formatTime(ao5) : '—', sub: 'last 5 solves', color: 'var(--accent)' },
+            { label: 'Ao12', value: ao12 !== null ? formatTime(ao12) : '—', sub: 'last 12 solves', color: ao12 !== null ? 'var(--text-primary)' : 'var(--text-muted)' },
+            { label: 'Today', value: String(todayCount), sub: todayCount === 1 ? 'solve' : 'solves', color: todayCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)' },
+            { label: 'This week', value: String(weekCount), sub: weekCount === 1 ? 'solve' : 'solves', color: weekCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)' },
+            { label: 'Sessions', value: String(sessionCount), sub: 'total', color: 'var(--text-primary)' },
+            { label: 'Streak', value: String(streak), sub: streak === 1 ? 'day' : 'days', color: streak >= 3 ? 'var(--inspection)' : 'var(--text-muted)' },
+          ].map(({ label, value, sub, color }) => (
+            <div key={label} style={{
+              background: 'var(--surface-0)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: '16px 20px',
+              boxShadow: 'var(--shadow-soft)',
+            }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 6 }}>{label}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color, lineHeight: 1 }}>{loading ? '—' : value}</div>
+              {sub && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{sub}</div>}
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Personal bests */}
       <section style={{ marginBottom: 36 }}>

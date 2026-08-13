@@ -4,6 +4,15 @@ import { generateId } from '@/lib/utils'
 
 const PLANS_KEY = 'cubearena:plans'
 const ACTIVITY_KEY = 'cubearena:activity'
+const TODOS_KEY = 'cubearena:todos'
+
+export interface DayTodo {
+  id: string
+  date: string
+  text: string
+  done: boolean
+  createdAt: number
+}
 
 function loadJSON<T>(key: string, fallback: T): T {
   try {
@@ -35,6 +44,11 @@ export interface UseCalendarReturn {
     mean: number | null,
     events: WCAEvent[]
   ) => void
+  todos: DayTodo[]
+  todosByDay: Map<string, DayTodo[]>
+  createTodo: (date: string, text: string) => void
+  toggleTodo: (id: string) => void
+  deleteTodo: (id: string) => void
 }
 
 export function useCalendar(): UseCalendarReturn {
@@ -43,6 +57,9 @@ export function useCalendar(): UseCalendarReturn {
   )
   const [activity, setActivity] = useState<DayActivity[]>(() =>
     loadJSON<DayActivity[]>(ACTIVITY_KEY, [])
+  )
+  const [todos, setTodos] = useState<DayTodo[]>(() =>
+    loadJSON<DayTodo[]>(TODOS_KEY, [])
   )
 
   const createPlan = useCallback((draft: Omit<PlannedSession, 'id' | 'completedAt'>) => {
@@ -82,6 +99,30 @@ export function useCalendar(): UseCalendarReturn {
     []
   )
 
+  const createTodo = useCallback((date: string, text: string) => {
+    setTodos((prev) => {
+      const next = [...prev, { id: generateId(), date, text, done: false, createdAt: Date.now() }]
+      localStorage.setItem(TODOS_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  const toggleTodo = useCallback((id: string) => {
+    setTodos((prev) => {
+      const next = prev.map((t) => t.id === id ? { ...t, done: !t.done } : t)
+      localStorage.setItem(TODOS_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  const deleteTodo = useCallback((id: string) => {
+    setTodos((prev) => {
+      const next = prev.filter((t) => t.id !== id)
+      localStorage.setItem(TODOS_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   const activityByDay = useMemo(() => {
     const map = new Map<string, DayActivity>()
     for (const a of activity) map.set(a.date, a)
@@ -98,6 +139,16 @@ export function useCalendar(): UseCalendarReturn {
     }
     return map
   }, [plans])
+
+  const todosByDay = useMemo(() => {
+    const map = new Map<string, DayTodo[]>()
+    for (const t of todos) {
+      const arr = map.get(t.date) ?? []
+      arr.push(t)
+      map.set(t.date, arr)
+    }
+    return map
+  }, [todos])
 
   // Consecutive days ending at today that have activity or a completed plan
   const streak = useMemo(() => {
@@ -146,5 +197,10 @@ export function useCalendar(): UseCalendarReturn {
     deletePlan,
     markComplete,
     logActivity,
+    todos,
+    todosByDay,
+    createTodo,
+    toggleTodo,
+    deleteTodo,
   }
 }

@@ -42,7 +42,7 @@ const DEFAULT_NOTES_BEHAVIOR: NotesBehavior = 'soft'
 
 export function SessionPage() {
   const [event, setEvent] = useState<WCAEvent>('333')
-  const [showAI] = useState(true)
+  const [showAI] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [isManualMode, setIsManualMode] = useState(false)
   const [lastResult, setLastResult] = useState<TimerResult | null>(null)

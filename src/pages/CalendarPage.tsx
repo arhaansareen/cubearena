@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useCalendar } from '@/hooks/useCalendar'
+import { useCalendar, type DayTodo } from '@/hooks/useCalendar'
 import { useReminders } from '@/hooks/useReminders'
 import { formatTime } from '@/lib/utils'
 import type { DayActivity, PlannedSession, WCAEvent } from '@/types'
@@ -335,19 +335,100 @@ function PlanCard({
   )
 }
 
+// ─── TodoSection ─────────────────────────────────────────────────────────────
+
+function TodoSection({ date, todos, onCreateTodo, onToggleTodo, onDeleteTodo }: {
+  date: string
+  todos: DayTodo[]
+  onCreateTodo: (date: string, text: string) => void
+  onToggleTodo: (id: string) => void
+  onDeleteTodo: (id: string) => void
+}) {
+  const [input, setInput] = useState('')
+  const submit = () => {
+    const text = input.trim()
+    if (!text) return
+    onCreateTodo(date, text)
+    setInput('')
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {todos.map(todo => (
+        <div key={todo.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => onToggleTodo(todo.id)}
+            style={{
+              width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+              border: `1.5px solid ${todo.done ? 'var(--positive)' : 'var(--border)'}`,
+              backgroundColor: todo.done ? 'var(--positive)' : 'transparent',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            {todo.done && (
+              <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                <path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="#020617" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+          <span style={{
+            flex: 1, fontSize: 13,
+            color: todo.done ? 'var(--text-muted)' : 'var(--text-primary)',
+            textDecoration: todo.done ? 'line-through' : 'none',
+          }}>
+            {todo.text}
+          </span>
+          <button
+            onClick={() => onDeleteTodo(todo.id)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 2px', fontSize: 14, lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && submit()}
+          placeholder="Add a goal…"
+          style={{
+            flex: 1, background: 'var(--surface-1)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '6px 10px', fontSize: 13,
+            color: 'var(--text-primary)', outline: 'none',
+          }}
+        />
+        <button
+          onClick={submit}
+          style={{
+            padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)',
+            backgroundColor: 'var(--surface-1)', color: 'var(--text-muted)',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── DayPanel ────────────────────────────────────────────────────────────────
 
 interface DayPanelProps {
   dateKey: string
   plans: PlannedSession[]
   activity: DayActivity | undefined
+  todos: DayTodo[]
   onClose: () => void
   onAddPlan: () => void
   onMarkComplete: (id: string) => void
   onDeletePlan: (id: string) => void
+  onCreateTodo: (date: string, text: string) => void
+  onToggleTodo: (id: string) => void
+  onDeleteTodo: (id: string) => void
 }
 
-function DayPanel({ dateKey, plans, activity, onClose, onAddPlan, onMarkComplete, onDeletePlan }: DayPanelProps) {
+function DayPanel({ dateKey, plans, activity, todos, onClose, onAddPlan, onMarkComplete, onDeletePlan, onCreateTodo, onToggleTodo, onDeleteTodo }: DayPanelProps) {
   return (
     <>
       <motion.div
@@ -409,7 +490,7 @@ function DayPanel({ dateKey, plans, activity, onClose, onAddPlan, onMarkComplete
 
         {/* Plans */}
         {plans.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: activity ? 16 : 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {plans.map((plan) => (
               <PlanCard key={plan.id} plan={plan} onMarkComplete={onMarkComplete} onDelete={onDeletePlan} />
             ))}
@@ -418,11 +499,19 @@ function DayPanel({ dateKey, plans, activity, onClose, onAddPlan, onMarkComplete
           <div style={{
             textAlign: 'center', padding: '24px 0',
             fontSize: 14, color: 'var(--text-muted)',
-            marginBottom: activity ? 16 : 0,
+            marginBottom: 16,
           }}>
             No sessions planned
           </div>
         )}
+
+        {/* Todos */}
+        <div style={{ marginBottom: activity ? 16 : 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 8 }}>
+            Today's goals
+          </div>
+          <TodoSection date={dateKey} todos={todos} onCreateTodo={onCreateTodo} onToggleTodo={onToggleTodo} onDeleteTodo={onDeleteTodo} />
+        </div>
 
         {/* Activity summary */}
         {activity && activity.solveCount > 0 && (
@@ -666,6 +755,110 @@ function CreatePlanForm({ initialDate, onConfirm, onClose }: CreatePlanFormProps
   )
 }
 
+// ─── WeekView ─────────────────────────────────────────────────────────────────
+
+function getWeekDates(referenceDate: Date): Date[] {
+  const d = new Date(referenceDate)
+  d.setHours(0, 0, 0, 0)
+  const day = d.getDay()
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - ((day + 6) % 7))
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(monday)
+    date.setDate(monday.getDate() + i)
+    return date
+  })
+}
+
+const WEEK_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+interface WeekViewProps {
+  referenceDate: Date
+  currentTodayKey: string
+  selectedDate: string | null
+  plansByDay: Map<string, PlannedSession[]>
+  activityByDay: Map<string, DayActivity>
+  todosByDay: Map<string, DayTodo[]>
+  onSelectDate: (key: string) => void
+}
+
+function WeekView({ referenceDate, currentTodayKey, selectedDate, plansByDay, activityByDay, todosByDay, onSelectDate }: WeekViewProps) {
+  const dates = getWeekDates(referenceDate)
+  return (
+    <div style={{ flex: 1, padding: '0 12px', overflowY: 'auto' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+        {dates.map((date, i) => {
+          const key = toDateKey(date)
+          const isToday = key === currentTodayKey
+          const isSelected = key === selectedDate
+          const plans = plansByDay.get(key) ?? []
+          const activity = activityByDay.get(key)
+          const dayTodos = todosByDay.get(key) ?? []
+          const doneTodos = dayTodos.filter(t => t.done).length
+          return (
+            <div
+              key={key}
+              onClick={() => onSelectDate(key)}
+              style={{
+                minHeight: 120,
+                borderRadius: 10,
+                border: `1px solid ${isSelected ? 'var(--accent)' : isToday ? 'rgba(34,211,238,0.3)' : 'var(--border)'}`,
+                backgroundColor: isSelected ? 'var(--accent-dim)' : 'var(--surface-0)',
+                padding: '10px 10px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                transition: 'border-color 150ms ease, background-color 150ms ease',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)' }}>{WEEK_DAY_NAMES[i]}</span>
+                <span style={{
+                  fontSize: 13, fontWeight: 700,
+                  color: isToday ? 'var(--accent)' : 'var(--text-primary)',
+                  lineHeight: 1,
+                }}>
+                  {date.getDate()}
+                </span>
+              </div>
+              {activity && activity.solveCount > 0 && (
+                <div style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: 'var(--positive)',
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  {activity.solveCount} solve{activity.solveCount !== 1 ? 's' : ''}
+                </div>
+              )}
+              {plans.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
+                  {plans.slice(0, 2).map(p => (
+                    <div key={p.id} style={{
+                      fontSize: 10, fontWeight: 500,
+                      color: p.completedAt ? 'var(--positive)' : 'var(--accent)',
+                      backgroundColor: p.completedAt ? 'rgba(34,197,94,0.1)' : 'var(--accent-dim)',
+                      borderRadius: 4, padding: '2px 5px',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {EVENT_LABELS[p.event as WCAEvent] ?? p.event}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {dayTodos.length > 0 && (
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 'auto' }}>
+                  {doneTodos}/{dayTodos.length} done
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── CalendarPage ─────────────────────────────────────────────────────────────
 
 export function CalendarPage() {
@@ -679,7 +872,9 @@ export function CalendarPage() {
     typeof Notification !== 'undefined' ? Notification.permission : 'denied'
   )
 
-  const { activityByDay, plansByDay, plans, streak, weeklyFrequency, createPlan, deletePlan, markComplete } =
+  const [view, setView] = useState<'month' | 'week'>('month')
+
+  const { activityByDay, plansByDay, plans, streak, weeklyFrequency, createPlan, deletePlan, markComplete, todosByDay, createTodo, toggleTodo, deleteTodo } =
     useCalendar()
 
   useReminders(plans)
@@ -731,6 +926,23 @@ export function CalendarPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>Calendar</h1>
           {streak > 0 && <StreakBadge streak={streak} />}
+        </div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {(['month', 'week'] as const).map(v => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              style={{
+                padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)',
+                backgroundColor: view === v ? 'var(--accent-dim)' : 'transparent',
+                color: view === v ? 'var(--accent)' : 'var(--text-muted)',
+                fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                textTransform: 'capitalize',
+              }}
+            >
+              {v}
+            </button>
+          ))}
         </div>
         <button
           onClick={() => openCreate(currentTodayKey)}
@@ -803,42 +1015,55 @@ export function CalendarPage() {
       </div>
 
       {/* Calendar grid */}
-      <div style={{ flex: 1, padding: '0 12px', overflowY: 'auto' }}>
-        {/* Day-of-week headers */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 2 }}>
-          {DAY_LABELS.map((day) => (
-            <div key={day} style={{
-              textAlign: 'center',
-              fontSize: 10, fontWeight: 600,
-              color: 'var(--text-muted)',
-              padding: '4px 0',
-              textTransform: 'uppercase', letterSpacing: '0.07em',
-            }}>
-              {day}
+      <div style={{ flex: 1, padding: '0 12px', overflowY: view === 'week' ? 'hidden' : 'auto' }}>
+        {view === 'month' ? (
+          <>
+            {/* Day-of-week headers */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 2 }}>
+              {DAY_LABELS.map((day) => (
+                <div key={day} style={{
+                  textAlign: 'center',
+                  fontSize: 10, fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  padding: '4px 0',
+                  textTransform: 'uppercase', letterSpacing: '0.07em',
+                }}>
+                  {day}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* Cells */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-          {grid.map((gridDate, i) => {
-            const key = gridDate ? toDateKey(gridDate) : null
-            const dayPlans = key ? (plansByDay.get(key) ?? []) : []
-            const dayActivity = key ? activityByDay.get(key) : undefined
-            return (
-              <DayCell
-                key={i}
-                gridDate={gridDate}
-                isToday={key === currentTodayKey}
-                isSelected={key === selectedDate}
-                plans={dayPlans}
-                hasActivity={!!dayActivity && dayActivity.solveCount > 0}
-                activityCount={dayActivity?.solveCount ?? 0}
-                onClick={() => key && setSelectedDate((prev) => (prev === key ? null : key))}
-              />
-            )
-          })}
-        </div>
+            {/* Cells */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+              {grid.map((gridDate, i) => {
+                const key = gridDate ? toDateKey(gridDate) : null
+                const dayPlans = key ? (plansByDay.get(key) ?? []) : []
+                const dayActivity = key ? activityByDay.get(key) : undefined
+                return (
+                  <DayCell
+                    key={i}
+                    gridDate={gridDate}
+                    isToday={key === currentTodayKey}
+                    isSelected={key === selectedDate}
+                    plans={dayPlans}
+                    hasActivity={!!dayActivity && dayActivity.solveCount > 0}
+                    activityCount={dayActivity?.solveCount ?? 0}
+                    onClick={() => key && setSelectedDate((prev) => (prev === key ? null : key))}
+                  />
+                )
+              })}
+            </div>
+          </>
+        ) : (
+          <WeekView
+            referenceDate={selectedDate ? new Date(selectedDate.replace(/-/g, '/')) : new Date()}
+            currentTodayKey={currentTodayKey}
+            selectedDate={selectedDate}
+            plansByDay={plansByDay}
+            activityByDay={activityByDay}
+            todosByDay={todosByDay}
+            onSelectDate={(key) => setSelectedDate((prev) => prev === key ? null : key)}
+          />
+        )}
       </div>
 
       {/* Consistency footer */}
@@ -862,10 +1087,14 @@ export function CalendarPage() {
             dateKey={selectedDate}
             plans={selectedPlans}
             activity={selectedActivity}
+            todos={todosByDay.get(selectedDate) ?? []}
             onClose={() => setSelectedDate(null)}
             onAddPlan={() => openCreate(selectedDate)}
             onMarkComplete={markComplete}
             onDeletePlan={deletePlan}
+            onCreateTodo={createTodo}
+            onToggleTodo={toggleTodo}
+            onDeleteTodo={deleteTodo}
           />
         )}
       </AnimatePresence>
