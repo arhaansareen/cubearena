@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
   onAuthStateChanged,
+  signInAnonymously,
   signOut as firebaseSignOut,
-  GoogleAuthProvider,
-  signInWithPopup,
   type User,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -11,14 +10,10 @@ import { auth } from '@/lib/firebase'
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  isAnonymous: boolean
-  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
-
-const googleProvider = new GoogleAuthProvider()
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -33,8 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
-        setUser(firebaseUser)
-        setLoading(false)
+        if (firebaseUser) {
+          setUser(firebaseUser)
+          setLoading(false)
+        } else {
+          signInAnonymously(auth).catch(() => setLoading(false))
+        }
       },
       () => setLoading(false)
     )
@@ -42,24 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe
   }, [])
 
-  const signInWithGoogle = async (): Promise<void> => {
-    if (!auth || typeof auth.onAuthStateChanged !== 'function') return
-    await signInWithPopup(auth, googleProvider)
-  }
-
-  const signOut = async (): Promise<void> => {
+  const signOut = async () => {
     if (!auth || typeof auth.onAuthStateChanged !== 'function') return
     await firebaseSignOut(auth)
   }
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      isAnonymous: !user || user.isAnonymous,
-      signInWithGoogle,
-      signOut,
-    }}>
+    <AuthContext.Provider value={{ user, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   )
