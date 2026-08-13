@@ -22,8 +22,8 @@
   --shadow-soft: 0 4px 24px rgba(2, 6, 23, 0.55);
   --shadow-deep: 0 8px 40px rgba(2, 6, 23, 0.7);
   --shadow-accent: 0 0 28px rgba(34, 211, 238, 0.18);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: #020617;
+  --foreground: #F8FAFC;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
