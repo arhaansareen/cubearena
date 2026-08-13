@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import type { WCAEvent, NotesBehavior, UserSettings } from '@/types'
 import { useProfile } from '@/providers/ProfileProvider'
 import { useWCAData } from '@/hooks/useWCAData'
+import { useAuth } from '@/providers/AuthProvider'
 
 const WCA_EVENTS: { value: WCAEvent; label: string }[] = [
   { value: '333', label: '3x3' },
@@ -135,6 +136,7 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
   const { profile, save: saveProfile, isSaving } = useProfile()
   const { state: wcaVerifyState, lookup: wcaLookup, reset: wcaReset } = useWCAData()
+  const { user, signOut } = useAuth()
 
   const [displayNameInput, setDisplayNameInput] = useState(profile?.displayName ?? '')
   const [wcaIdInput, setWcaIdInput] = useState(profile?.wcaId ?? '')
@@ -608,6 +610,56 @@ export function SettingsPage() {
           onChange={(v) => update('clutchModeEnabled', v)}
           label="Enable Clutch Mode"
         />
+      </Section>
+
+      {/* Account */}
+      <Section title="Account">
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {user.photoURL && (
+              <img
+                src={user.photoURL}
+                alt=""
+                width={40}
+                height={40}
+                style={{ borderRadius: '50%', flexShrink: 0 }}
+              />
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.displayName ?? 'Signed in'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.email}
+              </div>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={signOut}
+          style={{
+            alignSelf: 'flex-start',
+            padding: '9px 20px',
+            borderRadius: 8,
+            border: '1px solid var(--border)',
+            backgroundColor: 'transparent',
+            color: 'var(--text-muted)',
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'border-color 150ms ease, color 150ms ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--penalty)'
+            e.currentTarget.style.color = 'var(--penalty)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border)'
+            e.currentTarget.style.color = 'var(--text-muted)'
+          }}
+        >
+          Sign out
+        </button>
       </Section>
     </div>
   )

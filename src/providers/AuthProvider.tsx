@@ -1,33 +1,32 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
   onAuthStateChanged,
-  signInWithEmailAndPassword,
   signInAnonymously,
   signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+  linkWithPopup,
   type User,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
+  isAnonymous: boolean
+  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-interface AuthProviderProps {
-  children: ReactNode
-}
+const googleProvider = new GoogleAuthProvider()
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Guard against uninitialized auth (e.g., missing Firebase config)
     if (!auth || typeof auth.onAuthStateChanged !== 'function') {
       setLoading(false)
       return
@@ -39,38 +38,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (firebaseUser) {
           setUser(firebaseUser)
           setLoading(false)
-          // Mirror into Supabase so users appear in the Supabase Auth dashboard
-          if (isSupabaseConfigured) {
-            supabase.auth.getSession().then(({ data }) => {
-              if (!data.session) {
-                supabase.auth.signInAnonymously().catch((err) => {
-                  console.warn('[AuthProvider] Supabase anonymous sign-in failed:', err)
-                })
-              }
-            })
-          }
         } else {
-          // Sign in anonymously so there is always a uid for Firestore writes
-          signInAnonymously(auth).catch((err) => {
-            console.warn('[AuthProvider] Anonymous sign-in failed:', err)
-            setLoading(false)
-          })
+          // Always have an anonymous session as fallback
+          signInAnonymously(auth).catch(() => setLoading(false))
         }
       },
-      (error) => {
-        console.warn('[AuthProvider] onAuthStateChanged error:', error)
-        setLoading(false)
-      }
+      () => setLoading(false)
     )
 
     return unsubscribe
   }, [])
 
-  const signIn = async (email: string, password: string): Promise<void> => {
-    if (!auth || typeof auth.onAuthStateChanged !== 'function') {
-      throw new Error('Firebase is not configured. Check your environment variables.')
+  const signInWithGoogle = async (): Promise<void> => {
+    if (!auth || typeof auth.onAuthStateChanged !== 'function') return
+    if (user?.isAnonymous) {
+      try {
+        // Link anonymous session → Google (preserves existing solves under same uid)
+        await linkWithPopup(user, googleProvider)
+      } catch (err: any) {
+        if (err.code === 'auth/credential-already-in-use') {
+          // Google account already exists separately — sign into it
+          await signInWithPopup(auth, googleProvider)
+        } else {
+          throw err
+        }
+      }
+    } else {
+      await signInWithPopup(auth, googleProvider)
     }
-    await signInWithEmailAndPassword(auth, email, password)
   }
 
   const signOut = async (): Promise<void> => {
@@ -79,7 +74,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      isAnonymous: user?.isAnonymous ?? true,
+      signInWithGoogle,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   )
@@ -87,8 +88,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext)
-  if (!ctx) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider')
   return ctx
 }
