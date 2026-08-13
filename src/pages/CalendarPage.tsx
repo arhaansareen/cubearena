@@ -83,7 +83,7 @@ function StreakBadge({ streak }: { streak: number }) {
       fontSize: 15, fontWeight: 700,
       color: hot ? 'var(--inspection)' : 'var(--text-muted)',
     }}>
-      🔥
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2c0 4-4 5-4 9a4 4 0 008 0c0-2-1-3-1-5 0 0-1 2-2 2s-2-2-1-6z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" fill="currentColor" fillOpacity="0.3"/></svg>
       <span style={{ fontSize: 15, fontWeight: 700 }}>{streak}</span>
       <span style={{ fontSize: 12, fontWeight: 500 }}>{streak === 1 ? 'day' : 'days'}</span>
     </div>

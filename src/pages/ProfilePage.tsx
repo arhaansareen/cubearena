@@ -37,7 +37,7 @@ const EVENT_LABELS: Record<string, string> = {
 }
 
 function countryFlag(code: string | null) {
-  return COUNTRIES.find((c) => c.code === code)?.flag ?? '🌍'
+  return COUNTRIES.find((c) => c.code === code)?.flag ?? '🌐'
 }
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
@@ -95,7 +95,7 @@ function Avatar({
           onMouseEnter={(e) => { e.currentTarget.style.opacity = '1' }}
           onMouseLeave={(e) => { e.currentTarget.style.opacity = '0' }}
           >
-            <span style={{ fontSize: 22 }}>📷</span>
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 4l1.5-2h3L13 4h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1h3z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/><circle cx="10" cy="10" r="2.5" stroke="white" strokeWidth="1.5"/></svg>
           </div>
           <input
             ref={inputRef}
@@ -326,7 +326,9 @@ export function ProfilePage() {
                   backgroundColor: 'rgba(0,0,0,0.6)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   zIndex: 1, fontSize: 18,
-                }}>⏳</div>
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5" stroke="white" strokeWidth="1.5" opacity="0.6"/><path d="M10 6v4l2.5 2.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
               )}
               <Avatar
                 url={profile?.avatar_url ?? null}
@@ -493,7 +495,8 @@ export function ProfilePage() {
                       padding: '4px 10px', border: '1px solid rgba(34,211,238,0.2)',
                     }}
                   >
-                    🏅 WCA: {profile.wca_id}
+                    <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/><path d="M6 11l-2 7 6-3 6 3-2-7" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                    WCA: {profile.wca_id}
                   </a>
                 )}
                 {profile?.total_points !== undefined && (
@@ -504,7 +507,8 @@ export function ProfilePage() {
                     padding: '4px 10px', border: '1px solid rgba(34,197,94,0.2)',
                     fontFamily: "'JetBrains Mono', monospace", fontWeight: 600,
                   }}>
-                    ⭐ {profile.total_points.toLocaleString()} pts
+                    <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2l2.4 5 5.6.8-4 3.9.9 5.3L10 14.5l-4.9 2.5.9-5.3L2 7.8l5.6-.8L10 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                    {profile.total_points.toLocaleString()} pts
                   </span>
                 )}
                 {profile?.day_streak !== undefined && profile.day_streak > 0 && (
@@ -515,7 +519,8 @@ export function ProfilePage() {
                     padding: '4px 10px', border: '1px solid rgba(249,115,22,0.2)',
                     fontFamily: "'JetBrains Mono', monospace", fontWeight: 600,
                   }}>
-                    🔥 {profile.day_streak}-day streak
+                    <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2c0 4-4 5-4 9a4 4 0 008 0c0-2-1-3-1-5 0 0-1 2-2 2s-2-2-1-6z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                    {profile.day_streak}-day streak
                   </span>
                 )}
               </div>
@@ -541,8 +546,9 @@ export function ProfilePage() {
                 borderRadius: 14, padding: '20px 22px',
               }}
             >
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: '-0.01em' }}>
-                🎯 Cubing Goals
+              <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 7 }}>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5"/><circle cx="10" cy="10" r="4" stroke="currentColor" strokeWidth="1.5"/><circle cx="10" cy="10" r="1.5" fill="currentColor"/></svg>
+                Goals
               </h2>
               <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.65, margin: 0, whiteSpace: 'pre-wrap' }}>
                 {profile.goals}
@@ -556,8 +562,9 @@ export function ProfilePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
           >
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: '-0.01em' }}>
-              📊 Stats
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 7 }}>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2" y="10" width="4" height="8" rx="1" fill="currentColor" opacity="0.7"/><rect x="8" y="6" width="4" height="12" rx="1" fill="currentColor" opacity="0.9"/><rect x="14" y="2" width="4" height="16" rx="1" fill="currentColor"/></svg>
+              Stats
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <StatChip label="Total Solves" value={(profile?.solve_count ?? 0).toLocaleString()} />
@@ -582,8 +589,9 @@ export function ProfilePage() {
               borderRadius: 14, padding: '20px 22px',
             }}
           >
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12, letterSpacing: '-0.01em' }}>
-              🏆 Personal Bests
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 7 }}>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 13c-3.314 0-6-2.686-6-6V3h12v4c0 3.314-2.686 6-6 6z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M4 5H2.5a1 1 0 00-1 1v1a3 3 0 003 3H5M16 5h1.5a1 1 0 011 1v1a3 3 0 01-3 3H15M10 13v3M7 18h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              Personal bests
             </h2>
             {pbEntries.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
@@ -624,8 +632,9 @@ export function ProfilePage() {
               borderRadius: 14, padding: '20px 22px',
             }}
           >
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12, letterSpacing: '-0.01em' }}>
-              🎖 Achievements
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 7 }}>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2l1.8 3.8 4.2.6-3 3 .7 4.2L10 11.5l-3.7 2.1.7-4.2-3-3 4.2-.6L10 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+              Achievements
             </h2>
             <AnimatePresence>
               {achievements.length === 0 ? (
