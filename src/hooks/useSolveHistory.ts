@@ -16,12 +16,12 @@ function rowToSolve(row: Record<string, unknown>): Solve {
     id: row.id as string,
     sessionId: row.session_id as string,
     event: row.event as WCAEvent,
-    time: row.time as number,
+    time: row.time_ms as number,
     penalty: (row.penalty ?? null) as Penalty,
-    effectiveTime: row.effective_time as number,
+    effectiveTime: (row.effective_time_ms ?? Infinity) as number,
     scramble: (row.scramble ?? '') as string,
-    inspectionTime: (row.inspection_time ?? 0) as number,
-    timestamp: new Date(row.created_at as string).getTime(),
+    inspectionTime: (row.inspection_time_ms ?? 0) as number,
+    timestamp: new Date(row.timestamp as string).getTime(),
     notes: (row.notes ?? null) as string | null,
     tags: (row.tags ?? []) as string[],
   }
@@ -31,17 +31,17 @@ function rowToSolve(row: Record<string, unknown>): Solve {
 function solveToRow(solve: Solve, userId: string) {
   return {
     id: solve.id,
-    user_id: userId,
+    firebase_uid: userId,
     session_id: solve.sessionId,
     event: solve.event,
-    time: solve.time,
+    time_ms: solve.time,
     penalty: solve.penalty,
-    effective_time: solve.effectiveTime,
+    effective_time_ms: isFinite(solve.effectiveTime) ? solve.effectiveTime : null,
     scramble: solve.scramble,
-    inspection_time: solve.inspectionTime,
+    inspection_time_ms: solve.inspectionTime,
     notes: solve.notes,
     tags: solve.tags,
-    created_at: new Date(solve.timestamp).toISOString(),
+    timestamp: new Date(solve.timestamp).toISOString(),
   }
 }
 
@@ -64,8 +64,8 @@ export function useSolveHistory(uid: string | null | undefined): UseSolveHistory
     supabase
       .from('solves')
       .select('*')
-      .eq('user_id', uid)
-      .order('created_at', { ascending: false })
+      .eq('firebase_uid', uid)
+      .order('timestamp', { ascending: false })
       .limit(200)
       .then(({ data, error }) => {
         if (error) {
@@ -85,7 +85,7 @@ export function useSolveHistory(uid: string | null | undefined): UseSolveHistory
           event: 'INSERT',
           schema: 'public',
           table: 'solves',
-          filter: `user_id=eq.${uid}`,
+          filter: `firebase_uid=eq.${uid}`,
         },
         (payload) => {
           setSolves((prev) => [rowToSolve(payload.new as Record<string, unknown>), ...prev].slice(0, 200))
@@ -101,6 +101,10 @@ export function useSolveHistory(uid: string | null | undefined): UseSolveHistory
   const persistSolve = useCallback(
     async (solve: Solve): Promise<void> => {
       if (!uid || !isSupabaseConfigured) return
+      // Ensure a profile row exists first (no-op if already present)
+      await supabase
+        .from('profiles')
+        .upsert({ firebase_uid: uid }, { onConflict: 'firebase_uid', ignoreDuplicates: true })
       const { error } = await supabase.from('solves').upsert(solveToRow(solve, uid))
       if (error) console.warn('[useSolveHistory] persist failed', error)
     },
