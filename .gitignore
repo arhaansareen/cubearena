@@ -8,3 +8,4 @@ dist-ssr
 .DS_Store
 .vercel
 CLAUDE.md
+.playwright-mcp/

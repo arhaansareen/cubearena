@@ -1,5 +1,0 @@
-- generic [active] [ref=e1]:
-  - generic [ref=e4]:
-    - img "Supabase" [ref=e8]
-    - generic [ref=e14]: Loading...
-  - alert [ref=e30]
