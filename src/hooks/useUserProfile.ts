@@ -25,7 +25,7 @@ async function loadFromSupabase(uid: string): Promise<UserProfile | null> {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', uid)
+      .eq('firebase_uid', uid)
       .single()
     if (error || !data) return null
     return {
@@ -42,11 +42,11 @@ async function saveToSupabase(uid: string, profile: UserProfile): Promise<void> 
   if (!isSupabaseConfigured) return
   try {
     const { error } = await supabase.from('profiles').upsert({
-      id: uid,
+      firebase_uid: uid,
       display_name: profile.displayName,
       wca_id: profile.wcaId,
       updated_at: new Date(profile.updatedAt).toISOString(),
-    })
+    }, { onConflict: 'firebase_uid' })
     if (error) console.warn('[useUserProfile] Supabase save failed:', error)
   } catch (err) {
     console.warn('[useUserProfile] save failed:', err)
