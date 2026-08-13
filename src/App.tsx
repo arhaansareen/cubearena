@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { AuthProvider } from '@/providers/AuthProvider'
 import { AudioProvider } from '@/providers/AudioProvider'
 import { ProfileProvider } from '@/providers/ProfileProvider'
@@ -13,6 +13,7 @@ import { CompetitionPage } from '@/pages/CompetitionPage'
 import { UpcomingCompsPage } from '@/pages/UpcomingCompsPage'
 import { LeaderboardPage } from '@/pages/LeaderboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 
 function AuthPage() {
   return (
@@ -115,7 +116,7 @@ const router = createBrowserRouter([
       },
       {
         path: '*',
-        element: <Navigate to="/" replace />,
+        element: <NotFoundPage />,
       },
     ],
   },

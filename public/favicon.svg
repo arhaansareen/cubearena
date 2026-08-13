@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="7" fill="#020617"/>
+  <!-- Cube top face -->
+  <path d="M16 6L26 11L16 16L6 11Z" fill="#22D3EE" opacity="0.9"/>
+  <!-- Cube left face -->
+  <path d="M6 11L16 16L16 26L6 21Z" fill="#0891B2"/>
+  <!-- Cube right face -->
+  <path d="M26 11L16 16L16 26L26 21Z" fill="#0E7490"/>
+</svg>

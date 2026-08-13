@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#020617"/>
+  <!-- Subtle grid -->
+  <line x1="0" y1="315" x2="1200" y2="315" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+  <!-- Glow -->
+  <ellipse cx="600" cy="315" rx="400" ry="200" fill="rgba(34,211,238,0.06)"/>
+  <!-- Cube icon -->
+  <path d="M540 210L600 242L660 210L600 178Z" fill="#22D3EE" opacity="0.95"/>
+  <path d="M540 210L600 242L600 306L540 274Z" fill="#0891B2"/>
+  <path d="M660 210L600 242L600 306L660 274Z" fill="#0E7490"/>
+  <!-- Wordmark -->
+  <text x="600" y="378" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="800" fill="white" text-anchor="middle" letter-spacing="-2">CubeArena</text>
+  <!-- Tagline -->
+  <text x="600" y="424" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="400" fill="rgba(148,163,184,0.8)" text-anchor="middle" letter-spacing="0.5">Train like you compete</text>
+  <!-- Accent underline -->
+  <rect x="480" y="444" width="240" height="2" rx="1" fill="rgba(34,211,238,0.4)"/>
+</svg>
