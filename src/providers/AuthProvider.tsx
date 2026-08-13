@@ -1,11 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
   onAuthStateChanged,
-  signInAnonymously,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
-  linkWithPopup,
   type User,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -35,13 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
-        if (firebaseUser) {
-          setUser(firebaseUser)
-          setLoading(false)
-        } else {
-          // Always have an anonymous session as fallback
-          signInAnonymously(auth).catch(() => setLoading(false))
-        }
+        setUser(firebaseUser)
+        setLoading(false)
       },
       () => setLoading(false)
     )
@@ -51,21 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async (): Promise<void> => {
     if (!auth || typeof auth.onAuthStateChanged !== 'function') return
-    if (user?.isAnonymous) {
-      try {
-        // Link anonymous session → Google (preserves existing solves under same uid)
-        await linkWithPopup(user, googleProvider)
-      } catch (err: any) {
-        if (err.code === 'auth/credential-already-in-use') {
-          // Google account already exists separately — sign into it
-          await signInWithPopup(auth, googleProvider)
-        } else {
-          throw err
-        }
-      }
-    } else {
-      await signInWithPopup(auth, googleProvider)
-    }
+    await signInWithPopup(auth, googleProvider)
   }
 
   const signOut = async (): Promise<void> => {
@@ -77,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user,
       loading,
-      isAnonymous: user?.isAnonymous ?? true,
+      isAnonymous: !user || user.isAnonymous,
       signInWithGoogle,
       signOut,
     }}>
