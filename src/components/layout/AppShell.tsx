@@ -274,27 +274,29 @@ export function AppShell() {
           )}
         </AnimatePresence>
 
-        {/* Collapse toggle — small circle on the right border */}
-        <button
-          onClick={() => setCollapsed((p) => !p)}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          style={{
-            position: 'absolute', top: 22, right: -11, zIndex: 101,
-            width: 22, height: 22, borderRadius: '50%',
-            border: '1px solid var(--border)', backgroundColor: 'var(--surface-0)',
-            color: 'var(--text-muted)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 0, boxShadow: '0 1px 6px rgba(0,0,0,0.4)',
-            transition: 'color 150ms ease, border-color 150ms ease',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-        >
-          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">
-            <path d={collapsed ? 'M2 1l3 3-3 3' : 'M6 1L3 4l3 3'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
       </div>
+
+      {/* Collapse toggle — fixed so it's always reachable */}
+      <button
+        className="app-shell-desktop"
+        onClick={() => setCollapsed((p) => !p)}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        style={{
+          position: 'fixed', top: 22, left: effectiveWidth - 11, zIndex: 200,
+          width: 22, height: 22, borderRadius: '50%',
+          border: '1px solid var(--border)', backgroundColor: 'var(--surface-0)',
+          color: 'var(--text-muted)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 0, boxShadow: '0 1px 6px rgba(0,0,0,0.4)',
+          transition: 'left 0.2s ease, color 150ms ease, border-color 150ms ease',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+      >
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">
+          <path d={collapsed ? 'M2 1l3 3-3 3' : 'M6 1L3 4l3 3'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
 
       {/* Main content */}
       <div
