@@ -285,128 +285,144 @@ export function AppShell() {
           top: 0,
           left: 0,
           zIndex: 100,
-          overflow: 'hidden',
-          transition: 'width 0.2s ease',
+          overflow: 'visible',
+          transition: collapsed ? 'width 0.2s ease' : undefined,
           flexShrink: 0,
         }}
       >
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12 }}
-              style={{ display: 'flex', flexDirection: 'column', flex: 1, width: sidebarWidth, minWidth: sidebarWidth }}
-            >
-              {/* Logo */}
-              <div style={{ padding: compact ? '24px 0 24px' : '24px 20px 24px', borderBottom: '1px solid var(--border)', marginBottom: 8, textAlign: compact ? 'center' : 'left' }}>
-                <span style={{
-                  fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
-                  fontSize: compact ? 13 : 16,
-                  fontWeight: 800,
-                  letterSpacing: '-0.03em',
-                  color: 'var(--accent)',
-                }}>
-                  {compact ? 'CA' : 'CubeArena'}
-                </span>
-              </div>
+        {/* Sidebar content */}
+        <div style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                style={{ display: 'flex', flexDirection: 'column', flex: 1, width: sidebarWidth, minWidth: sidebarWidth }}
+              >
+                {/* Logo */}
+                <div style={{ padding: compact ? '24px 0 24px' : '24px 20px 24px', borderBottom: '1px solid var(--border)', marginBottom: 8, textAlign: compact ? 'center' : 'left' }}>
+                  <span style={{
+                    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+                    fontSize: compact ? 13 : 16,
+                    fontWeight: 800,
+                    letterSpacing: '-0.03em',
+                    color: 'var(--accent)',
+                  }}>
+                    {compact ? 'CA' : 'CubeArena'}
+                  </span>
+                </div>
 
-              {/* Nav */}
-              <nav style={{ flex: 1, padding: '0 8px' }}>
-                {DESKTOP_NAV.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === '/'}
-                    title={compact ? item.label : undefined}
-                    style={({ isActive }) => ({
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: compact ? 0 : 12,
-                      justifyContent: compact ? 'center' : 'flex-start',
-                      padding: compact ? '10px 0' : '10px 10px 10px 12px',
-                      fontSize: 14,
-                      fontWeight: isActive ? 600 : 500,
-                      color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                      backgroundColor: isActive ? 'var(--accent-dim)' : 'transparent',
-                      transition: 'color 150ms ease, background-color 150ms ease, border-color 150ms ease',
-                      borderRadius: 8,
-                      margin: '2px 0',
-                      cursor: 'pointer',
-                      textDecoration: 'none',
-                      borderLeft: compact ? 'none' : `3px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
-                    })}
-                    onMouseOver={(e) => {
-                      const el = e.currentTarget as HTMLElement
-                      el.style.color = 'var(--text-primary)'
-                      el.style.backgroundColor = 'rgba(255,255,255,0.04)'
-                    }}
-                    onMouseOut={(e) => {
-                      const el = e.currentTarget as HTMLElement
-                      el.style.color = ''
-                      el.style.backgroundColor = ''
-                    }}
-                  >
-                    {item.icon}
-                    {!compact && <span>{item.label}</span>}
-                  </NavLink>
+                {/* Nav */}
+                <nav style={{ flex: 1, padding: '0 8px' }}>
+                  {DESKTOP_NAV.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.to === '/'}
+                      title={compact ? item.label : undefined}
+                      style={({ isActive }) => ({
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: compact ? 0 : 12,
+                        justifyContent: compact ? 'center' : 'flex-start',
+                        padding: compact ? '10px 0' : '10px 10px 10px 12px',
+                        fontSize: 14,
+                        fontWeight: isActive ? 600 : 500,
+                        color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                        backgroundColor: isActive ? 'var(--accent-dim)' : 'transparent',
+                        transition: 'color 150ms ease, background-color 150ms ease, border-color 150ms ease',
+                        borderRadius: 8,
+                        margin: '2px 0',
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                        borderLeft: compact ? 'none' : `3px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                      })}
+                      onMouseOver={(e) => {
+                        const el = e.currentTarget as HTMLElement
+                        el.style.color = 'var(--text-primary)'
+                        el.style.backgroundColor = 'rgba(255,255,255,0.04)'
+                      }}
+                      onMouseOut={(e) => {
+                        const el = e.currentTarget as HTMLElement
+                        el.style.color = ''
+                        el.style.backgroundColor = ''
+                      }}
+                    >
+                      {item.icon}
+                      {!compact && <span>{item.label}</span>}
+                    </NavLink>
+                  ))}
+                </nav>
+
+                <ProfileStrip compact={compact} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Right border + drag rail (only when expanded) */}
+        {!collapsed && (
+          <div
+            onPointerDown={onHandlePointerDown}
+            onPointerMove={onHandlePointerMove}
+            onPointerUp={onHandlePointerUp}
+            onMouseEnter={() => setHandleHovered(true)}
+            onMouseLeave={() => setHandleHovered(false)}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: -8,
+              width: 16,
+              height: '100%',
+              cursor: 'col-resize',
+              zIndex: 103,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {/* Visible border line */}
+            <div style={{
+              width: 1,
+              height: '100%',
+              backgroundColor: handleHovered ? 'var(--accent)' : 'var(--border)',
+              opacity: handleHovered ? 0.5 : 1,
+              transition: 'background-color 180ms ease',
+            }} />
+            {/* Grip dots — appear on hover */}
+            {handleHovered && (
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 3,
+                pointerEvents: 'none',
+              }}>
+                {[0,1,2,3,4].map((i) => (
+                  <div key={i} style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: 'var(--accent)', opacity: 0.7 }} />
                 ))}
-              </nav>
+              </div>
+            )}
+          </div>
+        )}
 
-              <ProfileStrip compact={compact} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Drag handle — right edge of sidebar */}
-        <div
-          onPointerDown={onHandlePointerDown}
-          onPointerMove={onHandlePointerMove}
-          onPointerUp={onHandlePointerUp}
-          onMouseEnter={() => setHandleHovered(true)}
-          onMouseLeave={() => setHandleHovered(false)}
+        {/* Collapse/expand toggle — sits on the border at header height */}
+        <button
+          onClick={() => setCollapsed((p) => !p)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{
             position: 'absolute',
-            top: 0,
-            right: 0,
-            width: 6,
-            height: '100%',
-            cursor: collapsed ? 'e-resize' : 'col-resize',
-            zIndex: 102,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {/* Visual indicator */}
-          <div style={{
-            width: 2,
-            height: '100%',
-            backgroundColor: handleHovered ? 'var(--accent)' : 'var(--border)',
-            opacity: handleHovered ? 0.7 : 1,
-            transition: 'background-color 150ms ease, opacity 150ms ease',
-          }} />
-        </div>
-      </div>
-
-      {/* Collapsed expand button — slim tab on left edge */}
-      {collapsed && (
-        <button
-          className="app-shell-desktop"
-          onClick={() => setCollapsed(false)}
-          title="Show sidebar"
-          style={{
-            position: 'fixed',
-            top: '50%',
-            left: 0,
-            transform: 'translateY(-50%)',
-            zIndex: 101,
-            width: 16,
-            height: 56,
-            borderRadius: '0 6px 6px 0',
+            top: 20,
+            right: collapsed ? -20 : -12,
+            zIndex: 104,
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
             border: '1px solid var(--border)',
-            borderLeft: 'none',
             backgroundColor: 'var(--surface-0)',
             color: 'var(--text-muted)',
             cursor: 'pointer',
@@ -414,15 +430,23 @@ export function AppShell() {
             alignItems: 'center',
             justifyContent: 'center',
             padding: 0,
+            boxShadow: '0 1px 6px rgba(0,0,0,0.35)',
+            transition: 'color 150ms ease, border-color 150ms ease, right 0.2s ease',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-1)'; e.currentTarget.style.color = 'var(--accent)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-0)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
         >
-          <svg width="6" height="10" viewBox="0 0 6 10" fill="none" aria-hidden="true">
-            <path d="M1 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">
+            <path
+              d={collapsed ? 'M2 1l3 3-3 3' : 'M6 1L3 4l3 3'}
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
-      )}
+      </div>
 
       {/* Main content */}
       <div
