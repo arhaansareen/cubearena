@@ -4,6 +4,9 @@ import { generateScramble } from '@/lib/scramble'
 import type { WCAEvent } from '@/types'
 
 export type RacePhase = 'lobby' | 'solving' | 'results'
+export type RaceFormat = 'solo' | 'bo3' | 'bo5' | 'mo3' | 'ao5'
+
+export interface RoundTime { time: number; penalty: string | null }
 
 export interface RaceParticipant {
   id: string
@@ -13,10 +16,9 @@ export interface RaceParticipant {
   solveTime: number | null
   penalty: string | null
   finishedAt: string | null
+  roundTimes: RoundTime[]
   joinedAt: string
 }
-
-export type RaceFormat = 'solo' | 'bo3' | 'bo5' | 'mo3' | 'ao5'
 
 export interface RaceRoom {
   id: string
@@ -26,6 +28,9 @@ export interface RaceRoom {
   format: RaceFormat
   scramble: string | null
   phase: RacePhase
+  currentRound: number
+  totalRounds: number
+  solveStartAt: number | null  // ms epoch — when timer unlocks
   startedAt: string | null
 }
 
@@ -35,11 +40,39 @@ export type RaceState =
   | { status: 'error'; message: string }
   | { status: 'in_room'; room: RaceRoom; participants: RaceParticipant[]; myUid: string }
 
+// ─── Format helpers ──────────────────────────────────────────────────────────
+
+export const FORMAT_ROUNDS: Record<RaceFormat, number> = {
+  solo: 1, bo3: 3, bo5: 5, mo3: 3, ao5: 5,
+}
+
+export function computeFinalResult(format: RaceFormat, times: RoundTime[]): number {
+  if (times.length === 0) return Infinity
+  const effective = times.map(t => t.penalty === 'DNF' ? Infinity : t.penalty === '+2' ? t.time + 2000 : t.time)
+  if (format === 'solo') return effective[0] ?? Infinity
+  if (format === 'bo3' || format === 'bo5') return Math.min(...effective)
+  if (format === 'mo3') {
+    const sum = effective.reduce((a, b) => a + b, 0)
+    return sum / effective.length
+  }
+  if (format === 'ao5') {
+    if (effective.length < 5) return Infinity
+    const sorted = [...effective].sort((a, b) => a - b)
+    const middle = sorted.slice(1, 4)
+    const sum = middle.reduce((a, b) => a + b, 0)
+    return sum / 3
+  }
+  return Infinity
+}
+
+// ─── Row parsers ─────────────────────────────────────────────────────────────
+
 function randomCode(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
 }
 
 function rowToRoom(row: Record<string, unknown>): RaceRoom {
+  const solveStartAtStr = row.solve_start_at as string | null
   return {
     id: row.id as string,
     code: row.code as string,
@@ -48,6 +81,9 @@ function rowToRoom(row: Record<string, unknown>): RaceRoom {
     format: (row.format as RaceFormat) ?? 'solo',
     scramble: (row.scramble as string) ?? null,
     phase: (row.phase as RacePhase) ?? 'lobby',
+    currentRound: (row.current_round as number) ?? 1,
+    totalRounds: (row.total_rounds as number) ?? 1,
+    solveStartAt: solveStartAtStr ? new Date(solveStartAtStr).getTime() : null,
     startedAt: (row.started_at as string) ?? null,
   }
 }
@@ -61,9 +97,12 @@ function rowToParticipant(row: Record<string, unknown>): RaceParticipant {
     solveTime: (row.solve_time as number) ?? null,
     penalty: (row.penalty as string) ?? null,
     finishedAt: (row.finished_at as string) ?? null,
+    roundTimes: (row.round_times as RoundTime[]) ?? [],
     joinedAt: row.joined_at as string,
   }
 }
+
+// ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useRaceRoom(myUid: string | null, myDisplayName: string) {
   const [state, setState] = useState<RaceState>({ status: 'idle' })
@@ -82,21 +121,15 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
 
   const subscribeToRoom = useCallback((roomId: string, initialRoom: RaceRoom, initialParticipants: RaceParticipant[]) => {
     roomIdRef.current = roomId
-
     let currentRoom = initialRoom
     let currentParticipants = initialParticipants
-
     setState({ status: 'in_room', room: currentRoom, participants: currentParticipants, myUid: myUid! })
 
     const channel = supabase
       .channel(`race:${roomId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'race_rooms', filter: `id=eq.${roomId}` },
         (payload) => {
-          if (payload.eventType === 'DELETE') {
-            cleanup()
-            setState({ status: 'idle' })
-            return
-          }
+          if (payload.eventType === 'DELETE') { cleanup(); setState({ status: 'idle' }); return }
           currentRoom = rowToRoom(payload.new as Record<string, unknown>)
           setState({ status: 'in_room', room: currentRoom, participants: currentParticipants, myUid: myUid! })
         }
@@ -104,14 +137,12 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'race_participants', filter: `room_id=eq.${roomId}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            const p = rowToParticipant(payload.new as Record<string, unknown>)
-            currentParticipants = [...currentParticipants, p]
+            currentParticipants = [...currentParticipants, rowToParticipant(payload.new as Record<string, unknown>)]
           } else if (payload.eventType === 'UPDATE') {
             const p = rowToParticipant(payload.new as Record<string, unknown>)
-            currentParticipants = currentParticipants.map((x) => x.id === p.id ? p : x)
+            currentParticipants = currentParticipants.map(x => x.id === p.id ? p : x)
           } else if (payload.eventType === 'DELETE') {
-            const deleted = payload.old as Record<string, unknown>
-            currentParticipants = currentParticipants.filter((x) => x.id !== deleted.id)
+            currentParticipants = currentParticipants.filter(x => x.id !== (payload.old as Record<string, unknown>).id)
           }
           setState({ status: 'in_room', room: currentRoom, participants: currentParticipants, myUid: myUid! })
         }
@@ -124,22 +155,18 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
   const createRoom = useCallback(async (event: WCAEvent, format: RaceFormat = 'solo') => {
     if (!isSupabaseConfigured || !myUid) return setError('Not connected')
     setState({ status: 'loading' })
-
+    const totalRounds = FORMAT_ROUNDS[format]
     const code = randomCode()
     const { data: room, error: roomErr } = await supabase
       .from('race_rooms')
-      .insert({ code, host_uid: myUid, event, format, phase: 'lobby' })
-      .select()
-      .single()
-
+      .insert({ code, host_uid: myUid, event, format, phase: 'lobby', current_round: 1, total_rounds: totalRounds })
+      .select().single()
     if (roomErr || !room) return setError(roomErr?.message ?? 'Failed to create room')
 
     const { data: participant, error: pErr } = await supabase
       .from('race_participants')
-      .insert({ room_id: room.id, uid: myUid, display_name: myDisplayName || 'Anonymous', is_ready: false })
-      .select()
-      .single()
-
+      .insert({ room_id: room.id, uid: myUid, display_name: myDisplayName || 'Anonymous', is_ready: false, round_times: [] })
+      .select().single()
     if (pErr || !participant) return setError(pErr?.message ?? 'Failed to join room')
 
     subscribeToRoom(room.id, rowToRoom(room as Record<string, unknown>), [rowToParticipant(participant as Record<string, unknown>)])
@@ -148,36 +175,24 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
   const joinRoom = useCallback(async (code: string) => {
     if (!isSupabaseConfigured || !myUid) return setError('Not connected')
     setState({ status: 'loading' })
-
     const { data: room, error: roomErr } = await supabase
-      .from('race_rooms')
-      .select('*')
-      .eq('code', code.trim().toUpperCase())
-      .single()
-
+      .from('race_rooms').select('*').eq('code', code.trim().toUpperCase()).single()
     if (roomErr || !room) return setError('Room not found — check the code and try again')
     if ((room as Record<string, unknown>).phase !== 'lobby') return setError('Race already in progress')
 
     const { data: existing } = await supabase
-      .from('race_participants')
-      .select('id')
-      .eq('room_id', (room as Record<string, unknown>).id)
-      .eq('uid', myUid)
-      .maybeSingle()
-
+      .from('race_participants').select('id')
+      .eq('room_id', (room as Record<string, unknown>).id).eq('uid', myUid).maybeSingle()
     if (!existing) {
       const { data: p, error: pErr } = await supabase
         .from('race_participants')
-        .insert({ room_id: (room as Record<string, unknown>).id, uid: myUid, display_name: myDisplayName || 'Anonymous', is_ready: false })
-        .select()
-        .single()
+        .insert({ room_id: (room as Record<string, unknown>).id, uid: myUid, display_name: myDisplayName || 'Anonymous', is_ready: false, round_times: [] })
+        .select().single()
       if (pErr || !p) return setError(pErr?.message ?? 'Failed to join room')
     }
 
     const { data: allParticipants } = await supabase
-      .from('race_participants')
-      .select('*')
-      .eq('room_id', (room as Record<string, unknown>).id)
+      .from('race_participants').select('*').eq('room_id', (room as Record<string, unknown>).id)
 
     subscribeToRoom(
       (room as Record<string, unknown>).id as string,
@@ -188,79 +203,86 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
 
   const setReady = useCallback(async (ready: boolean) => {
     if (!myUid || !roomIdRef.current) return
-    await supabase
-      .from('race_participants')
-      .update({ is_ready: ready })
-      .eq('room_id', roomIdRef.current)
-      .eq('uid', myUid)
+    await supabase.from('race_participants').update({ is_ready: ready })
+      .eq('room_id', roomIdRef.current).eq('uid', myUid)
   }, [myUid])
 
-  const startRace = useCallback(async (event: WCAEvent) => {
+  // solveStartAt = 4 seconds from now (countdown)
+  const startRound = useCallback(async (event: WCAEvent, round: number) => {
     if (!roomIdRef.current) return
     const scramble = generateScramble(event)
-    await supabase
-      .from('race_rooms')
-      .update({ phase: 'solving', scramble, started_at: new Date().toISOString() })
-      .eq('id', roomIdRef.current)
-    // reset all participant solve data for a fresh round
-    await supabase
-      .from('race_participants')
+    const solveStartAt = new Date(Date.now() + 4000).toISOString()
+    await supabase.from('race_rooms').update({
+      phase: 'solving', scramble,
+      solve_start_at: solveStartAt,
+      current_round: round,
+      started_at: new Date().toISOString(),
+    }).eq('id', roomIdRef.current)
+    // reset per-round solve data (keep round_times)
+    await supabase.from('race_participants')
       .update({ solve_time: null, penalty: null, finished_at: null, is_ready: false })
       .eq('room_id', roomIdRef.current)
   }, [])
 
-  const submitSolve = useCallback(async (solveTime: number, penalty: string | null) => {
-    if (!myUid || !roomIdRef.current) return
-    const effective = penalty === 'DNF' ? null : penalty === '+2' ? solveTime + 2000 : solveTime
-    await supabase
-      .from('race_participants')
-      .update({ solve_time: effective, penalty, finished_at: new Date().toISOString() })
+  const startRace = useCallback(async (event: WCAEvent) => {
+    await startRound(event, 1)
+  }, [startRound])
+
+  const submitSolve = useCallback(async (rawTime: number, penalty: string | null) => {
+    if (!myUid || !roomIdRef.current || state.status !== 'in_room') return
+    const { room, participants } = state
+    const me = participants.find(p => p.uid === myUid)
+    if (!me) return
+
+    const effective = penalty === 'DNF' ? null : penalty === '+2' ? rawTime + 2000 : rawTime
+    const newEntry: RoundTime = { time: rawTime, penalty }
+    const newRoundTimes = [...me.roundTimes, newEntry]
+
+    await supabase.from('race_participants')
+      .update({ solve_time: effective, penalty, finished_at: new Date().toISOString(), round_times: newRoundTimes })
+      .eq('room_id', roomIdRef.current).eq('uid', myUid)
+
+    // Host checks if everyone is done and advances
+    if (room.hostUid === myUid) {
+      // wait briefly for Supabase to propagate own update
+      setTimeout(async () => {
+        const { data: fresh } = await supabase
+          .from('race_participants').select('*').eq('room_id', roomIdRef.current!)
+        if (!fresh) return
+        const allDone = fresh.every((p: Record<string, unknown>) => p.finished_at !== null)
+        if (!allDone) return
+        const nextRound = room.currentRound + 1
+        if (nextRound <= room.totalRounds) {
+          await startRound(room.event, nextRound)
+        } else {
+          await supabase.from('race_rooms').update({ phase: 'results' }).eq('id', roomIdRef.current!)
+        }
+      }, 800)
+    }
+  }, [myUid, state, startRound])
+
+  const nextRound = useCallback(async (_event: WCAEvent) => {
+    if (!roomIdRef.current || state.status !== 'in_room') return
+    // full reset for a new match
+    await supabase.from('race_participants')
+      .update({ round_times: [], solve_time: null, penalty: null, finished_at: null, is_ready: false })
       .eq('room_id', roomIdRef.current)
-      .eq('uid', myUid)
-  }, [myUid])
-
-  const finishRound = useCallback(async () => {
-    if (!roomIdRef.current) return
-    await supabase
-      .from('race_rooms')
-      .update({ phase: 'results' })
+    await supabase.from('race_rooms')
+      .update({ phase: 'lobby', current_round: 1, scramble: null, solve_start_at: null })
       .eq('id', roomIdRef.current)
-  }, [])
-
-  const nextRound = useCallback(async (event: WCAEvent) => {
-    await startRace(event)
-  }, [startRace])
+  }, [state])
 
   const leaveRoom = useCallback(async () => {
     if (!myUid || !roomIdRef.current) return
     const roomId = roomIdRef.current
     cleanup()
     setState({ status: 'idle' })
-    await supabase
-      .from('race_participants')
-      .delete()
-      .eq('room_id', roomId)
-      .eq('uid', myUid)
-    // if host leaves, delete the whole room
-    const { data: remaining } = await supabase
-      .from('race_participants')
-      .select('id')
-      .eq('room_id', roomId)
+    await supabase.from('race_participants').delete().eq('room_id', roomId).eq('uid', myUid)
+    const { data: remaining } = await supabase.from('race_participants').select('id').eq('room_id', roomId)
     if (!remaining || remaining.length === 0) {
       await supabase.from('race_rooms').delete().eq('id', roomId)
     }
   }, [myUid, cleanup])
-
-  // auto-transition to results when everyone finishes
-  useEffect(() => {
-    if (state.status !== 'in_room') return
-    const { room, participants, myUid: uid } = state
-    if (room.phase !== 'solving') return
-    const amHost = room.hostUid === uid
-    if (!amHost) return
-    const allDone = participants.length >= 2 && participants.every((p) => p.finishedAt !== null)
-    if (allDone) void finishRound()
-  }, [state, finishRound])
 
   useEffect(() => () => { cleanup() }, [cleanup])
 

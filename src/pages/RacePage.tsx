@@ -2,26 +2,26 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
 import { useProfile } from '@/providers/ProfileProvider'
-import { useRaceRoom, type RaceParticipant, type RaceFormat } from '@/hooks/useRaceRoom'
+import { useRaceRoom, type RaceParticipant, type RaceFormat, computeFinalResult, FORMAT_ROUNDS } from '@/hooks/useRaceRoom'
+import { ScrambleViz } from '@/components/session/ScrambleViz'
+import { EventTabs } from '@/components/session/EventTabs'
 import { formatTime } from '@/lib/utils'
 import type { WCAEvent } from '@/types'
 
-const WCA_EVENTS: WCAEvent[] = ['333', '222', '444', '555', '333oh', 'pyram', 'skewb']
 const EVENT_LABELS: Record<string, string> = {
   '333': '3×3', '222': '2×2', '444': '4×4', '555': '5×5',
   '333oh': 'OH', 'pyram': 'Pyraminx', 'skewb': 'Skewb',
 }
 
 const FORMAT_OPTIONS: { value: RaceFormat; label: string; description: string }[] = [
-  { value: 'solo',  label: 'Solve by solve',  description: 'One solve per round, host starts each' },
-  { value: 'bo3',   label: 'Best of 3',        description: '3 solves, lowest single wins' },
-  { value: 'bo5',   label: 'Best of 5',        description: '5 solves, lowest single wins' },
-  { value: 'mo3',   label: 'Mean of 3',        description: '3 solves, mean of all 3 wins' },
-  { value: 'ao5',   label: 'Average of 5',     description: '5 solves, drop best & worst' },
+  { value: 'solo', label: 'Solve by solve',  description: 'One solve, host restarts each round' },
+  { value: 'bo3',  label: 'Best of 3',       description: '3 solves — lowest single wins' },
+  { value: 'bo5',  label: 'Best of 5',       description: '5 solves — lowest single wins' },
+  { value: 'mo3',  label: 'Mean of 3',       description: '3 solves — mean of all 3' },
+  { value: 'ao5',  label: 'Average of 5',    description: '5 solves — drop best & worst' },
 ]
-
 const FORMAT_LABELS: Record<RaceFormat, string> = {
-  solo: 'Solve by solve', bo3: 'Best of 3', bo5: 'Best of 5', mo3: 'Mean of 3', ao5: 'Average of 5',
+  solo: 'Solve by solve', bo3: 'Best of 3', bo5: 'Best of 5', mo3: 'Mean of 3', ao5: 'Avg of 5',
 }
 
 const selectStyle: React.CSSProperties = {
@@ -34,44 +34,62 @@ const selectStyle: React.CSSProperties = {
   paddingRight: 36, transition: 'border-color 150ms ease',
 }
 
-// ─── Timer hook ───────────────────────────────────────────────────────────────
+// ─── Race timer ───────────────────────────────────────────────────────────────
 
-type TimerState = 'idle' | 'armed' | 'running' | 'done'
+type TimerPhase = 'locked' | 'idle' | 'armed' | 'running' | 'done'
 
-function useRaceTimer(onFinish: (ms: number) => void) {
-  const [timerState, setTimerState] = useState<TimerState>('idle')
+function useRaceTimer(unlockAt: number | null) {
+  const [phase, setPhase] = useState<TimerPhase>('locked')
   const [elapsed, setElapsed] = useState(0)
+  const [countdown, setCountdown] = useState(0)
   const startRef = useRef<number | null>(null)
   const rafRef = useRef<number>(0)
-  const stateRef = useRef<TimerState>('idle')
-  stateRef.current = timerState
+  const phaseRef = useRef<TimerPhase>('locked')
+  phaseRef.current = phase
 
-  const tick = useCallback(() => {
-    if (startRef.current) setElapsed(Date.now() - startRef.current)
+  // countdown tick
+  useEffect(() => {
+    if (!unlockAt) return
+    const tick = () => {
+      const remaining = unlockAt - Date.now()
+      if (remaining <= 0) {
+        setCountdown(0)
+        setPhase(p => p === 'locked' ? 'idle' : p)
+        return
+      }
+      setCountdown(Math.ceil(remaining / 1000))
+      rafRef.current = requestAnimationFrame(tick)
+    }
     rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [unlockAt])
+
+  // solve tick
+  const runTick = useCallback(() => {
+    if (startRef.current) setElapsed(Date.now() - startRef.current)
+    rafRef.current = requestAnimationFrame(runTick)
   }, [])
 
   const onKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.code !== 'Space' || e.repeat) return
     e.preventDefault()
-    if (stateRef.current === 'idle') setTimerState('armed')
-    if (stateRef.current === 'running') {
+    if (phaseRef.current === 'idle') setPhase('armed')
+    if (phaseRef.current === 'running') {
       cancelAnimationFrame(rafRef.current)
       const final = startRef.current ? Date.now() - startRef.current : 0
       setElapsed(final)
-      setTimerState('done')
-      onFinish(final)
+      setPhase('done')
     }
-  }, [onFinish])
+  }, [])
 
   const onKeyUp = useCallback((e: KeyboardEvent) => {
     if (e.code !== 'Space') return
-    if (stateRef.current === 'armed') {
+    if (phaseRef.current === 'armed') {
       startRef.current = Date.now()
-      setTimerState('running')
-      rafRef.current = requestAnimationFrame(tick)
+      setPhase('running')
+      rafRef.current = requestAnimationFrame(runTick)
     }
-  }, [tick])
+  }, [runTick])
 
   useEffect(() => {
     window.addEventListener('keydown', onKeyDown)
@@ -87,13 +105,13 @@ function useRaceTimer(onFinish: (ms: number) => void) {
     cancelAnimationFrame(rafRef.current)
     startRef.current = null
     setElapsed(0)
-    setTimerState('idle')
-  }, [])
+    setPhase(unlockAt && unlockAt > Date.now() ? 'locked' : 'idle')
+  }, [unlockAt])
 
-  return { timerState, elapsed, reset }
+  return { phase, elapsed, countdown, reset }
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Components ───────────────────────────────────────────────────────────────
 
 function Avatar({ name, color }: { name: string; color: string }) {
   const initials = name.trim().split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'
@@ -141,27 +159,22 @@ function ParticipantRow({ p, isMe, phase }: { p: RaceParticipant; isMe: boolean;
           {done ? (dnf ? 'DNF' : formatTime(p.solveTime!)) : '…'}
         </div>
       )}
-      {phase === 'results' && done && (
-        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: dnf ? 'var(--penalty)' : 'var(--timer-active)' }}>
-          {dnf ? 'DNF' : formatTime(p.solveTime!)}
-        </div>
-      )}
     </div>
   )
 }
 
-function Leaderboard({ participants }: { participants: RaceParticipant[] }) {
-  const sorted = [...participants].sort((a, b) => {
-    const at = a.penalty === 'DNF' ? Infinity : (a.solveTime ?? Infinity)
-    const bt = b.penalty === 'DNF' ? Infinity : (b.solveTime ?? Infinity)
-    return at - bt
-  })
+function Leaderboard({ participants, format }: { participants: RaceParticipant[]; format: RaceFormat }) {
+  const withResult = participants.map(p => ({
+    ...p,
+    finalResult: computeFinalResult(format, p.roundTimes),
+  }))
+  const sorted = [...withResult].sort((a, b) => a.finalResult - b.finalResult)
   const medals = ['🥇', '🥈', '🥉']
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {sorted.map((p, i) => {
-        const dnf = p.penalty === 'DNF'
-        const time = dnf ? null : p.solveTime
+        const isInf = !isFinite(p.finalResult)
         return (
           <div key={p.id} style={{
             display: 'flex', alignItems: 'center', gap: 12,
@@ -169,15 +182,23 @@ function Leaderboard({ participants }: { participants: RaceParticipant[] }) {
             backgroundColor: i === 0 ? 'rgba(234,179,8,0.08)' : 'var(--surface-1)',
             border: `1px solid ${i === 0 ? 'rgba(234,179,8,0.3)' : 'var(--border)'}`,
           }}>
-            <div style={{ fontSize: 20, width: 28, textAlign: 'center' }}>
-              {medals[i] ?? `${i + 1}`}
-            </div>
+            <div style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{medals[i] ?? `${i + 1}`}</div>
             <Avatar name={p.displayName} color={avatarColor(p.uid)} />
-            <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-              {p.displayName}
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: dnf ? 'var(--penalty)' : 'var(--timer-active)' }}>
-              {dnf ? 'DNF' : time != null ? formatTime(time) : '—'}
+            <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{p.displayName}</div>
+            {p.roundTimes.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, marginRight: 12 }}>
+                {p.roundTimes.map((rt, j) => {
+                  const t = rt.penalty === 'DNF' ? Infinity : rt.penalty === '+2' ? rt.time + 2000 : rt.time
+                  return (
+                    <span key={j} style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-muted)', padding: '2px 6px', border: '1px solid var(--border)', borderRadius: 4 }}>
+                      {rt.penalty === 'DNF' ? 'DNF' : formatTime(t)}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: isInf ? 'var(--penalty)' : 'var(--timer-active)' }}>
+              {isInf ? 'DNF' : formatTime(p.finalResult)}
             </div>
           </div>
         )
@@ -199,18 +220,15 @@ export function RacePage() {
   const [myPenalty, setMyPenalty] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [manualMode, setManualMode] = useState(false)
+  const [manualInput, setManualInput] = useState('')
 
   const { state, createRoom, joinRoom, setReady, startRace, submitSolve, nextRound, leaveRoom } = useRaceRoom(
-    user?.uid ?? null,
-    displayName
+    user?.uid ?? null, displayName
   )
 
-  const handleSolveFinish = useCallback((ms: number) => {
-    // don't auto-submit yet — let user apply penalty first
-    void ms
-  }, [])
-
-  const { timerState, elapsed, reset: resetTimer } = useRaceTimer(handleSolveFinish)
+  const solveStartAt = state.status === 'in_room' ? state.room.solveStartAt : null
+  const { phase: timerPhase, elapsed, countdown, reset: resetTimer } = useRaceTimer(solveStartAt)
 
   const handleSubmit = useCallback(async (penalty: string | null, time: number) => {
     if (submitted) return
@@ -218,14 +236,19 @@ export function RacePage() {
     await submitSolve(time, penalty)
   }, [submitted, submitSolve])
 
-  // Reset submit flag on new round
+  // reset on new round
+  const prevRound = useRef(0)
   useEffect(() => {
-    if (state.status === 'in_room' && state.room.phase === 'solving') {
+    if (state.status !== 'in_room') return
+    const { room } = state
+    if (room.phase === 'solving' && room.currentRound !== prevRound.current) {
+      prevRound.current = room.currentRound
       setSubmitted(false)
       setMyPenalty(null)
+      setManualInput('')
       resetTimer()
     }
-  }, [state.status === 'in_room' && state.status === 'in_room' ? (state as Extract<typeof state, {status:'in_room'}>).room.phase : null, resetTimer])
+  })
 
   const copyCode = () => {
     if (state.status !== 'in_room') return
@@ -234,91 +257,74 @@ export function RacePage() {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  // ── Idle screen ────────────────────────────────────────────────────────────
+  // ── Idle / error ────────────────────────────────────────────────────────────
   if (state.status === 'idle' || state.status === 'error') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80dvh', padding: 32, gap: 32 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80dvh', padding: 32, gap: 28 }}>
         <div style={{ textAlign: 'center' }}>
           <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8, letterSpacing: '-0.02em' }}>Race Room</h1>
           <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>Create a room or join one with a code to race live.</p>
         </div>
 
         {state.status === 'error' && (
-          <div style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: 'var(--penalty)', maxWidth: 400, width: '100%', textAlign: 'center' }}>
+          <div style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: 'var(--penalty)', maxWidth: 480, width: '100%', textAlign: 'center' }}>
             {state.message}
           </div>
         )}
 
         {/* Create */}
-        <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', width: '100%', maxWidth: 400 }}>
+        <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', width: '100%', maxWidth: 480 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 18 }}>Create a room</div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 18 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Event</div>
-              <div style={{ position: 'relative' }}>
-                <select
-                  value={selectedEvent}
-                  onChange={e => setSelectedEvent(e.target.value as WCAEvent)}
-                  style={selectStyle}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)' }}
-                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
-                >
-                  {WCA_EVENTS.map(ev => (
-                    <option key={ev} value={ev}>{EVENT_LABELS[ev]}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+          {/* Event tabs (same as session page) */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>Event</div>
+            <EventTabs value={selectedEvent} onChange={setSelectedEvent} />
+          </div>
 
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Format</div>
-              <div style={{ position: 'relative' }}>
-                <select
-                  value={selectedFormat}
-                  onChange={e => setSelectedFormat(e.target.value as RaceFormat)}
-                  style={selectStyle}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)' }}
-                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
-                >
-                  {FORMAT_OPTIONS.map(f => (
-                    <option key={f.value} value={f.value}>{f.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-                {FORMAT_OPTIONS.find(f => f.value === selectedFormat)?.description}
-              </div>
+          {/* Format */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>Format</div>
+            <select
+              value={selectedFormat}
+              onChange={e => setSelectedFormat(e.target.value as RaceFormat)}
+              style={selectStyle}
+              onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+              onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              {FORMAT_OPTIONS.map(f => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+              {FORMAT_OPTIONS.find(f => f.value === selectedFormat)?.description}
+              {' · '}{FORMAT_ROUNDS[selectedFormat]} solve{FORMAT_ROUNDS[selectedFormat] > 1 ? 's' : ''}
             </div>
           </div>
 
           <button
             onClick={() => createRoom(selectedEvent, selectedFormat)}
-            style={{
-              width: '100%', padding: '12px', borderRadius: 10,
-              backgroundColor: 'var(--accent)', color: '#020617',
-              fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer',
-              transition: 'opacity 150ms ease',
-            }}
-            onMouseDown={e => { e.currentTarget.style.opacity = '0.85' }}
-            onMouseUp={e => { e.currentTarget.style.opacity = '1' }}
+            style={{ width: '100%', padding: '12px', borderRadius: 10, backgroundColor: 'var(--accent)', color: '#020617', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer' }}
+            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.98)' }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
           >
             Create Room
           </button>
         </div>
 
         {/* Join */}
-        <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', width: '100%', maxWidth: 400 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 12 }}>Join a room</div>
+        <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', width: '100%', maxWidth: 480 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 14 }}>Join a room</div>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               value={joinCode}
               onChange={e => setJoinCode(e.target.value.toUpperCase())}
               onKeyDown={e => e.key === 'Enter' && joinCode.length >= 4 && joinRoom(joinCode)}
-              placeholder="Enter code (e.g. A3B9CX)"
+              placeholder="Enter code  (e.g. A3B9CX)"
               maxLength={8}
               style={{
-                flex: 1, backgroundColor: 'var(--surface-1)', border: `1px solid ${joinCode ? 'var(--accent)' : 'var(--border)'}`,
+                flex: 1, backgroundColor: 'var(--surface-1)',
+                border: `1px solid ${joinCode ? 'var(--accent)' : 'var(--border)'}`,
                 borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)',
                 fontSize: 15, fontFamily: "'JetBrains Mono', monospace", outline: 'none',
                 letterSpacing: '0.12em', fontWeight: 600, transition: 'border-color 150ms ease',
@@ -356,55 +362,47 @@ export function RacePage() {
   const me = participants.find(p => p.uid === myUid)
   const isHost = room.hostUid === myUid
   const allReady = participants.length >= 2 && participants.every(p => p.isReady)
+  const others = participants.filter(p => p.uid !== myUid)
 
   // ── Lobby ─────────────────────────────────────────────────────────────────
   if (room.phase === 'lobby') {
     return (
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '40px 24px' }}>
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
           <div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 4 }}>
-              Lobby — {EVENT_LABELS[room.event]}
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 8 }}>
+              Lobby — {EVENT_LABELS[room.event] ?? room.event}
             </h1>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', backgroundColor: 'var(--accent-dim)', border: '1px solid var(--accent)', borderRadius: 6, padding: '2px 8px' }}>
                 {FORMAT_LABELS[room.format]}
               </span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                · {room.totalRounds} solve{room.totalRounds > 1 ? 's' : ''}
+              </span>
             </div>
-            <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>
-              {isHost ? 'Share the code with your rivals, then start when everyone is ready.' : 'Waiting for the host to start the race.'}
-            </p>
           </div>
-          <button
-            onClick={leaveRoom}
-            style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
-          >
+          <button onClick={leaveRoom} style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>
             Leave
           </button>
         </div>
 
-        {/* Room code */}
-        <div
-          onClick={copyCode}
-          style={{
-            backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 16,
-            padding: '20px 24px', marginBottom: 20, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}
-        >
+        {/* Code */}
+        <div onClick={copyCode} style={{
+          backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 16,
+          padding: '20px 24px', marginBottom: 20, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Room code</div>
-            <div style={{ fontSize: 36, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.18em', color: 'var(--accent)' }}>
-              {room.code}
-            </div>
+            <div style={{ fontSize: 36, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.18em', color: 'var(--accent)' }}>{room.code}</div>
           </div>
           <div style={{ fontSize: 12, color: copied ? 'var(--positive)' : 'var(--text-muted)', transition: 'color 150ms ease' }}>
             {copied ? 'Copied!' : 'Tap to copy'}
           </div>
         </div>
 
-        {/* Participants */}
+        {/* Players */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
             Players ({participants.length})
@@ -443,8 +441,7 @@ export function RacePage() {
                 backgroundColor: allReady ? 'var(--accent)' : 'var(--surface-1)',
                 color: allReady ? '#020617' : 'var(--text-muted)',
                 cursor: allReady ? 'pointer' : 'not-allowed',
-                transition: 'all 150ms ease',
-                opacity: allReady ? 1 : 0.6,
+                opacity: allReady ? 1 : 0.6, transition: 'all 150ms ease',
               }}
             >
               {participants.length < 2 ? 'Waiting for players…' : allReady ? 'Start Race' : 'Waiting for everyone to ready up…'}
@@ -457,90 +454,193 @@ export function RacePage() {
 
   // ── Solving ───────────────────────────────────────────────────────────────
   if (room.phase === 'solving') {
-    const timerColor = timerState === 'armed' ? 'var(--positive)' : timerState === 'running' ? 'var(--timer-active)' : timerState === 'done' ? 'var(--accent)' : 'var(--timer-idle)'
-    const others = participants.filter(p => p.uid !== myUid)
+    const isCountdown = timerPhase === 'locked' && countdown > 0
+    const timerColor = timerPhase === 'armed' ? 'var(--positive)'
+      : timerPhase === 'running' ? 'var(--timer-active)'
+      : timerPhase === 'done' ? 'var(--accent)'
+      : isCountdown ? 'var(--inspection)'
+      : 'var(--timer-idle)'
+
+    const handleManualSubmit = () => {
+      const trimmed = manualInput.trim()
+      if (!trimmed) return
+      // parse mm:ss.ms or ss.ms
+      let ms: number
+      const colonIdx = trimmed.indexOf(':')
+      if (colonIdx !== -1) {
+        const mins = parseInt(trimmed.slice(0, colonIdx), 10)
+        const secs = parseFloat(trimmed.slice(colonIdx + 1))
+        ms = (mins * 60 + secs) * 1000
+      } else {
+        ms = parseFloat(trimmed) * 1000
+      }
+      if (isNaN(ms) || ms <= 0) return
+      handleSubmit(myPenalty, Math.round(ms))
+    }
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
         {/* Scramble bar */}
         <div style={{ borderBottom: '1px solid var(--border)', padding: '12px 24px', backgroundColor: 'var(--surface-0)', flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
-            {EVENT_LABELS[room.event]} scramble
-          </div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '0.04em', lineHeight: 1.6 }}>
-            {room.scramble}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                {EVENT_LABELS[room.event] ?? room.event} · Round {room.currentRound}/{room.totalRounds} · {FORMAT_LABELS[room.format]}
+              </div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '0.04em', lineHeight: 1.6 }}>
+                {room.scramble}
+              </div>
+            </div>
+            {room.scramble && (
+              <ScrambleViz scramble={room.scramble} event={room.event} size={90} />
+            )}
           </div>
         </div>
 
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Timer area */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, userSelect: 'none' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, userSelect: 'none', position: 'relative' }}>
+
+            {/* Manual mode toggle */}
+            {!submitted && (
+              <button
+                onClick={() => setManualMode(m => !m)}
+                style={{
+                  position: 'absolute', bottom: 20, left: 24,
+                  fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 8,
+                  border: `1px solid ${manualMode ? 'var(--accent)' : 'var(--border)'}`,
+                  backgroundColor: manualMode ? 'var(--accent-dim)' : 'none',
+                  color: manualMode ? 'var(--accent)' : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 150ms ease',
+                }}
+              >
+                Manual entry
+              </button>
+            )}
+
             {!submitted ? (
               <>
-                <div style={{ fontSize: 88, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.04em', color: timerColor, lineHeight: 1, transition: 'color 150ms ease' }}>
-                  {timerState === 'idle' ? 'READY' : formatTime(elapsed)}
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  {timerState === 'idle' ? 'Hold Space to start' : timerState === 'armed' ? 'Release to start' : timerState === 'running' ? 'Press Space to stop' : ''}
-                </div>
-
-                {timerState === 'done' && (
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {(['none', '+2', 'DNF'] as const).map(p => {
-                        const actual = p === 'none' ? null : p
-                        const active = myPenalty === actual
-                        const colors = p === 'none'
-                          ? { border: 'var(--positive)', bg: 'rgba(34,197,94,0.12)', text: 'var(--positive)' }
-                          : p === '+2'
-                          ? { border: 'var(--inspection)', bg: 'rgba(245,158,11,0.12)', text: 'var(--inspection)' }
-                          : { border: 'var(--penalty)', bg: 'rgba(239,68,68,0.12)', text: 'var(--penalty)' }
-                        return (
-                          <button
-                            key={p}
-                            onClick={() => setMyPenalty(actual)}
-                            style={{
-                              padding: '7px 20px', borderRadius: 999, fontSize: 13, fontWeight: 600,
+                {/* Countdown */}
+                <AnimatePresence mode="wait">
+                  {isCountdown ? (
+                    <motion.div key="countdown" initial={{ scale: 1.2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 96, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: 'var(--inspection)', lineHeight: 1 }}>
+                        {countdown}
+                      </div>
+                      <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 8 }}>Get ready…</div>
+                    </motion.div>
+                  ) : manualMode ? (
+                    <motion.div key="manual" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Enter your time</div>
+                      <input
+                        autoFocus
+                        value={manualInput}
+                        onChange={e => setManualInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
+                        placeholder="9.43 or 1:03.45"
+                        style={{
+                          fontSize: 32, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+                          textAlign: 'center', width: 220, padding: '10px 16px', borderRadius: 10,
+                          backgroundColor: 'var(--surface-1)', border: '1px solid var(--accent)',
+                          color: 'var(--text-primary)', outline: 'none', letterSpacing: '0.04em',
+                        }}
+                      />
+                      {/* Penalty row */}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {(['none', '+2', 'DNF'] as const).map(p => {
+                          const actual = p === 'none' ? null : p
+                          const active = myPenalty === actual
+                          const colors = p === 'none'
+                            ? { border: 'var(--positive)', bg: 'rgba(34,197,94,0.12)', text: 'var(--positive)' }
+                            : p === '+2' ? { border: 'var(--inspection)', bg: 'rgba(245,158,11,0.12)', text: 'var(--inspection)' }
+                            : { border: 'var(--penalty)', bg: 'rgba(239,68,68,0.12)', text: 'var(--penalty)' }
+                          return (
+                            <button key={p} onClick={() => setMyPenalty(actual)} style={{
+                              padding: '6px 18px', borderRadius: 999, fontSize: 13, fontWeight: 600,
                               border: `1px solid ${active ? colors.border : 'var(--border)'}`,
                               backgroundColor: active ? colors.bg : 'var(--surface-1)',
                               color: active ? colors.text : 'var(--text-muted)',
                               cursor: 'pointer', transition: 'all 120ms ease',
-                            }}
+                            }}>{p === 'none' ? 'OK' : p}</button>
+                          )
+                        })}
+                      </div>
+                      <button
+                        onClick={handleManualSubmit}
+                        disabled={!manualInput.trim()}
+                        style={{
+                          padding: '11px 32px', borderRadius: 10, border: 'none',
+                          backgroundColor: manualInput.trim() ? 'var(--accent)' : 'var(--surface-1)',
+                          color: manualInput.trim() ? '#020617' : 'var(--text-muted)',
+                          fontSize: 14, fontWeight: 700,
+                          cursor: manualInput.trim() ? 'pointer' : 'not-allowed',
+                        }}
+                      >
+                        Submit
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="timer" style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 96, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.04em', color: timerColor, lineHeight: 1, transition: 'color 150ms ease' }}>
+                        {timerPhase === 'idle' ? 'READY' : formatTime(elapsed)}
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
+                        {timerPhase === 'idle' ? 'Hold Space to start' : timerPhase === 'armed' ? 'Release to start' : timerPhase === 'running' ? 'Press Space to stop' : ''}
+                      </div>
+                      {timerPhase === 'done' && (
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 20 }}>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            {(['none', '+2', 'DNF'] as const).map(p => {
+                              const actual = p === 'none' ? null : p
+                              const active = myPenalty === actual
+                              const colors = p === 'none'
+                                ? { border: 'var(--positive)', bg: 'rgba(34,197,94,0.12)', text: 'var(--positive)' }
+                                : p === '+2' ? { border: 'var(--inspection)', bg: 'rgba(245,158,11,0.12)', text: 'var(--inspection)' }
+                                : { border: 'var(--penalty)', bg: 'rgba(239,68,68,0.12)', text: 'var(--penalty)' }
+                              return (
+                                <button key={p} onClick={() => setMyPenalty(actual)} style={{
+                                  padding: '7px 20px', borderRadius: 999, fontSize: 13, fontWeight: 600,
+                                  border: `1px solid ${active ? colors.border : 'var(--border)'}`,
+                                  backgroundColor: active ? colors.bg : 'var(--surface-1)',
+                                  color: active ? colors.text : 'var(--text-muted)',
+                                  cursor: 'pointer', transition: 'all 120ms ease',
+                                }}>{p === 'none' ? 'OK' : p}</button>
+                              )
+                            })}
+                          </div>
+                          <button
+                            onClick={() => handleSubmit(myPenalty, elapsed)}
+                            style={{ padding: '12px 36px', borderRadius: 10, border: 'none', backgroundColor: 'var(--accent)', color: '#020617', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
                           >
-                            {p === 'none' ? 'OK' : p}
+                            Submit
                           </button>
-                        )
-                      })}
-                    </div>
-                    <button
-                      onClick={() => handleSubmit(myPenalty, elapsed)}
-                      style={{
-                        padding: '12px 36px', borderRadius: 10, border: 'none',
-                        backgroundColor: 'var(--accent)', color: '#020617',
-                        fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                      }}
-                    >
-                      Submit
-                    </button>
-                  </motion.div>
-                )}
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </>
             ) : (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 56, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: myPenalty === 'DNF' ? 'var(--penalty)' : 'var(--positive)', letterSpacing: '-0.03em' }}>
                   {myPenalty === 'DNF' ? 'DNF' : formatTime(myPenalty === '+2' ? elapsed + 2000 : elapsed)}
                 </div>
-                <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 8 }}>Waiting for others…</div>
+                {room.currentRound < room.totalRounds && (
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
+                    Waiting for round {room.currentRound + 1}…
+                  </div>
+                )}
+                {room.currentRound >= room.totalRounds && (
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>Waiting for others…</div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Opponents sidebar */}
+          {/* Rivals sidebar */}
           {others.length > 0 && (
-            <div style={{ width: 220, borderLeft: '1px solid var(--border)', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
-                Rivals
-              </div>
+            <div className="race-sidebar" style={{ width: 220, borderLeft: '1px solid var(--border)', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', flexShrink: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Rivals</div>
               {others.map(p => (
                 <ParticipantRow key={p.id} p={p} isMe={false} phase="solving" />
               ))}
@@ -555,34 +655,28 @@ export function RacePage() {
 
   // ── Results ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 24px' }}>
+    <div style={{ maxWidth: 600, margin: '0 auto', padding: '40px 24px' }}>
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 6 }}>Results</h1>
-        <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>{EVENT_LABELS[room.event]}</p>
+        <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+          {EVENT_LABELS[room.event] ?? room.event} · {FORMAT_LABELS[room.format]}
+        </p>
       </div>
 
-      <Leaderboard participants={participants} />
+      <Leaderboard participants={participants} format={room.format} />
 
       <div style={{ display: 'flex', gap: 10, marginTop: 28 }}>
         {isHost && (
           <button
             onClick={() => nextRound(room.event)}
-            style={{
-              flex: 1, padding: '13px', borderRadius: 10, border: 'none',
-              backgroundColor: 'var(--accent)', color: '#020617',
-              fontSize: 14, fontWeight: 700, cursor: 'pointer',
-            }}
+            style={{ flex: 1, padding: '13px', borderRadius: 10, border: 'none', backgroundColor: 'var(--accent)', color: '#020617', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
           >
-            Next Round
+            Play Again
           </button>
         )}
         <button
           onClick={leaveRoom}
-          style={{
-            flex: isHost ? 0 : 1, padding: '13px 24px', borderRadius: 10,
-            border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)',
-            color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-          }}
+          style={{ flex: isHost ? 0 : 1, padding: '13px 24px', borderRadius: 10, border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)', color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
         >
           Leave
         </button>
