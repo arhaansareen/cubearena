@@ -158,10 +158,12 @@ function useRaceTimer(unlockAt: number | null) {
   const [elapsed, setElapsed] = useState(0)
   const [countdown, setCountdown] = useState(0)
   const startRef = useRef<number | null>(null)
-  const rafRef = useRef<number>(0)
+  const countdownRafRef = useRef<number>(0)  // countdown loop
+  const solveRafRef = useRef<number>(0)      // solve tick loop
   const phaseRef = useRef<TimerPhase>('locked')
   phaseRef.current = phase
 
+  // Countdown to unlock
   useEffect(() => {
     if (!unlockAt) return
     const tick = () => {
@@ -172,15 +174,16 @@ function useRaceTimer(unlockAt: number | null) {
         return
       }
       setCountdown(Math.ceil(remaining / 1000))
-      rafRef.current = requestAnimationFrame(tick)
+      countdownRafRef.current = requestAnimationFrame(tick)
     }
-    rafRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafRef.current)
+    countdownRafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(countdownRafRef.current)
   }, [unlockAt])
 
+  // Solve tick
   const runTick = useCallback(() => {
     if (startRef.current) setElapsed(Date.now() - startRef.current)
-    rafRef.current = requestAnimationFrame(runTick)
+    solveRafRef.current = requestAnimationFrame(runTick)
   }, [])
 
   const onKeyDown = useCallback((e: KeyboardEvent) => {
@@ -188,7 +191,7 @@ function useRaceTimer(unlockAt: number | null) {
     e.preventDefault()
     if (phaseRef.current === 'idle') setPhase('armed')
     if (phaseRef.current === 'running') {
-      cancelAnimationFrame(rafRef.current)
+      cancelAnimationFrame(solveRafRef.current)
       const final = startRef.current ? Date.now() - startRef.current : 0
       setElapsed(final)
       setPhase('done')
@@ -200,7 +203,7 @@ function useRaceTimer(unlockAt: number | null) {
     if (phaseRef.current === 'armed') {
       startRef.current = Date.now()
       setPhase('running')
-      rafRef.current = requestAnimationFrame(runTick)
+      solveRafRef.current = requestAnimationFrame(runTick)
     }
   }, [runTick])
 
@@ -210,16 +213,17 @@ function useRaceTimer(unlockAt: number | null) {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
-      cancelAnimationFrame(rafRef.current)
+      cancelAnimationFrame(solveRafRef.current)
     }
   }, [onKeyDown, onKeyUp])
 
+  // Reset only the solve timer, not the countdown
   const reset = useCallback(() => {
-    cancelAnimationFrame(rafRef.current)
+    cancelAnimationFrame(solveRafRef.current)
     startRef.current = null
     setElapsed(0)
-    setPhase(unlockAt && unlockAt > Date.now() ? 'locked' : 'idle')
-  }, [unlockAt])
+    setPhase('locked')
+  }, [])
 
   return { phase, elapsed, countdown, reset }
 }
