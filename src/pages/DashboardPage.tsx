@@ -1,10 +1,11 @@
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
 import { useProfile } from '@/providers/ProfileProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
 import { useWCAData } from '@/hooks/useWCAData'
+import { useCalendar } from '@/hooks/useCalendar'
 import { formatTime } from '@/lib/utils'
 import { SolveProgressChart } from '@/components/dashboard/SolveProgressChart'
 import type { Solve, WCAEvent } from '@/types'
@@ -99,6 +100,24 @@ export function DashboardPage() {
   const { profile } = useProfile()
   const { solves, loading } = useSolveHistory(user?.uid)
   const { state: wcaState, lookup: wcaLookup } = useWCAData()
+
+  const { plansByDay, todosByDay, createTodo, toggleTodo, deleteTodo, markComplete } = useCalendar()
+  const [todoInput, setTodoInput] = useState('')
+
+  const todayDateKey = useMemo(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  }, [])
+
+  const todayPlans = plansByDay.get(todayDateKey) ?? []
+  const todayTodos = todosByDay.get(todayDateKey) ?? []
+
+  const handleAddTodo = () => {
+    const text = todoInput.trim()
+    if (!text) return
+    createTodo(todayDateKey, text)
+    setTodoInput('')
+  }
 
   const wcaId = profile?.wcaId ?? null
 
@@ -205,6 +224,108 @@ export function DashboardPage() {
           {loading ? 'Loading your stats…' : solves.length > 0 ? `${solves.length} solves recorded` : 'Ready to cube?'}
         </p>
       </div>
+
+      {/* Today: schedule + todos */}
+      <section style={{ marginBottom: 36 }}>
+        <h2 style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 12 }}>Today</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+
+          {/* Left: scheduled sessions */}
+          <div style={{ background: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--shadow-soft)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Schedule</span>
+              <button
+                onClick={() => navigate('/calendar')}
+                style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+              >
+                + Add
+              </button>
+            </div>
+            {todayPlans.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Nothing scheduled today.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {todayPlans.map((plan) => {
+                  const done = plan.completedAt !== null
+                  const timeLabel = new Date(plan.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                  const eventLabel: Record<string,string> = { '333':'3×3','222':'2×2','444':'4×4','555':'5×5','333oh':'OH','pyram':'Pyra','skewb':'Skewb','minx':'Mega','sq1':'Sq-1','clock':'Clock','333bf':'3BLD','333fm':'FMC','444bf':'4BLD','555bf':'5BLD','666':'6×6','777':'7×7' }
+                  return (
+                    <div key={plan.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <button
+                        onClick={() => { if (!done) markComplete(plan.id) }}
+                        style={{
+                          width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `1.5px solid ${done ? 'var(--positive)' : 'var(--border)'}`,
+                          backgroundColor: done ? 'var(--positive)' : 'transparent', cursor: done ? 'default' : 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        {done && <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="#020617" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </button>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: done ? 'var(--text-muted)' : 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", textDecoration: done ? 'line-through' : 'none' }}>
+                          {eventLabel[plan.event] ?? plan.event}
+                        </span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>{timeLabel} · {plan.durationMins}m</span>
+                        {plan.goal && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plan.goal}</div>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Right: todos */}
+          <div style={{ background: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--shadow-soft)' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 12 }}>
+              Goals
+              {todayTodos.length > 0 && (
+                <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+                  {todayTodos.filter(t => t.done).length}/{todayTodos.length}
+                </span>
+              )}
+            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+              {todayTodos.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>No goals yet.</p>}
+              {todayTodos.map(todo => (
+                <div key={todo.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={() => toggleTodo(todo.id)}
+                    style={{
+                      width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                      border: `1.5px solid ${todo.done ? 'var(--positive)' : 'var(--border)'}`,
+                      backgroundColor: todo.done ? 'var(--positive)' : 'transparent',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    {todo.done && <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="#020617" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </button>
+                  <span style={{ flex: 1, fontSize: 13, color: todo.done ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: todo.done ? 'line-through' : 'none' }}>
+                    {todo.text}
+                  </span>
+                  <button onClick={() => deleteTodo(todo.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, lineHeight: 1, padding: '0 2px' }}>×</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                value={todoInput}
+                onChange={e => setTodoInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddTodo()}
+                placeholder="Add a goal…"
+                style={{ flex: 1, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 13, color: 'var(--text-primary)', outline: 'none' }}
+              />
+              <button
+                onClick={handleAddTodo}
+                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
 
       {/* Quick Stats strip + Start CTA */}
       <div style={{
