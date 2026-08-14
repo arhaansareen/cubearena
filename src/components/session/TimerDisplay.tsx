@@ -75,8 +75,7 @@ function getScale(phase: TimerPhase): number {
 
 function getFontSize(phase: TimerPhase): number {
   if (phase === 'idle' || phase === 'armed') return 72
-  if (phase === 'inspection') return 112
-  return 96
+  return 112
 }
 
 export function TimerDisplay({

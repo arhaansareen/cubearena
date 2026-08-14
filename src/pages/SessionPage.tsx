@@ -7,6 +7,7 @@ import { AIOpponentRail } from '@/components/session/AIOpponentRail'
 import { SessionStatsBar } from '@/components/session/SessionStatsBar'
 import { SessionSolveList } from '@/components/session/SessionSolveList'
 import { PostSolveModal } from '@/components/session/PostSolveModal'
+import { PostSolvePanel } from '@/components/session/PostSolvePanel'
 import { useTimer, type TimerResult } from '@/hooks/useTimer'
 import { useSession } from '@/hooks/useSession'
 import { useScramble } from '@/hooks/useScramble'
@@ -225,36 +226,53 @@ export function SessionPage() {
           )}
         </div>
 
-        {/* Right: solve list (hidden on mobile via CSS) */}
-        {solves.length > 0 && (
+        {/* Right: solve list or post-solve panel (hidden on mobile via CSS) */}
+        {(solves.length > 0 || showModal) && (
           <div
             className="session-solve-panel"
             style={{ width: 220, borderLeft: '1px solid var(--border)', flexShrink: 0 }}
           >
-            <SessionSolveList
-              solves={solves}
-              onDeleteLast={deleteLastSolve}
-              onDeleteSolve={(id) => { deleteSolve(id); void persistDeleteSolve(id) }}
-            />
+            {showModal && lastResult ? (
+              <PostSolvePanel
+                time={lastResult.time}
+                penalty={currentPenalty}
+                notesBehavior={DEFAULT_NOTES_BEHAVIOR}
+                onPenaltyChange={setCurrentPenalty}
+                onConfirm={handleConfirm}
+              />
+            ) : (
+              <SessionSolveList
+                solves={solves}
+                onDeleteLast={deleteLastSolve}
+                onDeleteSolve={(id) => { deleteSolve(id); void persistDeleteSolve(id) }}
+              />
+            )}
           </div>
         )}
       </div>
 
       <SessionStatsBar solveCount={solves.length} ao5={ao5} ao12={ao12} mean={mean} mo3={mo3} event={event} />
 
-      <PostSolveModal
-        isOpen={showModal}
-        time={lastResult?.time ?? 0}
-        penalty={currentPenalty}
-        notesBehavior={DEFAULT_NOTES_BEHAVIOR}
-        onPenaltyChange={setCurrentPenalty}
-        onConfirm={handleConfirm}
-        onDismiss={handleModalDismiss}
-      />
+      {/* Mobile-only bottom sheet — desktop uses the inline panel */}
+      <div className="session-modal-mobile">
+        <PostSolveModal
+          isOpen={showModal}
+          time={lastResult?.time ?? 0}
+          penalty={currentPenalty}
+          notesBehavior={DEFAULT_NOTES_BEHAVIOR}
+          onPenaltyChange={setCurrentPenalty}
+          onConfirm={handleConfirm}
+          onDismiss={handleModalDismiss}
+        />
+      </div>
 
       <style>{`
         @media (max-width: 767px) {
           .session-solve-panel { display: none !important; }
+          .session-modal-mobile { display: block; }
+        }
+        @media (min-width: 768px) {
+          .session-modal-mobile { display: none; }
         }
       `}</style>
     </div>
