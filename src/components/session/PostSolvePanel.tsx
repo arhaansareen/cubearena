@@ -34,12 +34,15 @@ function penaltyStyle(p: Penalty, active: boolean) {
 export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, onConfirm }: PostSolvePanelProps) {
   const [notes, setNotes] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [customTagInput, setCustomTagInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const customTagInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Enter') return
       if (document.activeElement === textareaRef.current) return
+      if (document.activeElement === customTagInputRef.current) return
       if (notesBehavior === 'required' && !notes.trim()) return
       e.preventDefault()
       handleConfirm()
@@ -48,6 +51,13 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
     return () => window.removeEventListener('keydown', handler)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notes, notesBehavior, penalty])
+
+  const addCustomTag = () => {
+    const tag = customTagInput.trim()
+    if (!tag || selectedTags.includes(tag)) { setCustomTagInput(''); return }
+    setSelectedTags(prev => [...prev, tag])
+    setCustomTagInput('')
+  }
 
   const displayTime = penalty === 'DNF' ? Infinity : penalty === '+2' ? time + 2000 : time
 
@@ -116,6 +126,37 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
             )
           })}
         </div>
+      </div>
+
+      {/* Custom tag input */}
+      <div style={{ display: 'flex', gap: 5 }}>
+        <input
+          ref={customTagInputRef}
+          value={customTagInput}
+          onChange={e => setCustomTagInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomTag() } }}
+          placeholder="Add tag..."
+          style={{
+            flex: 1, padding: '4px 10px', borderRadius: 999,
+            border: '1px solid var(--border)',
+            backgroundColor: 'var(--surface-1)',
+            color: 'var(--text-primary)', fontSize: 11,
+            outline: 'none', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+            transition: 'border-color 150ms ease',
+          }}
+          onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+          onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+        />
+        <button
+          onClick={addCustomTag}
+          style={{
+            padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+            border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)',
+            color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 150ms ease',
+          }}
+        >
+          Add
+        </button>
       </div>
 
       {/* Notes */}
