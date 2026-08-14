@@ -40,8 +40,8 @@ export const OLL: AlgCase[] = [
   { id: 'OLL-23', name: 'OLL 23', subset: 'OLL', group: 'Corners', alg: "R2 D' R U2 R' D R U2 R" },
   { id: 'OLL-24', name: 'OLL 24', subset: 'OLL', group: 'Corners', alg: "r U R' U' r' F R F'" },
   { id: 'OLL-25', name: 'OLL 25', subset: 'OLL', group: 'Corners', alg: "F' r U R' U' r' F R" },
-  { id: 'OLL-26', name: 'OLL 26', subset: 'OLL', group: 'Corners', alg: "R U2 R' U' R U' R'" },
-  { id: 'OLL-27', name: 'OLL 27', subset: 'OLL', group: 'Corners', alg: "R U R' U R U2 R'" },
+  { id: 'OLL-26', name: 'OLL 26 (Anti-Sune)', subset: 'OLL', group: 'Corners', alg: "R U2 R' U' R U' R'" },
+  { id: 'OLL-27', name: 'OLL 27 (Sune)',      subset: 'OLL', group: 'Corners', alg: "R U R' U R U2 R'" },
   // P-shape
   { id: 'OLL-31', name: 'OLL 31', subset: 'OLL', group: 'P-shape', alg: "R' U' F U R U' R' F' R" },
   { id: 'OLL-32', name: 'OLL 32', subset: 'OLL', group: 'P-shape', alg: "S R U R' U' R' F R f'" },
@@ -67,9 +67,6 @@ export const OLL: AlgCase[] = [
   { id: 'OLL-52', name: 'OLL 52', subset: 'OLL', group: 'I-shape', alg: "R U R' U R U' B U' B' R'" },
   { id: 'OLL-55', name: 'OLL 55', subset: 'OLL', group: 'I-shape', alg: "R' F R U R U' R2 F' R2 U' R' U R U R'" },
   { id: 'OLL-56', name: 'OLL 56', subset: 'OLL', group: 'I-shape', alg: "r' U' r U' R' U R U' R' U R r' U r" },
-  // Sune & Anti-Sune
-  { id: 'OLL-26-sune', name: 'Sune',      subset: 'OLL', group: 'Sune', alg: "R U R' U R U2 R'" },
-  { id: 'OLL-27-as',   name: 'Anti-Sune', subset: 'OLL', group: 'Sune', alg: "R' U' R U' R' U2 R" },
   // Remaining numbered cases
   { id: 'OLL-28', name: 'OLL 28', subset: 'OLL', group: 'Corners', alg: "r U R' U' M U R U' R'" },
   { id: 'OLL-29', name: 'OLL 29', subset: 'OLL', group: 'P-shape',  alg: "R U R' U' R U' R' F' U' F R U R'" },
