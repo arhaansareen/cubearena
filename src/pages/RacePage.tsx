@@ -367,27 +367,25 @@ export function RacePage() {
         </div>
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          {!isHost && (
-            <button
-              onClick={() => setReady(!me?.isReady)}
-              style={{
-                flex: 1, padding: '13px', borderRadius: 10, fontSize: 14, fontWeight: 700,
-                border: `1px solid ${me?.isReady ? 'var(--positive)' : 'var(--accent)'}`,
-                backgroundColor: me?.isReady ? 'rgba(34,197,94,0.12)' : 'var(--accent)',
-                color: me?.isReady ? 'var(--positive)' : '#020617',
-                cursor: 'pointer', transition: 'all 150ms ease',
-              }}
-            >
-              {me?.isReady ? '✓ Ready' : 'Ready up'}
-            </button>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button
+            onClick={() => setReady(!me?.isReady)}
+            style={{
+              width: '100%', padding: '13px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+              border: `1px solid ${me?.isReady ? 'var(--positive)' : 'var(--accent)'}`,
+              backgroundColor: me?.isReady ? 'rgba(34,197,94,0.12)' : 'var(--accent)',
+              color: me?.isReady ? 'var(--positive)' : '#020617',
+              cursor: 'pointer', transition: 'all 150ms ease',
+            }}
+          >
+            {me?.isReady ? '✓ Ready' : 'Ready up'}
+          </button>
           {isHost && (
             <button
               onClick={() => startRace(room.event)}
               disabled={!allReady}
               style={{
-                flex: 1, padding: '13px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 'none',
+                width: '100%', padding: '13px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 'none',
                 backgroundColor: allReady ? 'var(--accent)' : 'var(--surface-1)',
                 color: allReady ? '#020617' : 'var(--text-muted)',
                 cursor: allReady ? 'pointer' : 'not-allowed',
@@ -395,7 +393,7 @@ export function RacePage() {
                 opacity: allReady ? 1 : 0.6,
               }}
             >
-              {participants.length < 2 ? 'Waiting for players…' : allReady ? 'Start Race' : 'Waiting for ready…'}
+              {participants.length < 2 ? 'Waiting for players…' : allReady ? 'Start Race' : 'Waiting for everyone to ready up…'}
             </button>
           )}
         </div>
