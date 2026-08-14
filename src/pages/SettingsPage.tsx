@@ -311,8 +311,7 @@ export function SettingsPage() {
                 type="color"
                 value={accent === 'custom' ? customColor : '#ffffff'}
                 onChange={(e) => setCustomColor(e.target.value)}
-                style={{ opacity: 0, position: 'absolute', width: 1, height: 1, pointerEvents: 'none' }}
-                tabIndex={-1}
+                style={{ opacity: 0, position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: 'pointer', border: 'none' }}
               />
             </label>
           </div>
