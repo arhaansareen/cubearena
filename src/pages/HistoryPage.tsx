@@ -75,6 +75,7 @@ function PenaltyBadge({ penalty }: { penalty: Solve['penalty'] }) {
 function SolveRow({ solve, index, total }: { solve: Solve; index: number; total: number }) {
   const [open, setOpen] = useState(false)
   const hasNote = !!solve.notes?.trim()
+  const hasTags = solve.tags && solve.tags.length > 0
 
   return (
     <>
@@ -112,8 +113,8 @@ function SolveRow({ solve, index, total }: { solve: Solve; index: number; total:
           {solve.scramble}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {hasNote ? (
-            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--accent)', display: 'block', opacity: 0.8 }} title="Has note" />
+          {hasNote || hasTags ? (
+            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--accent)', display: 'block', opacity: 0.8 }} />
           ) : (
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ color: 'var(--text-muted)', opacity: 0.4, transition: 'opacity 100ms' }}>
               <path d={open ? 'M2 7l3-3 3 3' : 'M2 3l3 3 3-3'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -154,7 +155,24 @@ function SolveRow({ solve, index, total }: { solve: Solve; index: number; total:
                   </div>
                 </div>
               )}
-              {!hasNote && (
+              {hasTags && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 5 }}>Tags</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {solve.tags.map(tag => (
+                      <span key={tag} style={{
+                        padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 500,
+                        border: '1px solid var(--accent)',
+                        backgroundColor: 'var(--accent-dim)',
+                        color: 'var(--accent)',
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!hasNote && !hasTags && (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>No note for this solve.</div>
               )}
             </div>
