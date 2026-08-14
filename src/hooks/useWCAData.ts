@@ -62,7 +62,19 @@ export function useWCAData() {
         return
       }
 
-      setState({ status: 'success', data: json as WCAPersonResult })
+      // WCA API returns times in centiseconds — convert to milliseconds so the
+      // rest of the app (formatTime, rival stats) can treat them uniformly.
+      type RawRec = { best: number; world_rank: number; continent_rank: number; country_rank: number }
+      const rawRecords = (json.personal_records ?? {}) as Record<string, { single?: RawRec | null; average?: RawRec | null }>
+      const personal_records: WCAPersonResult['personal_records'] = {}
+      for (const [event, rec] of Object.entries(rawRecords)) {
+        personal_records[event as WCAEvent] = {
+          single: rec.single ? { ...rec.single, best: rec.single.best * 10 } : null,
+          average: rec.average ? { ...rec.average, best: rec.average.best * 10 } : null,
+        }
+      }
+
+      setState({ status: 'success', data: { person: json.person as WCAPerson, personal_records } })
     } catch (err) {
       const message =
         err instanceof TypeError && err.message.includes('fetch')
