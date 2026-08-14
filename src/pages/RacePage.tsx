@@ -425,6 +425,7 @@ export function RacePage() {
   const [joinCode, setJoinCode] = useState('')
   const [myPenalty, setMyPenalty] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [submittedTime, setSubmittedTime] = useState<number>(0)
   const [copied, setCopied] = useState(false)
   const [manualMode, setManualMode] = useState(false)
   const [manualInput, setManualInput] = useState('')
@@ -439,6 +440,7 @@ export function RacePage() {
   const handleSubmit = useCallback(async (penalty: string | null, time: number) => {
     if (submitted) return
     setSubmitted(true)
+    setSubmittedTime(time)
     await submitSolve(time, penalty)
   }, [submitted, submitSolve])
 
@@ -449,8 +451,10 @@ export function RacePage() {
     if (room.phase === 'solving' && room.currentRound !== prevRound.current) {
       prevRound.current = room.currentRound
       setSubmitted(false)
+      setSubmittedTime(0)
       setMyPenalty(null)
       setManualInput('')
+      setManualMode(false)
       resetTimer()
     }
   })
@@ -744,11 +748,17 @@ export function RacePage() {
 
           <AnimatePresence mode="wait">
             {submitted ? (
-              <motion.div key="submitted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 56, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.03em', color: myPenalty === 'DNF' ? 'var(--penalty)' : 'var(--positive)' }}>
-                  {myPenalty === 'DNF' ? 'DNF' : formatTime(myPenalty === '+2' ? elapsed + 2000 : elapsed)}
+              <motion.div key="submitted" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.2 }} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--positive)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                  Submitted
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 10 }}>
+                <div style={{ fontSize: 64, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.03em', color: myPenalty === 'DNF' ? 'var(--penalty)' : 'var(--positive)', lineHeight: 1 }}>
+                  {myPenalty === 'DNF' ? 'DNF' : formatTime(myPenalty === '+2' ? submittedTime + 2000 : submittedTime)}
+                </div>
+                {myPenalty === '+2' && (
+                  <div style={{ fontSize: 12, color: 'var(--inspection)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>+2 penalty</div>
+                )}
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 12 }}>
                   {room.currentRound < room.totalRounds ? `Waiting for round ${room.currentRound + 1}…` : 'Waiting for others…'}
                 </div>
               </motion.div>
@@ -760,37 +770,48 @@ export function RacePage() {
                 <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 10 }}>Get ready…</div>
               </motion.div>
             ) : manualMode ? (
-              <motion.div key="manual" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Enter your time</div>
-                <input
-                  autoFocus
-                  value={manualInput}
-                  onChange={e => setManualInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
-                  placeholder="9.43 or 1:03.45"
-                  style={{
-                    fontSize: 32, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
-                    textAlign: 'center', width: 220, padding: '10px 16px', borderRadius: 10,
-                    backgroundColor: 'var(--surface-1)', border: '1px solid var(--accent)',
-                    color: 'var(--text-primary)', outline: 'none', letterSpacing: '0.04em',
-                  }}
-                />
+              <motion.div key="manual" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Manual time entry</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Type seconds (9.43) or minutes (1:03.45)</div>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    autoFocus
+                    value={manualInput}
+                    onChange={e => setManualInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
+                    placeholder="0.00"
+                    style={{
+                      fontSize: 48, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+                      textAlign: 'center', width: 240, padding: '14px 20px', borderRadius: 14,
+                      backgroundColor: 'var(--surface-1)',
+                      border: `2px solid ${manualInput.trim() ? 'var(--accent)' : 'var(--border)'}`,
+                      color: manualInput.trim() ? 'var(--text-primary)' : 'var(--text-muted)',
+                      outline: 'none', letterSpacing: '0.02em',
+                      transition: 'border-color 150ms ease, color 150ms ease',
+                    }}
+                  />
+                </div>
                 <PenaltyChips value={myPenalty} onChange={setMyPenalty} />
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setManualMode(false)} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  <button onClick={() => setManualMode(false)} style={{ padding: '11px 22px', borderRadius: 10, border: '1px solid var(--border)', backgroundColor: 'transparent', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                     Cancel
                   </button>
                   <button
                     onClick={handleManualSubmit}
                     disabled={!manualInput.trim()}
                     style={{
-                      padding: '10px 28px', borderRadius: 10, border: 'none',
+                      padding: '11px 32px', borderRadius: 10, border: 'none',
                       backgroundColor: manualInput.trim() ? 'var(--accent)' : 'var(--surface-1)',
                       color: manualInput.trim() ? '#020617' : 'var(--text-muted)',
                       fontSize: 13, fontWeight: 700, cursor: manualInput.trim() ? 'pointer' : 'not-allowed',
+                      transition: 'all 150ms ease',
                     }}
+                    onMouseDown={e => { if (manualInput.trim()) e.currentTarget.style.transform = 'scale(0.97)' }}
+                    onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
                   >
-                    Submit
+                    Submit time
                   </button>
                 </div>
               </motion.div>
