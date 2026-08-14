@@ -16,6 +16,7 @@ import { UpcomingCompsPage } from '@/pages/UpcomingCompsPage'
 import { LeaderboardPage } from '@/pages/LeaderboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { AlgorithmsPage } from '@/pages/AlgorithmsPage'
+import { RacePage } from '@/pages/RacePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 
@@ -47,6 +48,10 @@ const router = createBrowserRouter([
       {
         path: 'rivals',
         element: <RivalsPage />,
+      },
+      {
+        path: 'race',
+        element: <RacePage />,
       },
       {
         path: 'competition',
