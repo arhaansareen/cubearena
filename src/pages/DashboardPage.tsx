@@ -560,7 +560,7 @@ export function DashboardPage() {
                   letterSpacing: '-0.02em',
                   marginBottom: 2,
                 }}>
-                  {single ? formatTime(single.best * 10) : '—'}
+                  {single ? formatTime(single.best) : '—'}
                 </div>
                 {average && (
                   <div style={{
@@ -569,7 +569,7 @@ export function DashboardPage() {
                     color: 'var(--text-muted)',
                     marginBottom: 4,
                   }}>
-                    avg {formatTime(average.best * 10)}
+                    avg {formatTime(average.best)}
                   </div>
                 )}
                 {single && (
