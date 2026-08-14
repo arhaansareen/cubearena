@@ -1,7 +1,9 @@
+import { Analytics } from '@vercel/analytics/react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { AuthProvider } from '@/providers/AuthProvider'
 import { AudioProvider } from '@/providers/AudioProvider'
 import { ProfileProvider } from '@/providers/ProfileProvider'
+import { ThemeProvider } from '@/providers/ThemeProvider'
 import { AppShell } from '@/components/layout/AppShell'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { SessionPage } from '@/pages/SessionPage'
@@ -13,6 +15,7 @@ import { CompetitionPage } from '@/pages/CompetitionPage'
 import { UpcomingCompsPage } from '@/pages/UpcomingCompsPage'
 import { LeaderboardPage } from '@/pages/LeaderboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { AlgorithmsPage } from '@/pages/AlgorithmsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 
@@ -62,6 +65,10 @@ const router = createBrowserRouter([
         element: <ProfilePage />,
       },
       {
+        path: 'algorithms',
+        element: <AlgorithmsPage />,
+      },
+      {
         path: 'settings',
         element: <SettingsPage />,
       },
@@ -75,12 +82,15 @@ const router = createBrowserRouter([
 
 export function App() {
   return (
-    <AuthProvider>
-      <ProfileProvider>
-        <AudioProvider>
-          <RouterProvider router={router} />
-        </AudioProvider>
-      </ProfileProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ProfileProvider>
+          <AudioProvider>
+            <RouterProvider router={router} />
+            <Analytics />
+          </AudioProvider>
+        </ProfileProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

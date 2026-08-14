@@ -64,9 +64,9 @@ export function useSupabaseProfile(uid: string | null | undefined): UseSupabaseP
           { onConflict: 'firebase_uid' }
         )
         .select()
-        .single()
+        .maybeSingle()
       if (err) throw err
-      setProfile(data)
+      if (data) setProfile(data)
     } catch (e) {
       console.warn('[useSupabaseProfile] upsert failed', e)
       setError('Failed to save profile')

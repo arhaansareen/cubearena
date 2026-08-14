@@ -7,6 +7,7 @@ import { HoldDeleteButton } from './HoldDeleteButton'
 interface SessionSolveListProps {
   solves: Solve[]
   onDeleteLast: () => void
+  onDeleteSolve: (id: string) => void
 }
 
 function timeColor(solve: Solve, isBest: boolean): string {
@@ -16,7 +17,7 @@ function timeColor(solve: Solve, isBest: boolean): string {
   return 'var(--text-primary)'
 }
 
-export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps) {
+export function SessionSolveList({ solves, onDeleteLast, onDeleteSolve }: SessionSolveListProps) {
   const rows = useMemo(() => {
     const bestTime = Math.min(
       ...solves
@@ -43,7 +44,7 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
       {/* Header */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '28px 1fr 60px 60px',
+        gridTemplateColumns: '28px 1fr 60px 60px 20px',
         padding: '8px 10px',
         borderBottom: '1px solid var(--border)',
         fontSize: 10, fontWeight: 600,
@@ -55,6 +56,7 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
         <span>Time</span>
         <span style={{ textAlign: 'right' }}>ao5</span>
         <span style={{ textAlign: 'right' }}>ao12</span>
+        <span />
       </div>
 
       {/* Solve rows */}
@@ -68,9 +70,10 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
             exit={{ opacity: 0, x: -16 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             layout="position"
+            className="solve-row"
             style={{
               display: 'grid',
-              gridTemplateColumns: '28px 1fr 60px 60px',
+              gridTemplateColumns: '28px 1fr 60px 60px 20px',
               padding: '6px 10px',
               borderBottom: '1px solid var(--border)',
               alignItems: 'center',
@@ -105,6 +108,21 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
             }}>
               {ao12 !== null ? formatTime(ao12) : '—'}
             </span>
+            <button
+              className="solve-delete-btn"
+              onClick={() => onDeleteSolve(solve.id)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 16, height: 16, padding: 0,
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-muted)', opacity: 0,
+                transition: 'opacity 120ms, color 120ms',
+                borderRadius: 3,
+              }}
+              aria-label="Delete solve"
+            >
+              ×
+            </button>
           </motion.div>
         ))}
         </AnimatePresence>
@@ -114,6 +132,11 @@ export function SessionSolveList({ solves, onDeleteLast }: SessionSolveListProps
       {solves.length > 0 && (
         <HoldDeleteButton onDelete={onDeleteLast} />
       )}
+
+      <style>{`
+        .solve-row:hover .solve-delete-btn { opacity: 1 !important; }
+        .solve-delete-btn:hover { color: var(--penalty) !important; }
+      `}</style>
     </div>
   )
 }

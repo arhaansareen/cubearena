@@ -6,9 +6,11 @@ export interface UseSolveHistoryReturn {
   solves: Solve[]
   loading: boolean
   persistSolve: (solve: Solve) => Promise<void>
+  deleteSolve: (id: string) => Promise<void>
 }
 
 const noopPersist = async (_solve: Solve): Promise<void> => {}
+const noopDelete = async (_id: string): Promise<void> => {}
 
 // DB row → Solve (snake_case → camelCase)
 function rowToSolve(row: Record<string, unknown>): Solve {
@@ -51,6 +53,22 @@ export function useSolveHistory(uid: string | null | undefined): UseSolveHistory
   const uidRef = useRef(uid)
   uidRef.current = uid
 
+  const fetchSolves = useCallback(() => {
+    const currentUid = uidRef.current
+    if (!currentUid || !isSupabaseConfigured) return
+    supabase
+      .from('solves')
+      .select('*')
+      .eq('firebase_uid', currentUid)
+      .order('timestamp', { ascending: false })
+      .limit(500)
+      .then(({ data, error }) => {
+        if (error) console.warn('[useSolveHistory] fetch error', error)
+        else setSolves((data ?? []).map(rowToSolve))
+        setLoading(false)
+      })
+  }, [])
+
   useEffect(() => {
     if (!uid || !isSupabaseConfigured) {
       setSolves([])
@@ -59,22 +77,7 @@ export function useSolveHistory(uid: string | null | undefined): UseSolveHistory
     }
 
     setLoading(true)
-
-    // Initial fetch
-    supabase
-      .from('solves')
-      .select('*')
-      .eq('firebase_uid', uid)
-      .order('timestamp', { ascending: false })
-      .limit(200)
-      .then(({ data, error }) => {
-        if (error) {
-          console.warn('[useSolveHistory] fetch error', error)
-        } else {
-          setSolves((data ?? []).map(rowToSolve))
-        }
-        setLoading(false)
-      })
+    fetchSolves()
 
     // Real-time subscription
     const channel = supabase
@@ -88,15 +91,23 @@ export function useSolveHistory(uid: string | null | undefined): UseSolveHistory
           filter: `firebase_uid=eq.${uid}`,
         },
         (payload) => {
-          setSolves((prev) => [rowToSolve(payload.new as Record<string, unknown>), ...prev].slice(0, 200))
+          setSolves((prev) => [rowToSolve(payload.new as Record<string, unknown>), ...prev].slice(0, 500))
         }
       )
       .subscribe()
 
+    // Re-fetch when the tab regains focus so navigating session→dashboard always shows fresh data
+    const onFocus = () => fetchSolves()
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') fetchSolves()
+    })
+
     return () => {
       supabase.removeChannel(channel)
+      window.removeEventListener('focus', onFocus)
     }
-  }, [uid])
+  }, [uid, fetchSolves])
 
   const persistSolve = useCallback(
     async (solve: Solve): Promise<void> => {
@@ -111,9 +122,19 @@ export function useSolveHistory(uid: string | null | undefined): UseSolveHistory
     [uid]
   )
 
+  const deleteSolve = useCallback(
+    async (id: string): Promise<void> => {
+      if (!uid || !isSupabaseConfigured) return
+      setSolves((prev) => prev.filter((s) => s.id !== id))
+      const { error } = await supabase.from('solves').delete().eq('id', id).eq('firebase_uid', uid)
+      if (error) console.warn('[useSolveHistory] delete failed', error)
+    },
+    [uid]
+  )
+
   if (!uid || !isSupabaseConfigured) {
-    return { solves: [], loading: false, persistSolve: noopPersist }
+    return { solves: [], loading: false, persistSolve: noopPersist, deleteSolve: noopDelete }
   }
 
-  return { solves, loading, persistSolve }
+  return { solves, loading, persistSolve, deleteSolve }
 }

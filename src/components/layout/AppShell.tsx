@@ -107,6 +107,17 @@ function ProfileNavIcon() {
   )
 }
 
+function AlgorithmsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
 function SettingsIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -127,6 +138,7 @@ const DESKTOP_NAV: NavItem[] = [
   { to: '/history', label: 'History', icon: <HistoryIcon /> },
   { to: '/calendar', label: 'Calendar', icon: <CalendarIcon /> },
   { to: '/upcoming', label: 'Upcoming', icon: <GlobeIcon /> },
+  { to: '/algorithms', label: 'Algorithms', icon: <AlgorithmsIcon /> },
   { to: '/rivals', label: 'Rivals', icon: <RivalsIcon /> },
   { to: '/competition', label: 'Compete', icon: <TrophyIcon /> },
   { to: '/leaderboard', label: 'Leaderboard', icon: <LeaderboardIcon /> },
@@ -268,6 +280,16 @@ export function AppShell() {
                   </NavLink>
                 ))}
               </nav>
+
+              <div style={{
+                padding: '6px 20px 10px',
+                fontSize: 10,
+                color: 'var(--text-muted)',
+                opacity: 0.45,
+                letterSpacing: '0.01em',
+              }}>
+                © {new Date().getFullYear()} Arhaan Sareen
+              </div>
 
               <ProfileStrip />
             </motion.div>

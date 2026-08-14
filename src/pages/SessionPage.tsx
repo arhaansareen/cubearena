@@ -54,8 +54,8 @@ export function SessionPage() {
   const { scramble, next: nextScramble } = useScramble(event)
   const { playInspectionCallout, startAmbient, stopAmbient } = useAudioContext()
   const { user } = useAuth()
-  const { persistSolve } = useSolveHistory(user?.uid)
-  const { solves, ao5, ao12, mean, sessionId, addSolve, deleteLastSolve } = useSession()
+  const { persistSolve, deleteSolve: persistDeleteSolve } = useSolveHistory(user?.uid)
+  const { solves, ao5, ao12, mean, sessionId, addSolve, deleteSolve, deleteLastSolve } = useSession(event)
   const mo3 = useMemo(() => computeMean(solves, 3), [solves])
 
   currentScrambleRef.current = scramble
@@ -231,7 +231,11 @@ export function SessionPage() {
             className="session-solve-panel"
             style={{ width: 220, borderLeft: '1px solid var(--border)', flexShrink: 0 }}
           >
-            <SessionSolveList solves={solves} onDeleteLast={deleteLastSolve} />
+            <SessionSolveList
+              solves={solves}
+              onDeleteLast={deleteLastSolve}
+              onDeleteSolve={(id) => { deleteSolve(id); void persistDeleteSolve(id) }}
+            />
           </div>
         )}
       </div>

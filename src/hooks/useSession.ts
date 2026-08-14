@@ -1,25 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Solve, Penalty } from '@/types'
+import type { Solve, Penalty, WCAEvent } from '@/types'
 import { computeAo, computeMean, generateId } from '@/lib/utils'
 
-const STORAGE_KEY = 'cubearena:session-v1'
+const STORAGE_KEY = (event: WCAEvent) => `cubearena:session-v2:${event}`
 
 interface PersistedSession {
   sessionId: string
   solves: Solve[]
 }
 
-function loadSession(): PersistedSession {
+function loadSession(event: WCAEvent): PersistedSession {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY(event))
     if (raw) return JSON.parse(raw) as PersistedSession
   } catch {}
   return { sessionId: generateId(), solves: [] }
 }
 
-function saveSession(data: PersistedSession) {
+function saveSession(event: WCAEvent, data: PersistedSession) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    localStorage.setItem(STORAGE_KEY(event), JSON.stringify(data))
   } catch {}
 }
 
@@ -31,6 +31,7 @@ export interface UseSessionReturn {
   sessionId: string
   addSolve: (solve: Solve) => void
   updatePenalty: (solveId: string, penalty: Penalty) => void
+  deleteSolve: (id: string) => void
   deleteLastSolve: () => void
   clearSession: () => void
 }
@@ -41,15 +42,22 @@ function computeEffectiveTime(time: number, penalty: Penalty): number {
   return time
 }
 
-export function useSession(): UseSessionReturn {
-  const initial = useMemo(() => loadSession(), [])
+export function useSession(event: WCAEvent): UseSessionReturn {
+  const initial = useMemo(() => loadSession(event), [event])
   const sessionIdRef = useRef<string>(initial.sessionId)
   const [solves, setSolves] = useState<Solve[]>(initial.solves)
 
+  // Re-load when event changes
+  useEffect(() => {
+    const saved = loadSession(event)
+    sessionIdRef.current = saved.sessionId
+    setSolves(saved.solves)
+  }, [event])
+
   // Persist whenever solves change
   useEffect(() => {
-    saveSession({ sessionId: sessionIdRef.current, solves })
-  }, [solves])
+    saveSession(event, { sessionId: sessionIdRef.current, solves })
+  }, [event, solves])
 
   const addSolve = useCallback((solve: Solve) => {
     setSolves((prev) => [...prev, solve])
@@ -62,6 +70,10 @@ export function useSession(): UseSessionReturn {
         return { ...s, penalty, effectiveTime: computeEffectiveTime(s.time, penalty) }
       })
     )
+  }, [])
+
+  const deleteSolve = useCallback((id: string) => {
+    setSolves((prev) => prev.filter((s) => s.id !== id))
   }, [])
 
   const deleteLastSolve = useCallback(() => {
@@ -85,6 +97,7 @@ export function useSession(): UseSessionReturn {
     sessionId: sessionIdRef.current,
     addSolve,
     updatePenalty,
+    deleteSolve,
     deleteLastSolve,
     clearSession,
   }

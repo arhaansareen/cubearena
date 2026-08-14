@@ -4,6 +4,7 @@ import type { WCAEvent, NotesBehavior, UserSettings } from '@/types'
 import { useProfile } from '@/providers/ProfileProvider'
 import { useWCAData } from '@/hooks/useWCAData'
 import { useAuth } from '@/providers/AuthProvider'
+import { useTheme, ACCENTS, type AccentKey } from '@/providers/ThemeProvider'
 
 const WCA_EVENTS: { value: WCAEvent; label: string }[] = [
   { value: '333', label: '3x3' },
@@ -134,6 +135,7 @@ function Toggle({ checked, onChange, label, description }: ToggleProps) {
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
+  const { mode, accent, setMode, setAccent } = useTheme()
   const { profile, save: saveProfile, isSaving } = useProfile()
   const { state: wcaVerifyState, lookup: wcaLookup, reset: wcaReset } = useWCAData()
   const { user, signOut } = useAuth()
@@ -222,6 +224,71 @@ export function SettingsPage() {
           Customize your training experience.
         </p>
       </div>
+
+      {/* Appearance */}
+      <Section title="Appearance">
+        {/* Dark / Light toggle */}
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 8 }}>Mode</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['dark', 'light'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                style={{
+                  flex: 1, padding: '9px 0', borderRadius: 8,
+                  border: `1px solid ${mode === m ? 'var(--accent)' : 'var(--border)'}`,
+                  backgroundColor: mode === m ? 'var(--accent-dim)' : 'var(--surface-1)',
+                  color: mode === m ? 'var(--accent)' : 'var(--text-muted)',
+                  fontSize: 13, fontWeight: 600,
+                  cursor: 'pointer', transition: 'all 150ms ease',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                {m === 'dark' ? (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                  </svg>
+                )}
+                {m.charAt(0).toUpperCase() + m.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Accent color */}
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 10 }}>Accent Color</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {(Object.entries(ACCENTS) as [AccentKey, typeof ACCENTS[AccentKey]][]).map(([key, val]) => (
+              <button
+                key={key}
+                onClick={() => setAccent(key)}
+                title={val.label}
+                style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  backgroundColor: val.color,
+                  border: accent === key ? `3px solid var(--text-primary)` : '3px solid transparent',
+                  outline: accent === key ? `2px solid ${val.color}` : 'none',
+                  outlineOffset: 2,
+                  cursor: 'pointer',
+                  transition: 'transform 120ms ease, outline 120ms ease',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
+              />
+            ))}
+          </div>
+        </div>
+      </Section>
 
       {/* Profile */}
       <Section title="Profile" description="Your identity across sessions and rivals.">

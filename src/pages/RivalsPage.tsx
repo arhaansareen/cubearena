@@ -411,7 +411,9 @@ export function RivalsPage() {
             gap: 8,
           }}
         >
-          <p style={{ fontSize: 28, margin: 0 }}>🔍</p>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
           <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-muted)', margin: 0 }}>
             Search for a WCA competitor above
           </p>
