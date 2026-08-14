@@ -28,10 +28,8 @@ const selectStyle: React.CSSProperties = {
   width: '100%', padding: '10px 12px',
   backgroundColor: 'var(--surface-1)', border: '1px solid var(--border)',
   borderRadius: 8, color: 'var(--text-primary)', fontSize: 14,
-  outline: 'none', cursor: 'pointer', appearance: 'none',
-  backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
-  paddingRight: 36, transition: 'border-color 150ms ease',
+  outline: 'none', cursor: 'pointer',
+  transition: 'border-color 150ms ease',
 }
 
 // ─── Race timer ───────────────────────────────────────────────────────────────
@@ -279,7 +277,7 @@ export function RacePage() {
           {/* Event tabs (same as session page) */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>Event</div>
-            <EventTabs value={selectedEvent} onChange={setSelectedEvent} />
+            <EventTabs value={selectedEvent} onChange={setSelectedEvent} events={['333','222','444','555','333oh','pyram','skewb']} />
           </div>
 
           {/* Format */}

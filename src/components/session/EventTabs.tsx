@@ -24,9 +24,13 @@ const WCA_EVENTS: { value: WCAEvent; label: string }[] = [
 interface EventTabsProps {
   value: WCAEvent
   onChange: (e: WCAEvent) => void
+  events?: WCAEvent[]
 }
 
-export function EventTabs({ value, onChange }: EventTabsProps) {
+export function EventTabs({ value, onChange, events: allowedEvents }: EventTabsProps) {
+  const eventsToShow = allowedEvents
+    ? WCA_EVENTS.filter(ev => allowedEvents.includes(ev.value))
+    : WCA_EVENTS
   const buttonRefs = useRef<Map<WCAEvent, HTMLButtonElement>>(new Map())
   const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number; top: number; height: number }>({
     left: 0,
@@ -85,7 +89,7 @@ export function EventTabs({ value, onChange }: EventTabsProps) {
         }}
       />
 
-      {WCA_EVENTS.map((ev) => (
+      {eventsToShow.map((ev) => (
         <button
           key={ev.value}
           ref={(el) => {
