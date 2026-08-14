@@ -135,7 +135,7 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
         }
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'race_participants', filter: `room_id=eq.${roomId}` },
-        (payload) => {
+        async (payload) => {
           if (payload.eventType === 'INSERT') {
             currentParticipants = [...currentParticipants, rowToParticipant(payload.new as Record<string, unknown>)]
           } else if (payload.eventType === 'UPDATE') {
@@ -145,6 +145,29 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
             currentParticipants = currentParticipants.filter(x => x.id !== (payload.old as Record<string, unknown>).id)
           }
           setState({ status: 'in_room', room: currentRoom, participants: currentParticipants, myUid: myUid! })
+
+          // Host advances round when every participant has finished
+          if (
+            myUid === currentRoom.hostUid &&
+            currentRoom.phase === 'solving' &&
+            currentParticipants.length > 0 &&
+            currentParticipants.every(p => p.finishedAt !== null)
+          ) {
+            const nextRound = currentRoom.currentRound + 1
+            if (nextRound <= currentRoom.totalRounds) {
+              const scramble = generateScramble(currentRoom.event)
+              const solveStartAt = new Date(Date.now() + 4000).toISOString()
+              await supabase.from('race_rooms').update({
+                phase: 'solving', scramble, solve_start_at: solveStartAt,
+                current_round: nextRound, started_at: new Date().toISOString(),
+              }).eq('id', roomId)
+              await supabase.from('race_participants')
+                .update({ solve_time: null, penalty: null, finished_at: null, is_ready: false })
+                .eq('room_id', roomId)
+            } else {
+              await supabase.from('race_rooms').update({ phase: 'results' }).eq('id', roomId)
+            }
+          }
         }
       )
       .subscribe()
@@ -230,7 +253,7 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
 
   const submitSolve = useCallback(async (rawTime: number, penalty: string | null) => {
     if (!myUid || !roomIdRef.current || state.status !== 'in_room') return
-    const { room, participants } = state
+    const { participants } = state
     const me = participants.find(p => p.uid === myUid)
     if (!me) return
 
@@ -241,25 +264,8 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
     await supabase.from('race_participants')
       .update({ solve_time: effective, penalty, finished_at: new Date().toISOString(), round_times: newRoundTimes })
       .eq('room_id', roomIdRef.current).eq('uid', myUid)
-
-    // Host checks if everyone is done and advances
-    if (room.hostUid === myUid) {
-      // wait briefly for Supabase to propagate own update
-      setTimeout(async () => {
-        const { data: fresh } = await supabase
-          .from('race_participants').select('*').eq('room_id', roomIdRef.current!)
-        if (!fresh) return
-        const allDone = fresh.every((p: Record<string, unknown>) => p.finished_at !== null)
-        if (!allDone) return
-        const nextRound = room.currentRound + 1
-        if (nextRound <= room.totalRounds) {
-          await startRound(room.event, nextRound)
-        } else {
-          await supabase.from('race_rooms').update({ phase: 'results' }).eq('id', roomIdRef.current!)
-        }
-      }, 800)
-    }
-  }, [myUid, state, startRound])
+    // Advance logic is handled in the realtime participant handler
+  }, [myUid, state])
 
   const nextRound = useCallback(async (_event: WCAEvent) => {
     if (!roomIdRef.current || state.status !== 'in_room') return
