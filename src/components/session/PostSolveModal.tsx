@@ -13,7 +13,7 @@ interface PostSolveModalProps {
   onDismiss: () => void
 }
 
-const PREDEFINED_TAGS = ['lockup', 'lucky', 'bad cross', 'good F2L', 'PLL skip', 'fingertrick', 'bad look', 'ZB']
+const PREDEFINED_TAGS = ['lockup', 'lucky', 'bad cross', 'good F2L', 'PLL skip', 'fingertrick', 'bad look', 'ZB', 'pseudo']
 
 function computeDisplayTime(time: number, penalty: Penalty): number {
   if (penalty === 'DNF') return Infinity

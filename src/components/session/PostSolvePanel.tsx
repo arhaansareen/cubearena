@@ -11,7 +11,7 @@ interface PostSolvePanelProps {
   onConfirm: (notes: string | null, tags: string[]) => void
 }
 
-const TAGS = ['lockup', 'lucky', 'bad cross', 'good F2L', 'PLL skip', 'fingertrick', 'bad look', 'ZB']
+const TAGS = ['lockup', 'lucky', 'bad cross', 'good F2L', 'PLL skip', 'fingertrick', 'bad look', 'ZB', 'pseudo']
 
 function penaltyStyle(p: Penalty, active: boolean) {
   const colors = p === null
