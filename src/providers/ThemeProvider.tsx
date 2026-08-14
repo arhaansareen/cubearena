@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 
 export type ThemeMode = 'dark' | 'light'
 export type AccentKey = 'cyan' | 'purple' | 'green' | 'rose' | 'orange' | 'custom'
@@ -87,22 +87,18 @@ function applyTheme(state: ThemeState) {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<ThemeState>(() => {
     const t = loadTheme()
-    applyTheme(t)
+    applyTheme(t) // apply synchronously before first paint
     return t
   })
 
-  const update = useCallback((partial: Partial<ThemeState>) => {
-    setTheme((prev) => {
-      const next = { ...prev, ...partial }
-      applyTheme(next)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      return next
-    })
-  }, [])
+  useEffect(() => {
+    applyTheme(theme)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(theme))
+  }, [theme])
 
-  const setMode = useCallback((mode: ThemeMode) => update({ mode }), [update])
-  const setAccent = useCallback((accent: AccentKey) => update({ accent }), [update])
-  const setCustomColor = useCallback((customColor: string) => update({ accent: 'custom', customColor }), [update])
+  const setMode = useCallback((mode: ThemeMode) => setTheme((prev) => ({ ...prev, mode })), [])
+  const setAccent = useCallback((accent: AccentKey) => setTheme((prev) => ({ ...prev, accent })), [])
+  const setCustomColor = useCallback((customColor: string) => setTheme((prev) => ({ ...prev, accent: 'custom', customColor })), [])
 
   return (
     <ThemeContext.Provider value={{ ...theme, setMode, setAccent, setCustomColor }}>
