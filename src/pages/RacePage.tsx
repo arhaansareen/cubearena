@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
 import { useProfile } from '@/providers/ProfileProvider'
-import { useRaceRoom, type RaceParticipant } from '@/hooks/useRaceRoom'
+import { useRaceRoom, type RaceParticipant, type RaceFormat } from '@/hooks/useRaceRoom'
 import { formatTime } from '@/lib/utils'
 import type { WCAEvent } from '@/types'
 
@@ -10,6 +10,28 @@ const WCA_EVENTS: WCAEvent[] = ['333', '222', '444', '555', '333oh', 'pyram', 's
 const EVENT_LABELS: Record<string, string> = {
   '333': '3×3', '222': '2×2', '444': '4×4', '555': '5×5',
   '333oh': 'OH', 'pyram': 'Pyraminx', 'skewb': 'Skewb',
+}
+
+const FORMAT_OPTIONS: { value: RaceFormat; label: string; description: string }[] = [
+  { value: 'solo',  label: 'Solve by solve',  description: 'One solve per round, host starts each' },
+  { value: 'bo3',   label: 'Best of 3',        description: '3 solves, lowest single wins' },
+  { value: 'bo5',   label: 'Best of 5',        description: '5 solves, lowest single wins' },
+  { value: 'mo3',   label: 'Mean of 3',        description: '3 solves, mean of all 3 wins' },
+  { value: 'ao5',   label: 'Average of 5',     description: '5 solves, drop best & worst' },
+]
+
+const FORMAT_LABELS: Record<RaceFormat, string> = {
+  solo: 'Solve by solve', bo3: 'Best of 3', bo5: 'Best of 5', mo3: 'Mean of 3', ao5: 'Average of 5',
+}
+
+const selectStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px',
+  backgroundColor: 'var(--surface-1)', border: '1px solid var(--border)',
+  borderRadius: 8, color: 'var(--text-primary)', fontSize: 14,
+  outline: 'none', cursor: 'pointer', appearance: 'none',
+  backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+  paddingRight: 36, transition: 'border-color 150ms ease',
 }
 
 // ─── Timer hook ───────────────────────────────────────────────────────────────
@@ -172,6 +194,7 @@ export function RacePage() {
   const displayName = profile?.displayName?.trim() || 'Anonymous'
 
   const [selectedEvent, setSelectedEvent] = useState<WCAEvent>('333')
+  const [selectedFormat, setSelectedFormat] = useState<RaceFormat>('solo')
   const [joinCode, setJoinCode] = useState('')
   const [myPenalty, setMyPenalty] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
@@ -228,31 +251,57 @@ export function RacePage() {
 
         {/* Create */}
         <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', width: '100%', maxWidth: 400 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 12 }}>Create a room</div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-            {WCA_EVENTS.map(ev => (
-              <button
-                key={ev}
-                onClick={() => setSelectedEvent(ev)}
-                style={{
-                  padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-                  border: `1px solid ${selectedEvent === ev ? 'var(--accent)' : 'var(--border)'}`,
-                  backgroundColor: selectedEvent === ev ? 'var(--accent-dim)' : 'transparent',
-                  color: selectedEvent === ev ? 'var(--accent)' : 'var(--text-muted)',
-                  cursor: 'pointer', transition: 'all 120ms ease',
-                }}
-              >
-                {EVENT_LABELS[ev]}
-              </button>
-            ))}
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 18 }}>Create a room</div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 18 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Event</div>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={selectedEvent}
+                  onChange={e => setSelectedEvent(e.target.value as WCAEvent)}
+                  style={selectStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+                >
+                  {WCA_EVENTS.map(ev => (
+                    <option key={ev} value={ev}>{EVENT_LABELS[ev]}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Format</div>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={selectedFormat}
+                  onChange={e => setSelectedFormat(e.target.value as RaceFormat)}
+                  style={selectStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+                >
+                  {FORMAT_OPTIONS.map(f => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                {FORMAT_OPTIONS.find(f => f.value === selectedFormat)?.description}
+              </div>
+            </div>
           </div>
+
           <button
-            onClick={() => createRoom(selectedEvent)}
+            onClick={() => createRoom(selectedEvent, selectedFormat)}
             style={{
               width: '100%', padding: '12px', borderRadius: 10,
               backgroundColor: 'var(--accent)', color: '#020617',
               fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer',
+              transition: 'opacity 150ms ease',
             }}
+            onMouseDown={e => { e.currentTarget.style.opacity = '0.85' }}
+            onMouseUp={e => { e.currentTarget.style.opacity = '1' }}
           >
             Create Room
           </button>
@@ -318,6 +367,11 @@ export function RacePage() {
             <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 4 }}>
               Lobby — {EVENT_LABELS[room.event]}
             </h1>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', backgroundColor: 'var(--accent-dim)', border: '1px solid var(--accent)', borderRadius: 6, padding: '2px 8px' }}>
+                {FORMAT_LABELS[room.format]}
+              </span>
+            </div>
             <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>
               {isHost ? 'Share the code with your rivals, then start when everyone is ready.' : 'Waiting for the host to start the race.'}
             </p>

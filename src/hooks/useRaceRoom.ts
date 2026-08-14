@@ -16,11 +16,14 @@ export interface RaceParticipant {
   joinedAt: string
 }
 
+export type RaceFormat = 'solo' | 'bo3' | 'bo5' | 'mo3' | 'ao5'
+
 export interface RaceRoom {
   id: string
   code: string
   hostUid: string
   event: WCAEvent
+  format: RaceFormat
   scramble: string | null
   phase: RacePhase
   startedAt: string | null
@@ -42,6 +45,7 @@ function rowToRoom(row: Record<string, unknown>): RaceRoom {
     code: row.code as string,
     hostUid: row.host_uid as string,
     event: (row.event as WCAEvent) ?? '333',
+    format: (row.format as RaceFormat) ?? 'solo',
     scramble: (row.scramble as string) ?? null,
     phase: (row.phase as RacePhase) ?? 'lobby',
     startedAt: (row.started_at as string) ?? null,
@@ -117,14 +121,14 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
     channelRef.current = channel
   }, [myUid, cleanup])
 
-  const createRoom = useCallback(async (event: WCAEvent) => {
+  const createRoom = useCallback(async (event: WCAEvent, format: RaceFormat = 'solo') => {
     if (!isSupabaseConfigured || !myUid) return setError('Not connected')
     setState({ status: 'loading' })
 
     const code = randomCode()
     const { data: room, error: roomErr } = await supabase
       .from('race_rooms')
-      .insert({ code, host_uid: myUid, event, phase: 'lobby' })
+      .insert({ code, host_uid: myUid, event, format, phase: 'lobby' })
       .select()
       .single()
 
