@@ -16,62 +16,59 @@ export function useAudio(): UseAudioReturn {
   const [isAmbientPlaying, setIsAmbientPlaying] = useState(false)
   const volumeRef = useRef(0.15)
 
-  const getContext = useCallback((): AudioContext => {
+  const getContext = useCallback(async (): Promise<AudioContext> => {
     if (!ctxRef.current || ctxRef.current.state === 'closed') {
       ctxRef.current = new AudioContext()
     }
     if (ctxRef.current.state === 'suspended') {
-      ctxRef.current.resume().catch(() => {})
+      await ctxRef.current.resume()
     }
     return ctxRef.current
   }, [])
 
-  // Unlock AudioContext on first user gesture so beeps at 8s/12s
-  // don't hit a stale-gesture block in Safari / strict Chrome configs.
+  // Keep context alive — resume on every user gesture in case it got suspended.
   useEffect(() => {
-    const unlock = () => {
-      if (!ctxRef.current) {
-        ctxRef.current = new AudioContext()
-      }
-      if (ctxRef.current.state === 'suspended') {
+    const resume = () => {
+      if (ctxRef.current?.state === 'suspended') {
         ctxRef.current.resume().catch(() => {})
       }
     }
-    window.addEventListener('keydown', unlock, { once: true })
-    window.addEventListener('touchstart', unlock, { once: true, passive: true })
-    window.addEventListener('mousedown', unlock, { once: true })
+    window.addEventListener('keydown', resume)
+    window.addEventListener('touchstart', resume, { passive: true })
+    window.addEventListener('mousedown', resume)
     return () => {
-      window.removeEventListener('keydown', unlock)
-      window.removeEventListener('touchstart', unlock)
-      window.removeEventListener('mousedown', unlock)
+      window.removeEventListener('keydown', resume)
+      window.removeEventListener('touchstart', resume)
+      window.removeEventListener('mousedown', resume)
     }
   }, [])
 
   const playInspectionCallout = useCallback(
     (seconds: '8' | '12') => {
-      try {
-        const ctx = getContext()
-        const frequency = seconds === '8' ? 880 : 1100
-        const duration = 0.08
+      getContext().then((ctx) => {
+        try {
+          const frequency = seconds === '8' ? 880 : 1100
+          const duration = 0.08
 
-        const oscillator = ctx.createOscillator()
-        const gainNode = ctx.createGain()
+          const oscillator = ctx.createOscillator()
+          const gainNode = ctx.createGain()
 
-        oscillator.connect(gainNode)
-        gainNode.connect(ctx.destination)
+          oscillator.connect(gainNode)
+          gainNode.connect(ctx.destination)
 
-        oscillator.type = 'sine'
-        oscillator.frequency.setValueAtTime(frequency, ctx.currentTime)
+          oscillator.type = 'sine'
+          oscillator.frequency.setValueAtTime(frequency, ctx.currentTime)
 
-        gainNode.gain.setValueAtTime(0, ctx.currentTime)
-        gainNode.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.005)
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
+          gainNode.gain.setValueAtTime(0, ctx.currentTime)
+          gainNode.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.005)
+          gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
 
-        oscillator.start(ctx.currentTime)
-        oscillator.stop(ctx.currentTime + duration)
-      } catch (err) {
-        console.warn('[useAudio] playInspectionCallout failed:', err)
-      }
+          oscillator.start(ctx.currentTime)
+          oscillator.stop(ctx.currentTime + duration)
+        } catch (err) {
+          console.warn('[useAudio] playInspectionCallout failed:', err)
+        }
+      }).catch(() => {})
     },
     [getContext]
   )
@@ -92,50 +89,46 @@ export function useAudio(): UseAudioReturn {
   }, [])
 
   const startAmbient = useCallback(() => {
-    try {
-      const ctx = getContext()
+    getContext().then((ctx) => {
+      try {
+        // Stop existing if playing
+        if (noiseSourceRef.current) {
+          try { noiseSourceRef.current.stop() } catch {}
+          noiseSourceRef.current = null
+        }
 
-      // Stop existing if playing
-      if (noiseSourceRef.current) {
-        try {
-          noiseSourceRef.current.stop()
-        } catch {}
-        noiseSourceRef.current = null
+        const noiseBuffer = buildNoiseBuffer(ctx)
+        const source = ctx.createBufferSource()
+        source.buffer = noiseBuffer
+        source.loop = true
+
+        const bandpass = ctx.createBiquadFilter()
+        bandpass.type = 'bandpass'
+        bandpass.frequency.setValueAtTime(400, ctx.currentTime)
+        bandpass.Q.setValueAtTime(0.5, ctx.currentTime)
+
+        const lowpass = ctx.createBiquadFilter()
+        lowpass.type = 'lowpass'
+        lowpass.frequency.setValueAtTime(800, ctx.currentTime)
+
+        const gainNode = ctx.createGain()
+        gainNode.gain.setValueAtTime(0, ctx.currentTime)
+        gainNode.gain.linearRampToValueAtTime(volumeRef.current, ctx.currentTime + 0.5)
+
+        source.connect(bandpass)
+        bandpass.connect(lowpass)
+        lowpass.connect(gainNode)
+        gainNode.connect(ctx.destination)
+
+        source.start()
+        noiseSourceRef.current = source
+        ambientGainRef.current = gainNode
+        filterRef.current = bandpass
+        setIsAmbientPlaying(true)
+      } catch (err) {
+        console.warn('[useAudio] startAmbient failed:', err)
       }
-
-      const noiseBuffer = buildNoiseBuffer(ctx)
-      const source = ctx.createBufferSource()
-      source.buffer = noiseBuffer
-      source.loop = true
-
-      // Bandpass filter to simulate crowd noise
-      const bandpass = ctx.createBiquadFilter()
-      bandpass.type = 'bandpass'
-      bandpass.frequency.setValueAtTime(400, ctx.currentTime)
-      bandpass.Q.setValueAtTime(0.5, ctx.currentTime)
-
-      // Low-pass to remove harshness
-      const lowpass = ctx.createBiquadFilter()
-      lowpass.type = 'lowpass'
-      lowpass.frequency.setValueAtTime(800, ctx.currentTime)
-
-      const gainNode = ctx.createGain()
-      gainNode.gain.setValueAtTime(0, ctx.currentTime)
-      gainNode.gain.linearRampToValueAtTime(volumeRef.current, ctx.currentTime + 0.5)
-
-      source.connect(bandpass)
-      bandpass.connect(lowpass)
-      lowpass.connect(gainNode)
-      gainNode.connect(ctx.destination)
-
-      source.start()
-      noiseSourceRef.current = source
-      ambientGainRef.current = gainNode
-      filterRef.current = bandpass
-      setIsAmbientPlaying(true)
-    } catch (err) {
-      console.warn('[useAudio] startAmbient failed:', err)
-    }
+    }).catch(() => {})
   }, [getContext, buildNoiseBuffer])
 
   const stopAmbient = useCallback(() => {
