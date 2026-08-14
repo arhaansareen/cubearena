@@ -123,6 +123,19 @@ function SolveRow({ solve, index, total }: { solve: Solve; index: number; total:
         </span>
       </div>
 
+      {hasTags && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '0 16px 7px 56px', borderBottom: open ? 'none' : '1px solid var(--border)' }}>
+          {solve.tags.map(tag => (
+            <span key={tag} style={{
+              padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 500,
+              border: '1px solid var(--accent)', backgroundColor: 'var(--accent-dim)', color: 'var(--accent)',
+            }}>
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -134,18 +147,14 @@ function SolveRow({ solve, index, total }: { solve: Solve; index: number; total:
           >
             <div style={{ padding: '12px 16px 16px 56px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 5 }}>
-                  Scramble
-                </div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 5 }}>Scramble</div>
                 <div style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-primary)', lineHeight: 1.6, wordBreak: 'break-word' }}>
                   {solve.scramble}
                 </div>
               </div>
               {hasNote && (
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 5 }}>
-                    Note
-                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 5 }}>Note</div>
                   <div style={{
                     fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6,
                     backgroundColor: 'rgba(34,211,238,0.06)', borderRadius: 6,
@@ -155,26 +164,7 @@ function SolveRow({ solve, index, total }: { solve: Solve; index: number; total:
                   </div>
                 </div>
               )}
-              {hasTags && (
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 5 }}>Tags</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {solve.tags.map(tag => (
-                      <span key={tag} style={{
-                        padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 500,
-                        border: '1px solid var(--accent)',
-                        backgroundColor: 'var(--accent-dim)',
-                        color: 'var(--accent)',
-                      }}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {!hasNote && !hasTags && (
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>No note for this solve.</div>
-              )}
+              {!hasNote && <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>No note for this solve.</div>}
             </div>
           </motion.div>
         )}
@@ -520,24 +510,61 @@ export function HistoryPage() {
             </div>
           )}
 
-          {/* Solve table */}
-          {!loading && filteredSolves.length > 0 && (
-            <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{
-                display: 'grid', gridTemplateColumns: '40px 88px 72px 104px 1fr 20px',
-                padding: '10px 16px', borderBottom: '1px solid var(--border)',
-                fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
-                textTransform: 'uppercase', letterSpacing: '0.07em',
-              }}>
-                <span>#</span><span>Date</span><span>Event</span><span>Time</span><span>Scramble</span><span />
+          {/* Solve table grouped by session */}
+          {!loading && filteredSolves.length > 0 && (() => {
+            // Group solves by session_id, preserving order (most recent session first)
+            const sessionOrder: string[] = []
+            const sessionMap = new Map<string, Solve[]>()
+            for (const s of filteredSolves) {
+              if (!sessionMap.has(s.sessionId)) { sessionOrder.push(s.sessionId); sessionMap.set(s.sessionId, []) }
+              sessionMap.get(s.sessionId)!.push(s)
+            }
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {sessionOrder.map((sid, sIdx) => {
+                  const sessionSolves = sessionMap.get(sid)!
+                  const firstTs = sessionSolves[sessionSolves.length - 1].timestamp
+                  const lastTs = sessionSolves[0].timestamp
+                  const sameDay = new Date(firstTs).toDateString() === new Date(lastTs).toDateString()
+                  const label = sameDay
+                    ? formatDate(firstTs)
+                    : `${formatDateShort(firstTs)} – ${formatDate(lastTs)}`
+                  const best = Math.min(...sessionSolves.filter(s => isFinite(s.effectiveTime)).map(s => s.effectiveTime))
+                  return (
+                    <div key={sid} style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '10px 16px', borderBottom: '1px solid var(--border)',
+                        backgroundColor: 'var(--surface-1)',
+                      }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>
+                          Session {sessionOrder.length - sIdx}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>· {sessionSolves.length} solve{sessionSolves.length !== 1 ? 's' : ''}</span>
+                        {isFinite(best) && (
+                          <span style={{ fontSize: 11, color: 'var(--positive)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, marginLeft: 'auto' }}>
+                            best {formatTime(best)}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{
+                        display: 'grid', gridTemplateColumns: '40px 88px 72px 104px 1fr 20px',
+                        padding: '7px 16px', borderBottom: '1px solid var(--border)',
+                        fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
+                        textTransform: 'uppercase', letterSpacing: '0.07em',
+                      }}>
+                        <span>#</span><span>Date</span><span>Event</span><span>Time</span><span>Scramble</span><span />
+                      </div>
+                      {sessionSolves.map((solve, i) => (
+                        <SolveRow key={solve.id} solve={solve} index={i} total={sessionSolves.length} />
+                      ))}
+                    </div>
+                  )
+                })}
               </div>
-              <div style={{ overflowY: 'auto', maxHeight: 'calc(100dvh - 320px)' }}>
-                {filteredSolves.map((solve, i) => (
-                  <SolveRow key={solve.id} solve={solve} index={i} total={filteredSolves.length} />
-                ))}
-              </div>
-            </div>
-          )}
+            )
+          })()}
 
           {!loading && solves.length > 0 && filteredSolves.length === 0 && (
             <div style={{ textAlign: 'center', padding: '48px 32px', backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-muted)', fontSize: 14 }}>
