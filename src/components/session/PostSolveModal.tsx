@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Penalty, NotesBehavior } from '@/types'
-import { TimeDisplay } from '@/components/shared/TimeDisplay'
-import { PenaltyBadge } from '@/components/shared/PenaltyBadge'
+import { formatTime } from '@/lib/utils'
 
 interface PostSolveModalProps {
   isOpen: boolean
@@ -14,15 +13,7 @@ interface PostSolveModalProps {
   onDismiss: () => void
 }
 
-const PREDEFINED_TAGS = [
-  'lockup',
-  'lucky',
-  'bad cross',
-  'good F2L',
-  'PLL skip',
-  'fingertrick',
-  'OH fumble',
-]
+const PREDEFINED_TAGS = ['lockup', 'lucky', 'bad cross', 'good F2L', 'PLL skip', 'fingertrick', 'bad look']
 
 function computeDisplayTime(time: number, penalty: Penalty): number {
   if (penalty === 'DNF') return Infinity
@@ -30,28 +21,24 @@ function computeDisplayTime(time: number, penalty: Penalty): number {
   return time
 }
 
-export function PostSolveModal({
-  isOpen,
-  time,
-  penalty,
-  notesBehavior,
-  onPenaltyChange,
-  onConfirm,
-  onDismiss,
-}: PostSolveModalProps) {
+function penaltyColors(p: Penalty) {
+  if (p === null)  return { border: 'var(--positive)',    bg: 'rgba(34,197,94,0.12)',   text: 'var(--positive)' }
+  if (p === '+2')  return { border: 'var(--inspection)',  bg: 'rgba(245,158,11,0.12)',  text: 'var(--inspection)' }
+  return             { border: 'var(--penalty)',    bg: 'rgba(239,68,68,0.12)',   text: 'var(--penalty)' }
+}
+
+export function PostSolveModal({ isOpen, time, penalty, notesBehavior, onPenaltyChange, onConfirm, onDismiss }: PostSolveModalProps) {
   const [notes, setNotes] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
 
   const displayTime = computeDisplayTime(time, penalty)
+  const timeStr = displayTime === Infinity ? 'DNF' : formatTime(displayTime)
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    )
-  }
+  const toggleTag = (tag: string) =>
+    setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])
 
   const handleConfirm = () => {
-    if (notesBehavior === 'required' && notes.trim() === '') return
+    if (notesBehavior === 'required' && !notes.trim()) return
     onConfirm(notes.trim() || null, selectedTags)
     setNotes('')
     setSelectedTags([])
@@ -63,209 +50,182 @@ export function PostSolveModal({
     onDismiss()
   }
 
+  const canDismiss = notesBehavior !== 'required'
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — blurs the session behind without hiding it */}
           <motion.div
             key="backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={notesBehavior !== 'required' ? handleDismiss : undefined}
+            transition={{ duration: 0.25 }}
+            onClick={canDismiss ? handleDismiss : undefined}
             style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(2, 6, 23, 0.7)',
-              zIndex: 200,
-              backdropFilter: 'blur(4px)',
-              cursor: notesBehavior !== 'required' ? 'pointer' : 'default',
+              position: 'fixed', inset: 0, zIndex: 200,
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              backgroundColor: 'rgba(2,6,23,0.45)',
+              cursor: canDismiss ? 'pointer' : 'default',
             }}
           />
 
-          {/* Modal */}
+          {/* Bottom sheet */}
           <motion.div
-            key="modal"
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            key="sheet"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 280 }}
             style={{
-              position: 'fixed',
-              left: '50%',
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 201,
-              width: '100%',
-              maxWidth: 440,
+              position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 201,
               backgroundColor: 'var(--surface-0)',
-              border: '1px solid var(--border)',
-              borderRadius: 16,
-              padding: 28,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 20,
+              borderTop: '1px solid var(--border)',
+              borderTopLeftRadius: 24, borderTopRightRadius: 24,
+              maxHeight: '88dvh', overflowY: 'auto',
+              display: 'flex', flexDirection: 'column',
             }}
           >
-            {/* Time display */}
-            <div style={{ textAlign: 'center' }}>
-              <TimeDisplay ms={displayTime} size="xl" />
-              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center', gap: 8 }}>
-                <PenaltyBadge penalty={penalty} />
-              </div>
+            {/* Handle */}
+            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12, paddingBottom: 4, flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'var(--border)' }} />
             </div>
 
-            {/* Penalty buttons */}
-            <div
-              style={{
-                display: 'flex',
-                gap: 8,
-                justifyContent: 'center',
-              }}
-            >
-              {(['none', '+2', 'DNF'] as const).map((p) => {
-                const actualPenalty: Penalty = p === 'none' ? null : p
-                const isActive = penalty === actualPenalty
-                return (
-                  <button
-                    key={p}
-                    onClick={() => onPenaltyChange(actualPenalty)}
-                    style={{
-                      padding: '8px 20px',
-                      borderRadius: 8,
-                      border: `1px solid ${isActive ? getActiveBorderColor(actualPenalty) : 'var(--border)'}`,
-                      backgroundColor: isActive ? getActiveBgColor(actualPenalty) : 'var(--surface-1)',
-                      color: isActive ? getActiveTextColor(actualPenalty) : 'var(--text-muted)',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      letterSpacing: '0.02em',
-                      cursor: 'pointer',
-                      transition: 'all 150ms ease',
-                      fontFamily: "'JetBrains Mono', monospace",
-                    }}
-                  >
-                    {p === 'none' ? 'OK' : p}
-                  </button>
-                )
-              })}
-            </div>
+            <div style={{ padding: '12px 28px 40px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-            {/* Tags */}
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-                Tags
+              {/* Time hero */}
+              <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 64,
+                  fontWeight: 700,
+                  letterSpacing: '-0.04em',
+                  lineHeight: 1,
+                  color: penalty === 'DNF' ? 'var(--penalty)' : penalty === '+2' ? 'var(--inspection)' : 'var(--timer-active)',
+                }}>
+                  {timeStr}
+                </div>
+                {penalty === '+2' && (
+                  <div style={{ fontSize: 13, color: 'var(--inspection)', marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>
+                    +2 penalty applied
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {PREDEFINED_TAGS.map((tag) => {
-                  const active = selectedTags.includes(tag)
+
+              {/* Penalty chips */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                {(['none', '+2', 'DNF'] as const).map((p) => {
+                  const actual: Penalty = p === 'none' ? null : p
+                  const active = penalty === actual
+                  const c = penaltyColors(actual)
                   return (
                     <button
-                      key={tag}
-                      onClick={() => toggleTag(tag)}
+                      key={p}
+                      onClick={() => onPenaltyChange(actual)}
                       style={{
-                        padding: '4px 12px',
-                        borderRadius: 9999,
-                        border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                        backgroundColor: active ? 'var(--accent-dim)' : 'var(--surface-1)',
-                        color: active ? 'var(--accent)' : 'var(--text-muted)',
-                        fontSize: 12,
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                        transition: 'all 150ms ease',
+                        padding: '7px 22px', borderRadius: 999,
+                        border: `1px solid ${active ? c.border : 'var(--border)'}`,
+                        backgroundColor: active ? c.bg : 'var(--surface-1)',
+                        color: active ? c.text : 'var(--text-muted)',
+                        fontSize: 13, fontWeight: 600,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        cursor: 'pointer', transition: 'all 150ms ease',
                       }}
                     >
-                      {tag}
+                      {p === 'none' ? 'OK' : p}
                     </button>
                   )
                 })}
               </div>
-            </div>
 
-            {/* Notes */}
-            {notesBehavior !== 'off' && (
+              {/* Tags */}
               <div>
-                <label
-                  htmlFor="solve-notes"
-                  style={{
-                    display: 'block',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: 'var(--text-muted)',
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                    marginBottom: 8,
-                  }}
-                >
-                  Notes{notesBehavior === 'required' ? ' (required)' : ''}
-                </label>
-                <textarea
-                  id="solve-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="What happened on this solve?"
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    backgroundColor: 'var(--surface-1)',
-                    border: `1px solid ${notes.trim() ? 'rgba(255,255,255,0.15)' : 'var(--border)'}`,
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    color: 'var(--text-primary)',
-                    fontSize: 13,
-                    resize: 'vertical',
-                    outline: 'none',
-                    fontFamily: "'Inter', sans-serif",
-                    transition: 'border-color 150ms ease',
-                  }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = notes.trim() ? 'rgba(255,255,255,0.15)' : 'var(--border)' }}
-                />
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+                  What happened?
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {PREDEFINED_TAGS.map((tag) => {
+                    const active = selectedTags.includes(tag)
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        style={{
+                          padding: '5px 14px', borderRadius: 999,
+                          border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                          backgroundColor: active ? 'var(--accent-dim)' : 'var(--surface-1)',
+                          color: active ? 'var(--accent)' : 'var(--text-muted)',
+                          fontSize: 12, fontWeight: 500,
+                          cursor: 'pointer', transition: 'all 150ms ease',
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            )}
 
-            {/* Action button */}
-            <button
-              onClick={handleConfirm}
-              disabled={notesBehavior === 'required' && notes.trim() === ''}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: 10,
-                backgroundColor: 'var(--accent)',
-                color: '#020617',
-                fontSize: 15,
-                fontWeight: 700,
-                cursor: notesBehavior === 'required' && notes.trim() === '' ? 'not-allowed' : 'pointer',
-                border: 'none',
-                transition: 'opacity 150ms ease',
-                opacity: notesBehavior === 'required' && notes.trim() === '' ? 0.4 : 1,
-              }}
-            >
-              Next Solve
-            </button>
+              {/* Notes */}
+              {notesBehavior !== 'off' && (
+                <div>
+                  <label
+                    htmlFor="solve-notes"
+                    style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}
+                  >
+                    Notes{notesBehavior === 'required' ? ' *' : ''}
+                  </label>
+                  <textarea
+                    id="solve-notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="What would you do differently?"
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      backgroundColor: 'var(--surface-1)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 10, padding: '10px 14px',
+                      color: 'var(--text-primary)', fontSize: 14,
+                      resize: 'none', outline: 'none',
+                      fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+                      lineHeight: 1.5,
+                      transition: 'border-color 150ms ease',
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+                  />
+                </div>
+              )}
+
+              {/* CTA */}
+              <button
+                onClick={handleConfirm}
+                disabled={notesBehavior === 'required' && !notes.trim()}
+                style={{
+                  width: '100%', padding: '14px',
+                  borderRadius: 12,
+                  backgroundColor: 'var(--accent)',
+                  color: '#020617',
+                  fontSize: 15, fontWeight: 700,
+                  border: 'none', cursor: 'pointer',
+                  boxShadow: 'var(--shadow-accent)',
+                  opacity: notesBehavior === 'required' && !notes.trim() ? 0.4 : 1,
+                  transition: 'opacity 150ms ease, transform 100ms ease',
+                }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.98)' }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                Next Solve
+              </button>
+
+            </div>
           </motion.div>
         </>
       )}
     </AnimatePresence>
   )
-}
-
-function getActiveBorderColor(penalty: Penalty): string {
-  if (penalty === null) return 'var(--positive)'
-  if (penalty === '+2') return 'var(--inspection)'
-  return 'var(--penalty)'
-}
-
-function getActiveBgColor(penalty: Penalty): string {
-  if (penalty === null) return 'rgba(34, 197, 94, 0.12)'
-  if (penalty === '+2') return 'rgba(245, 158, 11, 0.12)'
-  return 'rgba(239, 68, 68, 0.12)'
-}
-
-function getActiveTextColor(penalty: Penalty): string {
-  if (penalty === null) return 'var(--positive)'
-  if (penalty === '+2') return 'var(--inspection)'
-  return 'var(--penalty)'
 }
