@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Penalty, NotesBehavior } from '@/types'
 import { formatTime } from '@/lib/utils'
@@ -30,6 +30,21 @@ function penaltyColors(p: Penalty) {
 export function PostSolveModal({ isOpen, time, penalty, notesBehavior, onPenaltyChange, onConfirm, onDismiss }: PostSolveModalProps) {
   const [notes, setNotes] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return
+      if (document.activeElement === textareaRef.current) return
+      if (notesBehavior === 'required' && !notes.trim()) return
+      e.preventDefault()
+      handleConfirm()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, notes, notesBehavior, penalty])
 
   const displayTime = computeDisplayTime(time, penalty)
   const timeStr = displayTime === Infinity ? 'DNF' : formatTime(displayTime)
@@ -180,6 +195,7 @@ export function PostSolveModal({ isOpen, time, penalty, notesBehavior, onPenalty
                   </label>
                   <textarea
                     id="solve-notes"
+                    ref={textareaRef}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="What would you do differently?"

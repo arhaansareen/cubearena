@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import type { Penalty, NotesBehavior } from '@/types'
 import { formatTime } from '@/lib/utils'
@@ -34,6 +34,20 @@ function penaltyStyle(p: Penalty, active: boolean) {
 export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, onConfirm }: PostSolvePanelProps) {
   const [notes, setNotes] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return
+      if (document.activeElement === textareaRef.current) return
+      if (notesBehavior === 'required' && !notes.trim()) return
+      e.preventDefault()
+      handleConfirm()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes, notesBehavior, penalty])
 
   const displayTime = penalty === 'DNF' ? Infinity : penalty === '+2' ? time + 2000 : time
 
@@ -111,6 +125,7 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
             Notes{notesBehavior === 'required' ? ' *' : ''}
           </div>
           <textarea
+            ref={textareaRef}
             value={notes}
             onChange={e => setNotes(e.target.value)}
             placeholder="What happened?"
