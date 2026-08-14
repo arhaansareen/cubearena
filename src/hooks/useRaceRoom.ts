@@ -4,7 +4,7 @@ import { generateScramble } from '@/lib/scramble'
 import type { WCAEvent } from '@/types'
 
 export type RacePhase = 'lobby' | 'solving' | 'results'
-export type RaceFormat = 'solo' | 'bo3' | 'bo5' | 'mo3' | 'ao5'
+export type RaceFormat = 'rt3' | 'rt5' | 'rt7'
 
 export interface RoundTime { time: number; penalty: string | null }
 
@@ -30,7 +30,7 @@ export interface RaceRoom {
   phase: RacePhase
   currentRound: number
   totalRounds: number
-  solveStartAt: number | null  // ms epoch — when timer unlocks
+  solveStartAt: number | null
   startedAt: string | null
 }
 
@@ -42,27 +42,35 @@ export type RaceState =
 
 // ─── Format helpers ──────────────────────────────────────────────────────────
 
-export const FORMAT_ROUNDS: Record<RaceFormat, number> = {
-  solo: 1, bo3: 3, bo5: 5, mo3: 3, ao5: 5,
+// Target score: first player to reach this score wins
+export const FORMAT_TARGET: Record<RaceFormat, number> = {
+  rt3: 3, rt5: 5, rt7: 7,
 }
 
-export function computeFinalResult(format: RaceFormat, times: RoundTime[]): number {
-  if (times.length === 0) return Infinity
-  const effective = times.map(t => t.penalty === 'DNF' ? Infinity : t.penalty === '+2' ? t.time + 2000 : t.time)
-  if (format === 'solo') return effective[0] ?? Infinity
-  if (format === 'bo3' || format === 'bo5') return Math.min(...effective)
-  if (format === 'mo3') {
-    const sum = effective.reduce((a, b) => a + b, 0)
-    return sum / effective.length
+// Max possible rounds (target * 2 - 1) — stored in DB as total_rounds
+export const FORMAT_ROUNDS: Record<RaceFormat, number> = {
+  rt3: 5, rt5: 9, rt7: 13,
+}
+
+// Returns score per participant uid — each round goes to the faster solver
+export function computeScores(participants: RaceParticipant[]): Record<string, number> {
+  const scores: Record<string, number> = {}
+  participants.forEach(p => { scores[p.uid] = 0 })
+
+  const numRounds = Math.max(...participants.map(p => p.roundTimes.length), 0)
+  for (let i = 0; i < numRounds; i++) {
+    const times = participants.map(p => {
+      const rt = p.roundTimes[i]
+      if (!rt) return { uid: p.uid, t: Infinity }
+      const t = rt.penalty === 'DNF' ? Infinity : rt.penalty === '+2' ? rt.time + 2000 : rt.time
+      return { uid: p.uid, t }
+    })
+    const best = Math.min(...times.map(x => x.t))
+    if (!isFinite(best)) continue
+    const winners = times.filter(x => x.t === best)
+    if (winners.length === 1) scores[winners[0].uid] = (scores[winners[0].uid] ?? 0) + 1
   }
-  if (format === 'ao5') {
-    if (effective.length < 5) return Infinity
-    const sorted = [...effective].sort((a, b) => a - b)
-    const middle = sorted.slice(1, 4)
-    const sum = middle.reduce((a, b) => a + b, 0)
-    return sum / 3
-  }
-  return Infinity
+  return scores
 }
 
 // ─── Row parsers ─────────────────────────────────────────────────────────────
@@ -78,11 +86,11 @@ function rowToRoom(row: Record<string, unknown>): RaceRoom {
     code: row.code as string,
     hostUid: row.host_uid as string,
     event: (row.event as WCAEvent) ?? '333',
-    format: (row.format as RaceFormat) ?? 'solo',
+    format: (row.format as RaceFormat) ?? 'rt3',
     scramble: (row.scramble as string) ?? null,
     phase: (row.phase as RacePhase) ?? 'lobby',
     currentRound: (row.current_round as number) ?? 1,
-    totalRounds: (row.total_rounds as number) ?? 1,
+    totalRounds: (row.total_rounds as number) ?? 5,
     solveStartAt: solveStartAtStr ? new Date(solveStartAtStr).getTime() : null,
     startedAt: (row.started_at as string) ?? null,
   }
@@ -146,26 +154,33 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
           }
           setState({ status: 'in_room', room: currentRoom, participants: currentParticipants, myUid: myUid! })
 
-          // Host advances round when every participant has finished
+          // Host drives score-based advance when every participant has finished
           if (
             myUid === currentRoom.hostUid &&
             currentRoom.phase === 'solving' &&
             currentParticipants.length > 0 &&
             currentParticipants.every(p => p.finishedAt !== null)
           ) {
-            const nextRound = currentRoom.currentRound + 1
-            if (nextRound <= currentRoom.totalRounds) {
+            const scores = computeScores(currentParticipants)
+            const target = FORMAT_TARGET[currentRoom.format]
+            const hasWinner = Object.values(scores).some(s => s >= target)
+
+            // Wait 3s so players can see the round result before moving on
+            await new Promise(r => setTimeout(r, 3000))
+
+            if (hasWinner) {
+              await supabase.from('race_rooms').update({ phase: 'results' }).eq('id', roomId)
+            } else {
+              const next = currentRoom.currentRound + 1
               const scramble = generateScramble(currentRoom.event)
               const solveStartAt = new Date(Date.now() + 4000).toISOString()
               await supabase.from('race_rooms').update({
                 phase: 'solving', scramble, solve_start_at: solveStartAt,
-                current_round: nextRound, started_at: new Date().toISOString(),
+                current_round: next, started_at: new Date().toISOString(),
               }).eq('id', roomId)
               await supabase.from('race_participants')
                 .update({ solve_time: null, penalty: null, finished_at: null, is_ready: false })
                 .eq('room_id', roomId)
-            } else {
-              await supabase.from('race_rooms').update({ phase: 'results' }).eq('id', roomId)
             }
           }
         }
@@ -175,7 +190,7 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
     channelRef.current = channel
   }, [myUid, cleanup])
 
-  const createRoom = useCallback(async (event: WCAEvent, format: RaceFormat = 'solo') => {
+  const createRoom = useCallback(async (event: WCAEvent, format: RaceFormat = 'rt3') => {
     if (!isSupabaseConfigured || !myUid) return setError('Not connected')
     setState({ status: 'loading' })
     const totalRounds = FORMAT_ROUNDS[format]
@@ -230,7 +245,6 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
       .eq('room_id', roomIdRef.current).eq('uid', myUid)
   }, [myUid])
 
-  // solveStartAt = 4 seconds from now (countdown)
   const startRound = useCallback(async (event: WCAEvent, round: number) => {
     if (!roomIdRef.current) return
     const scramble = generateScramble(event)
@@ -241,7 +255,6 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
       current_round: round,
       started_at: new Date().toISOString(),
     }).eq('id', roomIdRef.current)
-    // reset per-round solve data (keep round_times)
     await supabase.from('race_participants')
       .update({ solve_time: null, penalty: null, finished_at: null, is_ready: false })
       .eq('room_id', roomIdRef.current)
@@ -264,19 +277,17 @@ export function useRaceRoom(myUid: string | null, myDisplayName: string) {
     await supabase.from('race_participants')
       .update({ solve_time: effective, penalty, finished_at: new Date().toISOString(), round_times: newRoundTimes })
       .eq('room_id', roomIdRef.current).eq('uid', myUid)
-    // Advance logic is handled in the realtime participant handler
   }, [myUid, state])
 
-  const nextRound = useCallback(async (_event: WCAEvent) => {
-    if (!roomIdRef.current || state.status !== 'in_room') return
-    // full reset for a new match
+  const nextRound = useCallback(async () => {
+    if (!roomIdRef.current) return
     await supabase.from('race_participants')
       .update({ round_times: [], solve_time: null, penalty: null, finished_at: null, is_ready: false })
       .eq('room_id', roomIdRef.current)
     await supabase.from('race_rooms')
       .update({ phase: 'lobby', current_round: 1, scramble: null, solve_start_at: null })
       .eq('id', roomIdRef.current)
-  }, [state])
+  }, [])
 
   const leaveRoom = useCallback(async () => {
     if (!myUid || !roomIdRef.current) return

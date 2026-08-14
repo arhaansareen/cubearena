@@ -2,18 +2,18 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
 import { useProfile } from '@/providers/ProfileProvider'
-import { useRaceRoom, type RaceParticipant, type RaceFormat, computeFinalResult, FORMAT_ROUNDS } from '@/hooks/useRaceRoom'
+import { useRaceRoom, type RaceParticipant, type RaceFormat, computeScores, FORMAT_TARGET, FORMAT_ROUNDS } from '@/hooks/useRaceRoom'
 import { ScrambleViz } from '@/components/session/ScrambleViz'
 import { formatTime } from '@/lib/utils'
 import type { WCAEvent } from '@/types'
 
 const ALL_EVENTS: { value: WCAEvent; label: string }[] = [
-  { value: '333',   label: '3×3' },
-  { value: '222',   label: '2×2' },
-  { value: '444',   label: '4×4' },
-  { value: '555',   label: '5×5' },
-  { value: '666',   label: '6×6' },
-  { value: '777',   label: '7×7' },
+  { value: '333',   label: '3x3' },
+  { value: '222',   label: '2x2' },
+  { value: '444',   label: '4x4' },
+  { value: '555',   label: '5x5' },
+  { value: '666',   label: '6x6' },
+  { value: '777',   label: '7x7' },
   { value: '333bf', label: '3BLD' },
   { value: '333oh', label: '3OH' },
   { value: '333fm', label: 'FMC' },
@@ -25,19 +25,14 @@ const ALL_EVENTS: { value: WCAEvent; label: string }[] = [
   { value: '444bf', label: '4BLD' },
   { value: '555bf', label: '5BLD' },
 ]
-
 const EVENT_LABELS: Record<string, string> = Object.fromEntries(ALL_EVENTS.map(e => [e.value, e.label]))
 
 const FORMAT_OPTIONS: { value: RaceFormat; label: string; description: string }[] = [
-  { value: 'solo', label: 'Solve by solve',  description: 'One solve, host restarts each round' },
-  { value: 'bo3',  label: 'Best of 3',       description: '3 solves — lowest single wins' },
-  { value: 'bo5',  label: 'Best of 5',       description: '5 solves — lowest single wins' },
-  { value: 'mo3',  label: 'Mean of 3',       description: '3 solves — mean of all 3' },
-  { value: 'ao5',  label: 'Avg of 5',        description: '5 solves — drop best & worst' },
+  { value: 'rt3', label: 'Race to 3', description: 'First to win 3 rounds wins the match' },
+  { value: 'rt5', label: 'Race to 5', description: 'First to win 5 rounds wins the match' },
+  { value: 'rt7', label: 'Race to 7', description: 'First to win 7 rounds wins the match' },
 ]
-const FORMAT_LABELS: Record<RaceFormat, string> = {
-  solo: 'Solve by solve', bo3: 'Best of 3', bo5: 'Best of 5', mo3: 'Mean of 3', ao5: 'Avg of 5',
-}
+const FORMAT_LABELS: Record<RaceFormat, string> = { rt3: 'Race to 3', rt5: 'Race to 5', rt7: 'Race to 7' }
 
 // ─── Custom dropdowns ─────────────────────────────────────────────────────────
 
@@ -50,12 +45,11 @@ function ChevronDown() {
 }
 
 function DropdownMenu<T extends string>({
-  value, options, onChange, renderOption,
+  value, options, onChange,
 }: {
   value: T
   options: { value: T; label: string; sub?: string }[]
   onChange: (v: T) => void
-  renderOption?: (o: { value: T; label: string; sub?: string }) => React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -97,7 +91,7 @@ function DropdownMenu<T extends string>({
             style={{
               position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 50,
               backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
-              borderRadius: 12, overflow: 'hidden auto', maxHeight: 280,
+              borderRadius: 12, overflow: 'hidden auto', maxHeight: 300,
               boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
             }}
           >
@@ -114,38 +108,14 @@ function DropdownMenu<T extends string>({
                 onMouseEnter={e => { if (o.value !== value) e.currentTarget.style.backgroundColor = 'var(--surface-1)' }}
                 onMouseLeave={e => { if (o.value !== value) e.currentTarget.style.backgroundColor = 'transparent' }}
               >
-                {renderOption ? renderOption(o) : (
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{o.label}</div>
-                    {o.sub && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{o.sub}</div>}
-                  </div>
-                )}
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{o.label}</div>
+                {o.sub && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{o.sub}</div>}
               </button>
             ))}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
-  )
-}
-
-function EventPicker({ value, onChange }: { value: WCAEvent; onChange: (v: WCAEvent) => void }) {
-  return (
-    <DropdownMenu
-      value={value}
-      options={ALL_EVENTS.map(e => ({ value: e.value, label: e.label }))}
-      onChange={onChange}
-    />
-  )
-}
-
-function FormatPicker({ value, onChange }: { value: RaceFormat; onChange: (v: RaceFormat) => void }) {
-  return (
-    <DropdownMenu
-      value={value}
-      options={FORMAT_OPTIONS.map(f => ({ value: f.value, label: f.label, sub: f.description }))}
-      onChange={onChange}
-    />
   )
 }
 
@@ -158,12 +128,11 @@ function useRaceTimer(unlockAt: number | null) {
   const [elapsed, setElapsed] = useState(0)
   const [countdown, setCountdown] = useState(0)
   const startRef = useRef<number | null>(null)
-  const countdownRafRef = useRef<number>(0)  // countdown loop
-  const solveRafRef = useRef<number>(0)      // solve tick loop
+  const countdownRafRef = useRef<number>(0)
+  const solveRafRef = useRef<number>(0)
   const phaseRef = useRef<TimerPhase>('locked')
   phaseRef.current = phase
 
-  // Countdown to unlock
   useEffect(() => {
     if (!unlockAt) return
     const tick = () => {
@@ -180,7 +149,6 @@ function useRaceTimer(unlockAt: number | null) {
     return () => cancelAnimationFrame(countdownRafRef.current)
   }, [unlockAt])
 
-  // Solve tick
   const runTick = useCallback(() => {
     if (startRef.current) setElapsed(Date.now() - startRef.current)
     solveRafRef.current = requestAnimationFrame(runTick)
@@ -217,7 +185,6 @@ function useRaceTimer(unlockAt: number | null) {
     }
   }, [onKeyDown, onKeyUp])
 
-  // Reset only the solve timer, not the countdown
   const reset = useCallback(() => {
     cancelAnimationFrame(solveRafRef.current)
     startRef.current = null
@@ -243,7 +210,7 @@ function Avatar({ name, color, size = 36 }: { name: string; color: string; size?
       width: size, height: size, borderRadius: '50%', backgroundColor: color,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: Math.round(size * 0.36), fontWeight: 700, color: '#fff',
-      fontFamily: "'JetBrains Mono', monospace", flexShrink: 0,
+      fontFamily: "'JetBrains Mono', monospace", flexShrink: 0, lineHeight: 1,
     }}>
       {initials}
     </div>
@@ -252,9 +219,9 @@ function Avatar({ name, color, size = 36 }: { name: string; color: string; size?
 
 function PenaltyChips({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
   const options = [
-    { label: 'OK', val: null, activeColor: 'var(--positive)', activeBg: 'rgba(34,197,94,0.12)', activeBorder: 'var(--positive)' },
-    { label: '+2', val: '+2', activeColor: 'var(--inspection)', activeBg: 'rgba(245,158,11,0.12)', activeBorder: 'var(--inspection)' },
-    { label: 'DNF', val: 'DNF', activeColor: 'var(--penalty)', activeBg: 'rgba(239,68,68,0.12)', activeBorder: 'var(--penalty)' },
+    { label: 'OK',  val: null,  color: 'var(--positive)',  bg: 'rgba(34,197,94,0.12)',  border: 'var(--positive)' },
+    { label: '+2',  val: '+2',  color: 'var(--inspection)', bg: 'rgba(245,158,11,0.12)', border: 'var(--inspection)' },
+    { label: 'DNF', val: 'DNF', color: 'var(--penalty)',   bg: 'rgba(239,68,68,0.12)',  border: 'var(--penalty)' },
   ]
   return (
     <div style={{ display: 'flex', gap: 8 }}>
@@ -263,9 +230,9 @@ function PenaltyChips({ value, onChange }: { value: string | null; onChange: (v:
         return (
           <button key={o.label} onClick={() => onChange(o.val)} style={{
             padding: '7px 20px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            border: `1px solid ${active ? o.activeBorder : 'var(--border)'}`,
-            backgroundColor: active ? o.activeBg : 'var(--surface-1)',
-            color: active ? o.activeColor : 'var(--text-muted)',
+            border: `1px solid ${active ? o.border : 'var(--border)'}`,
+            backgroundColor: active ? o.bg : 'var(--surface-1)',
+            color: active ? o.color : 'var(--text-muted)',
             transition: 'all 120ms ease',
           }}>{o.label}</button>
         )
@@ -274,11 +241,52 @@ function PenaltyChips({ value, onChange }: { value: string | null; onChange: (v:
   )
 }
 
-// ─── Results / Leaderboard ────────────────────────────────────────────────────
+// ─── Scoreboard strip ─────────────────────────────────────────────────────────
+
+function Scoreboard({ participants, myUid, format }: { participants: RaceParticipant[]; myUid: string; format: RaceFormat }) {
+  const scores = computeScores(participants)
+  const target = FORMAT_TARGET[format]
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+      {participants.map((p, i) => {
+        const score = scores[p.uid] ?? 0
+        const isMe = p.uid === myUid
+        return (
+          <React.Fragment key={p.uid}>
+            {i > 0 && (
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-muted)', padding: '0 12px', fontFamily: "'JetBrains Mono', monospace" }}>
+                —
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 60 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: isMe ? 'var(--accent)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: 80, textOverflow: 'ellipsis' }}>
+                {isMe ? 'You' : p.displayName}
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {Array.from({ length: target }).map((_, j) => (
+                  <div key={j} style={{
+                    width: 8, height: 8, borderRadius: '50%',
+                    backgroundColor: j < score ? (isMe ? 'var(--accent)' : 'var(--text-primary)') : 'var(--surface-1)',
+                    border: `1px solid ${j < score ? (isMe ? 'var(--accent)' : 'var(--text-primary)') : 'var(--border)'}`,
+                    transition: 'background-color 300ms ease',
+                  }} />
+                ))}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: isMe ? 'var(--accent)' : 'var(--text-primary)', lineHeight: 1 }}>
+                {score}
+              </div>
+            </div>
+          </React.Fragment>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Results screen ───────────────────────────────────────────────────────────
 
 function ResultsScreen({
-  participants, format, event, isHost, myUid,
-  onPlayAgain, onLeave,
+  participants, format, event, isHost, myUid, onPlayAgain, onLeave,
 }: {
   participants: RaceParticipant[]
   format: RaceFormat
@@ -288,18 +296,16 @@ function ResultsScreen({
   onPlayAgain: () => void
   onLeave: () => void
 }) {
-  const withResult = participants.map(p => ({
-    ...p,
-    final: computeFinalResult(format, p.roundTimes),
-  }))
-  const sorted = [...withResult].sort((a, b) => a.final - b.final)
+  const scores = computeScores(participants)
+  const sorted = [...participants].sort((a, b) => (scores[b.uid] ?? 0) - (scores[a.uid] ?? 0))
   const winner = sorted[0]
-  const medals = ['🥇', '🥈', '🥉']
+  const target = FORMAT_TARGET[format]
+  const iWon = winner?.uid === myUid
 
-  const dnfAll = sorted.every(p => !isFinite(p.final))
+  const RANK_LABELS = ['1st', '2nd', '3rd', '4th']
 
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 24px' }}>
+    <div style={{ maxWidth: 520, margin: '0 auto', padding: '40px 24px' }}>
       {/* Winner banner */}
       <motion.div
         initial={{ opacity: 0, y: -16 }}
@@ -307,91 +313,95 @@ function ResultsScreen({
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
         style={{
           textAlign: 'center', marginBottom: 32,
-          backgroundColor: 'rgba(234,179,8,0.07)',
-          border: '1px solid rgba(234,179,8,0.25)',
+          backgroundColor: iWon ? 'var(--accent-dim)' : 'var(--surface-0)',
+          border: `1px solid ${iWon ? 'var(--accent)' : 'var(--border)'}`,
           borderRadius: 20, padding: '28px 24px',
         }}
       >
-        <div style={{ fontSize: 40, marginBottom: 10 }}>🏆</div>
-        {dnfAll ? (
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>Everyone DNF'd</div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
-              <Avatar name={winner.displayName} color={avatarColor(winner.uid)} size={56} />
-            </div>
-            <div style={{ marginTop: 12, fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-              {winner.displayName}{winner.uid === myUid ? ' 🎉' : ''}
-            </div>
-            <div style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
-              {winner.uid === myUid ? 'You won!' : 'wins the race'}
-            </div>
-            <div style={{ marginTop: 10, fontSize: 36, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: 'var(--accent)', letterSpacing: '-0.03em' }}>
-              {formatTime(winner.final)}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-              {EVENT_LABELS[event] ?? event} · {FORMAT_LABELS[format]}
-            </div>
-          </>
-        )}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+          <Avatar name={winner?.displayName ?? '?'} color={avatarColor(winner?.uid ?? '')} size={56} />
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+          {iWon ? 'You won' : `${winner?.displayName} wins`}
+        </div>
+        <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>
+          {EVENT_LABELS[event] ?? event} · {FORMAT_LABELS[format]} · first to {target}
+        </div>
+        {/* Final score */}
+        <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center' }}>
+          <Scoreboard participants={participants} myUid={myUid} format={format} />
+        </div>
       </motion.div>
 
-      {/* Full leaderboard */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Per-round breakdown */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>
+          Round breakdown
+        </div>
+        {Array.from({ length: Math.max(...participants.map(p => p.roundTimes.length), 0) }).map((_, i) => {
+          const roundTimes = participants.map(p => {
+            const rt = p.roundTimes[i]
+            const t = rt ? (rt.penalty === 'DNF' ? Infinity : rt.penalty === '+2' ? rt.time + 2000 : rt.time) : Infinity
+            return { uid: p.uid, name: p.displayName, t, penalty: rt?.penalty ?? null }
+          })
+          const best = Math.min(...roundTimes.map(x => x.t))
+          const roundWinnerUid = isFinite(best) && roundTimes.filter(x => x.t === best).length === 1
+            ? roundTimes.find(x => x.t === best)?.uid : null
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, marginBottom: 4, backgroundColor: 'var(--surface-1)' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 52, flexShrink: 0 }}>
+                Round {i + 1}
+              </div>
+              {roundTimes.map(rt => (
+                <div key={rt.uid} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: rt.uid === roundWinnerUid ? 'var(--positive)' : 'var(--border)' }} />
+                  <span style={{ fontSize: 11, color: rt.uid === myUid ? 'var(--accent)' : 'var(--text-muted)', fontWeight: rt.uid === myUid ? 600 : 400 }}>
+                    {rt.uid === myUid ? 'You' : rt.name}
+                  </span>
+                  <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: rt.uid === roundWinnerUid ? 'var(--positive)' : 'var(--text-primary)', fontWeight: rt.uid === roundWinnerUid ? 700 : 400, marginLeft: 'auto' }}>
+                    {rt.penalty === 'DNF' ? 'DNF' : isFinite(rt.t) ? formatTime(rt.t) : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Overall leaderboard */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
         {sorted.map((p, i) => {
-          const isInf = !isFinite(p.final)
           const isMe = p.uid === myUid
+          const score = scores[p.uid] ?? 0
           return (
             <motion.div
               key={p.id}
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.06, duration: 0.25 }}
+              transition={{ delay: i * 0.06 }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '12px 16px', borderRadius: 12,
-                backgroundColor: isMe ? 'var(--accent-dim)' : i === 0 ? 'rgba(234,179,8,0.06)' : 'var(--surface-1)',
-                border: `1px solid ${isMe ? 'var(--accent)' : i === 0 ? 'rgba(234,179,8,0.2)' : 'var(--border)'}`,
+                backgroundColor: isMe ? 'var(--accent-dim)' : 'var(--surface-1)',
+                border: `1px solid ${isMe ? 'var(--accent)' : 'var(--border)'}`,
               }}
             >
-              <div style={{ fontSize: 18, width: 28, textAlign: 'center', flexShrink: 0 }}>
-                {medals[i] ?? <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 700 }}>{i + 1}</span>}
+              <div style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? 'var(--accent)' : 'var(--text-muted)', width: 28, textAlign: 'center', flexShrink: 0, fontFamily: "'JetBrains Mono', monospace" }}>
+                {RANK_LABELS[i] ?? `${i + 1}`}
               </div>
               <Avatar name={p.displayName} color={avatarColor(p.uid)} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                  {p.displayName}{isMe ? ' (you)' : ''}
-                </div>
-                {p.roundTimes.length > 1 && (
-                  <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
-                    {p.roundTimes.map((rt, j) => {
-                      const t = rt.penalty === 'DNF' ? Infinity : rt.penalty === '+2' ? rt.time + 2000 : rt.time
-                      return (
-                        <span key={j} style={{
-                          fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
-                          color: 'var(--text-muted)', padding: '2px 6px',
-                          border: '1px solid var(--border)', borderRadius: 4,
-                        }}>
-                          {rt.penalty === 'DNF' ? 'DNF' : formatTime(t)}
-                        </span>
-                      )
-                    })}
-                  </div>
-                )}
+              <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                {p.displayName}{isMe ? ' (you)' : ''}
               </div>
-              <div style={{
-                fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
-                color: isInf ? 'var(--penalty)' : i === 0 ? 'rgba(234,179,8,1)' : 'var(--text-primary)',
-                letterSpacing: '-0.02em',
-              }}>
-                {isInf ? 'DNF' : formatTime(p.final)}
+              <div style={{ fontSize: 24, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: i === 0 ? 'var(--accent)' : 'var(--text-primary)' }}>
+                {score}
               </div>
             </motion.div>
           )
         })}
       </div>
 
-      <div style={{ display: 'flex', gap: 10, marginTop: 28 }}>
+      <div style={{ display: 'flex', gap: 10 }}>
         {isHost && (
           <button
             onClick={onPlayAgain}
@@ -421,7 +431,7 @@ export function RacePage() {
   const displayName = profile?.displayName?.trim() || 'Anonymous'
 
   const [selectedEvent, setSelectedEvent] = useState<WCAEvent>('333')
-  const [selectedFormat, setSelectedFormat] = useState<RaceFormat>('solo')
+  const [selectedFormat, setSelectedFormat] = useState<RaceFormat>('rt3')
   const [joinCode, setJoinCode] = useState('')
   const [myPenalty, setMyPenalty] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
@@ -471,8 +481,8 @@ export function RacePage() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80dvh', padding: '32px 24px', gap: 24 }}>
         <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8, letterSpacing: '-0.02em' }}>Race Room</h1>
-          <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>Create a room or join one with a code to race live.</p>
+          <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8, letterSpacing: '-0.02em' }}>Race</h1>
+          <p style={{ fontSize: 15, color: 'var(--text-muted)' }}>Create a room or join with a code to race live.</p>
         </div>
 
         {state.status === 'error' && (
@@ -481,20 +491,23 @@ export function RacePage() {
           </div>
         )}
 
-        {/* Create */}
         <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', width: '100%', maxWidth: 480 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20 }}>Create a room</div>
 
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>Event</div>
-            <EventPicker value={selectedEvent} onChange={setSelectedEvent} />
+            <DropdownMenu value={selectedEvent} options={ALL_EVENTS} onChange={setSelectedEvent} />
           </div>
 
           <div style={{ marginBottom: 22 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>Format</div>
-            <FormatPicker value={selectedFormat} onChange={setSelectedFormat} />
+            <DropdownMenu
+              value={selectedFormat}
+              options={FORMAT_OPTIONS.map(f => ({ value: f.value, label: f.label, sub: f.description }))}
+              onChange={setSelectedFormat}
+            />
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-              {FORMAT_ROUNDS[selectedFormat]} solve{FORMAT_ROUNDS[selectedFormat] > 1 ? 's' : ''}
+              Max {FORMAT_ROUNDS[selectedFormat]} rounds
             </div>
           </div>
 
@@ -508,7 +521,6 @@ export function RacePage() {
           </button>
         </div>
 
-        {/* Join */}
         <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px 28px', width: '100%', maxWidth: 480 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 14 }}>Join a room</div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -569,7 +581,7 @@ export function RacePage() {
         event={room.event}
         isHost={isHost}
         myUid={myUid}
-        onPlayAgain={() => void nextRound(room.event)}
+        onPlayAgain={() => void nextRound()}
         onLeave={() => void leaveRoom()}
       />
     )
@@ -589,7 +601,7 @@ export function RacePage() {
                 {FORMAT_LABELS[room.format]}
               </span>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                · {room.totalRounds} solve{room.totalRounds > 1 ? 's' : ''}
+                · first to {FORMAT_TARGET[room.format]}
               </span>
             </div>
           </div>
@@ -598,7 +610,6 @@ export function RacePage() {
           </button>
         </div>
 
-        {/* Room code */}
         <div
           onClick={copyCode}
           style={{
@@ -612,11 +623,10 @@ export function RacePage() {
             <div style={{ fontSize: 36, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.2em', color: 'var(--accent)' }}>{room.code}</div>
           </div>
           <div style={{ fontSize: 12, color: copied ? 'var(--positive)' : 'var(--text-muted)', transition: 'color 150ms ease' }}>
-            {copied ? '✓ Copied' : 'Tap to copy'}
+            {copied ? 'Copied' : 'Tap to copy'}
           </div>
         </div>
 
-        {/* Players */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
             Players ({participants.length})
@@ -637,7 +647,7 @@ export function RacePage() {
                       {room.hostUid === p.uid && <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500, marginLeft: 6 }}>host</span>}
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: p.isReady ? 'var(--positive)' : 'var(--text-muted)', transition: 'color 150ms ease' }}>
-                      {p.isReady ? '✓ Ready' : 'Not ready'}
+                      {p.isReady ? 'Ready' : 'Not ready'}
                     </div>
                   </div>
                 </motion.div>
@@ -662,7 +672,7 @@ export function RacePage() {
               color: me?.isReady ? 'var(--positive)' : '#020617',
             }}
           >
-            {me?.isReady ? '✓ Ready' : 'Ready up'}
+            {me?.isReady ? 'Ready' : 'Ready up'}
           </button>
           {isHost && (
             <button
@@ -676,7 +686,7 @@ export function RacePage() {
                 opacity: allReady ? 1 : 0.5,
               }}
             >
-              {allReady ? 'Start Race →' : 'Waiting for everyone to ready up…'}
+              {allReady ? 'Start Race' : 'Waiting for everyone to ready up…'}
             </button>
           )}
         </div>
@@ -710,20 +720,28 @@ export function RacePage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
-      {/* Scramble bar */}
-      <div style={{ borderBottom: '1px solid var(--border)', padding: '14px 24px', backgroundColor: 'var(--surface-0)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+      {/* Header bar: scramble + score */}
+      <div style={{ borderBottom: '1px solid var(--border)', padding: '12px 24px', backgroundColor: 'var(--surface-0)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* Scramble */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
-              {EVENT_LABELS[room.event] ?? room.event} · {FORMAT_LABELS[room.format]} · Round {room.currentRound}/{room.totalRounds}
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+              {EVENT_LABELS[room.event] ?? room.event} · {FORMAT_LABELS[room.format]} · Round {room.currentRound}
             </div>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', letterSpacing: '0.04em', lineHeight: 1.7, wordBreak: 'break-all' }}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', letterSpacing: '0.04em', lineHeight: 1.7, wordBreak: 'break-all' }}>
               {room.scramble}
             </div>
           </div>
+          {/* Viz */}
           {room.scramble && (
             <div style={{ flexShrink: 0 }}>
-              <ScrambleViz scramble={room.scramble} event={room.event} size={96} />
+              <ScrambleViz scramble={room.scramble} event={room.event} size={80} />
+            </div>
+          )}
+          {/* Score */}
+          {participants.length > 1 && (
+            <div style={{ flexShrink: 0, borderLeft: '1px solid var(--border)', paddingLeft: 16 }}>
+              <Scoreboard participants={participants} myUid={myUid} format={room.format} />
             </div>
           )}
         </div>
@@ -759,7 +777,7 @@ export function RacePage() {
                   <div style={{ fontSize: 12, color: 'var(--inspection)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>+2 penalty</div>
                 )}
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 12 }}>
-                  {room.currentRound < room.totalRounds ? `Waiting for round ${room.currentRound + 1}…` : 'Waiting for others…'}
+                  Waiting for others…
                 </div>
               </motion.div>
             ) : isCountdown ? (
@@ -775,24 +793,22 @@ export function RacePage() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Manual time entry</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Type seconds (9.43) or minutes (1:03.45)</div>
                 </div>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    autoFocus
-                    value={manualInput}
-                    onChange={e => setManualInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
-                    placeholder="0.00"
-                    style={{
-                      fontSize: 48, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
-                      textAlign: 'center', width: 240, padding: '14px 20px', borderRadius: 14,
-                      backgroundColor: 'var(--surface-1)',
-                      border: `2px solid ${manualInput.trim() ? 'var(--accent)' : 'var(--border)'}`,
-                      color: manualInput.trim() ? 'var(--text-primary)' : 'var(--text-muted)',
-                      outline: 'none', letterSpacing: '0.02em',
-                      transition: 'border-color 150ms ease, color 150ms ease',
-                    }}
-                  />
-                </div>
+                <input
+                  autoFocus
+                  value={manualInput}
+                  onChange={e => setManualInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
+                  placeholder="0.00"
+                  style={{
+                    fontSize: 48, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+                    textAlign: 'center', width: 240, padding: '14px 20px', borderRadius: 14,
+                    backgroundColor: 'var(--surface-1)',
+                    border: `2px solid ${manualInput.trim() ? 'var(--accent)' : 'var(--border)'}`,
+                    color: manualInput.trim() ? 'var(--text-primary)' : 'var(--text-muted)',
+                    outline: 'none', letterSpacing: '0.02em',
+                    transition: 'border-color 150ms ease, color 150ms ease',
+                  }}
+                />
                 <PenaltyChips value={myPenalty} onChange={setMyPenalty} />
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => setManualMode(false)} style={{ padding: '11px 22px', borderRadius: 10, border: '1px solid var(--border)', backgroundColor: 'transparent', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -857,7 +873,7 @@ export function RacePage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.displayName}</div>
                     <div style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: done ? (dnf ? 'var(--penalty)' : 'var(--positive)') : 'var(--text-muted)', marginTop: 2 }}>
-                      {done ? (dnf ? 'DNF' : formatTime(p.solveTime!)) : '…solving'}
+                      {done ? (dnf ? 'DNF' : formatTime(p.solveTime!)) : 'solving…'}
                     </div>
                   </div>
                 </div>
