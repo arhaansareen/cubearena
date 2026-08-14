@@ -72,57 +72,74 @@ export function SessionSolveList({ solves, onDeleteLast, onDeleteSolve }: Sessio
             layout="position"
             className="solve-row"
             style={{
+              borderBottom: '1px solid var(--border)',
+              borderLeft: rowIdx === 0 ? '3px solid var(--accent)' : 'none',
+              fontSize: 12,
+            }}
+          >
+            <div style={{
               display: 'grid',
               gridTemplateColumns: '28px 1fr 60px 60px 20px',
               padding: '6px 10px',
-              borderBottom: '1px solid var(--border)',
               alignItems: 'center',
-              fontSize: 12,
-              borderLeft: rowIdx === 0 ? '3px solid var(--accent)' : 'none',
-            }}
-          >
-            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{index + 1}</span>
-            <span style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontWeight: 600,
-              color: timeColor(solve, isBest),
             }}>
-              {formatTime(solve.effectiveTime)}
-              {solve.penalty === '+2' && (
-                <span style={{ fontSize: 9, marginLeft: 2, opacity: 0.7 }}>+2</span>
-              )}
-            </span>
-            <span style={{
-              textAlign: 'right',
-              fontFamily: "'JetBrains Mono', monospace",
-              color: ao5 !== null ? 'var(--text-primary)' : 'var(--text-muted)',
-              fontSize: 11,
-            }}>
-              {ao5 !== null ? formatTime(ao5) : '—'}
-            </span>
-            <span style={{
-              textAlign: 'right',
-              fontFamily: "'JetBrains Mono', monospace",
-              color: ao12 !== null ? 'var(--text-primary)' : 'var(--text-muted)',
-              fontSize: 11,
-            }}>
-              {ao12 !== null ? formatTime(ao12) : '—'}
-            </span>
-            <button
-              className="solve-delete-btn"
-              onClick={() => onDeleteSolve(solve.id)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 16, height: 16, padding: 0,
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--text-muted)', opacity: 0,
-                transition: 'opacity 120ms, color 120ms',
-                borderRadius: 3,
-              }}
-              aria-label="Delete solve"
-            >
-              ×
-            </button>
+              <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{index + 1}</span>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontWeight: 600,
+                color: timeColor(solve, isBest),
+              }}>
+                {formatTime(solve.effectiveTime)}
+                {solve.penalty === '+2' && (
+                  <span style={{ fontSize: 9, marginLeft: 2, opacity: 0.7 }}>+2</span>
+                )}
+              </span>
+              <span style={{
+                textAlign: 'right',
+                fontFamily: "'JetBrains Mono', monospace",
+                color: ao5 !== null ? 'var(--text-primary)' : 'var(--text-muted)',
+                fontSize: 11,
+              }}>
+                {ao5 !== null ? formatTime(ao5) : '—'}
+              </span>
+              <span style={{
+                textAlign: 'right',
+                fontFamily: "'JetBrains Mono', monospace",
+                color: ao12 !== null ? 'var(--text-primary)' : 'var(--text-muted)',
+                fontSize: 11,
+              }}>
+                {ao12 !== null ? formatTime(ao12) : '—'}
+              </span>
+              <button
+                className="solve-delete-btn"
+                onClick={() => onDeleteSolve(solve.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 16, height: 16, padding: 0,
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-muted)', opacity: 0,
+                  transition: 'opacity 120ms, color 120ms',
+                  borderRadius: 3,
+                }}
+                aria-label="Delete solve"
+              >
+                ×
+              </button>
+            </div>
+            {solve.tags && solve.tags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, padding: '0 10px 6px 36px' }}>
+                {solve.tags.map(tag => (
+                  <span key={tag} style={{
+                    padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 500,
+                    border: '1px solid var(--accent)',
+                    backgroundColor: 'var(--accent-dim)',
+                    color: 'var(--accent)',
+                  }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </motion.div>
         ))}
         </AnimatePresence>

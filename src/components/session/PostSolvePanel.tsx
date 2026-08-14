@@ -37,20 +37,19 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
   const [customTagInput, setCustomTagInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const customTagInputRef = useRef<HTMLInputElement>(null)
+  const handleConfirmRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Enter') return
       if (document.activeElement === textareaRef.current) return
       if (document.activeElement === customTagInputRef.current) return
-      if (notesBehavior === 'required' && !notes.trim()) return
       e.preventDefault()
-      handleConfirm()
+      handleConfirmRef.current()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notes, notesBehavior, penalty])
+  }, [])
 
   const addCustomTag = () => {
     const tag = customTagInput.trim()
@@ -70,6 +69,7 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
     setNotes('')
     setSelectedTags([])
   }
+  handleConfirmRef.current = handleConfirm
 
   return (
     <motion.div
