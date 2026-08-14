@@ -135,7 +135,7 @@ function Toggle({ checked, onChange, label, description }: ToggleProps) {
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
-  const { mode, accent, setMode, setAccent } = useTheme()
+  const { mode, accent, customColor, setMode, setAccent, setCustomColor } = useTheme()
   const { profile, save: saveProfile, isSaving } = useProfile()
   const { state: wcaVerifyState, lookup: wcaLookup, reset: wcaReset } = useWCAData()
   const { user, signOut } = useAuth()
@@ -266,8 +266,8 @@ export function SettingsPage() {
         {/* Accent color */}
         <div>
           <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 10 }}>Accent Color</div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            {(Object.entries(ACCENTS) as [AccentKey, typeof ACCENTS[AccentKey]][]).map(([key, val]) => (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {(Object.entries(ACCENTS) as [Exclude<AccentKey, 'custom'>, (typeof ACCENTS)[Exclude<AccentKey, 'custom'>]][]).map(([key, val]) => (
               <button
                 key={key}
                 onClick={() => setAccent(key)}
@@ -286,6 +286,35 @@ export function SettingsPage() {
                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
               />
             ))}
+
+            {/* Custom color picker */}
+            <label
+              title="Custom color"
+              style={{
+                width: 32, height: 32, borderRadius: '50%',
+                border: accent === 'custom' ? `3px solid var(--text-primary)` : '3px solid var(--border)',
+                outline: accent === 'custom' ? `2px solid ${customColor}` : 'none',
+                outlineOffset: 2,
+                cursor: 'pointer',
+                flexShrink: 0,
+                overflow: 'hidden',
+                transition: 'transform 120ms ease',
+                background: accent === 'custom'
+                  ? customColor
+                  : 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.15)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}
+            >
+              <input
+                type="color"
+                value={accent === 'custom' ? customColor : '#ffffff'}
+                onChange={(e) => setCustomColor(e.target.value)}
+                style={{ opacity: 0, position: 'absolute', width: 1, height: 1, pointerEvents: 'none' }}
+                tabIndex={-1}
+              />
+            </label>
           </div>
         </div>
       </Section>

@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useState } from 'react'
 
 export type ThemeMode = 'dark' | 'light'
-export type AccentKey = 'cyan' | 'purple' | 'green' | 'rose' | 'orange'
+export type AccentKey = 'cyan' | 'purple' | 'green' | 'rose' | 'orange' | 'custom'
 
-export const ACCENTS: Record<AccentKey, { label: string; color: string; dim: string; shadow: string }> = {
+export const ACCENTS: Record<Exclude<AccentKey, 'custom'>, { label: string; color: string; dim: string; shadow: string }> = {
   cyan:   { label: 'Cyan',   color: '#22D3EE', dim: 'rgba(34,211,238,0.12)',  shadow: '0 0 28px rgba(34,211,238,0.18)' },
   purple: { label: 'Purple', color: '#A78BFA', dim: 'rgba(167,139,250,0.12)', shadow: '0 0 28px rgba(167,139,250,0.18)' },
   green:  { label: 'Green',  color: '#4ADE80', dim: 'rgba(74,222,128,0.12)',  shadow: '0 0 28px rgba(74,222,128,0.18)' },
@@ -37,10 +37,29 @@ const LIGHT_BASE = {
   '--shadow-deep': '0 8px 40px rgba(148,163,184,0.55)',
 }
 
-interface ThemeState { mode: ThemeMode; accent: AccentKey }
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ]
+}
+
+function accentVarsFromHex(color: string) {
+  const [r, g, b] = hexToRgb(color)
+  return {
+    '--accent': color,
+    '--accent-dim': `rgba(${r},${g},${b},0.12)`,
+    '--shadow-accent': `0 0 28px rgba(${r},${g},${b},0.18)`,
+  }
+}
+
+interface ThemeState { mode: ThemeMode; accent: AccentKey; customColor: string }
 interface ThemeContextValue extends ThemeState {
   setMode: (m: ThemeMode) => void
   setAccent: (a: AccentKey) => void
+  setCustomColor: (hex: string) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
@@ -51,19 +70,17 @@ function loadTheme(): ThemeState {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) return JSON.parse(raw) as ThemeState
   } catch {}
-  return { mode: 'dark', accent: 'cyan' }
+  return { mode: 'dark', accent: 'cyan', customColor: '#ffffff' }
 }
 
 function applyTheme(state: ThemeState) {
   const root = document.documentElement
   const base = state.mode === 'dark' ? DARK_BASE : LIGHT_BASE
-  const accent = ACCENTS[state.accent]
-  const vars: Record<string, string> = {
-    ...base,
-    '--accent': accent.color,
-    '--accent-dim': accent.dim,
-    '--shadow-accent': accent.shadow,
-  }
+  const accentVars =
+    state.accent === 'custom'
+      ? accentVarsFromHex(state.customColor)
+      : { '--accent': ACCENTS[state.accent].color, '--accent-dim': ACCENTS[state.accent].dim, '--shadow-accent': ACCENTS[state.accent].shadow }
+  const vars = { ...base, ...accentVars }
   for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v)
 }
 
@@ -74,26 +91,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return t
   })
 
-  const setMode = useCallback((mode: ThemeMode) => {
+  const update = useCallback((partial: Partial<ThemeState>) => {
     setTheme((prev) => {
-      const next = { ...prev, mode }
+      const next = { ...prev, ...partial }
       applyTheme(next)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       return next
     })
   }, [])
 
-  const setAccent = useCallback((accent: AccentKey) => {
-    setTheme((prev) => {
-      const next = { ...prev, accent }
-      applyTheme(next)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      return next
-    })
-  }, [])
+  const setMode = useCallback((mode: ThemeMode) => update({ mode }), [update])
+  const setAccent = useCallback((accent: AccentKey) => update({ accent }), [update])
+  const setCustomColor = useCallback((customColor: string) => update({ accent: 'custom', customColor }), [update])
 
   return (
-    <ThemeContext.Provider value={{ ...theme, setMode, setAccent }}>
+    <ThemeContext.Provider value={{ ...theme, setMode, setAccent, setCustomColor }}>
       {children}
     </ThemeContext.Provider>
   )
