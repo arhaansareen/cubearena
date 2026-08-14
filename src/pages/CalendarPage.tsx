@@ -392,17 +392,24 @@ function TodoSection({ date, todos, onCreateTodo, onToggleTodo, onDeleteTodo }: 
           onKeyDown={e => e.key === 'Enter' && submit()}
           placeholder="Add a goal…"
           style={{
-            flex: 1, background: 'var(--surface-1)', border: '1px solid var(--border)',
+            flex: 1, background: 'var(--surface-1)',
+            border: `1px solid ${input.trim() ? 'var(--accent)' : 'var(--border)'}`,
             borderRadius: 6, padding: '6px 10px', fontSize: 13,
             color: 'var(--text-primary)', outline: 'none',
+            transition: 'border-color 150ms ease',
           }}
         />
         <button
           onClick={submit}
+          disabled={!input.trim()}
           style={{
-            padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)',
-            backgroundColor: 'var(--surface-1)', color: 'var(--text-muted)',
-            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            padding: '6px 12px', borderRadius: 6,
+            border: `1px solid ${input.trim() ? 'var(--accent)' : 'var(--border)'}`,
+            backgroundColor: input.trim() ? 'var(--accent)' : 'var(--surface-1)',
+            color: input.trim() ? '#020617' : 'var(--text-muted)',
+            fontSize: 12, fontWeight: 600,
+            cursor: input.trim() ? 'pointer' : 'not-allowed',
+            transition: 'all 150ms ease',
           }}
         >
           Add
@@ -596,6 +603,14 @@ function CreatePlanForm({ initialDate, onConfirm, onClose }: CreatePlanFormProps
     color: 'var(--text-primary)',
     fontSize: 14, outline: 'none',
     transition: 'border-color 150ms ease',
+    cursor: 'pointer',
+  }
+
+  const focusInput = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.currentTarget.style.borderColor = 'var(--accent)'
+  }
+  const blurInput = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.currentTarget.style.borderColor = 'var(--border)'
   }
 
   const labelStyle: React.CSSProperties = {
@@ -654,11 +669,11 @@ function CreatePlanForm({ initialDate, onConfirm, onClose }: CreatePlanFormProps
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <label style={labelStyle}>
               <span style={labelTextStyle}>Date</span>
-              <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+              <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
             </label>
             <label style={labelStyle}>
               <span style={labelTextStyle}>Time</span>
-              <input type="time" required value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle} />
+              <input type="time" required value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle} onFocus={focusInput} onBlur={blurInput} />
             </label>
           </div>
 
@@ -666,7 +681,7 @@ function CreatePlanForm({ initialDate, onConfirm, onClose }: CreatePlanFormProps
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <label style={labelStyle}>
               <span style={labelTextStyle}>Duration</span>
-              <select value={durationMins} onChange={(e) => setDurationMins(Number(e.target.value))} style={inputStyle}>
+              <select value={durationMins} onChange={(e) => setDurationMins(Number(e.target.value))} style={inputStyle} onFocus={focusInput} onBlur={blurInput}>
                 {DURATION_OPTIONS.map((d) => (
                   <option key={d} value={d}>{d} min</option>
                 ))}
@@ -674,7 +689,7 @@ function CreatePlanForm({ initialDate, onConfirm, onClose }: CreatePlanFormProps
             </label>
             <label style={labelStyle}>
               <span style={labelTextStyle}>Event</span>
-              <select value={event} onChange={(e) => setEvent(e.target.value as WCAEvent)} style={inputStyle}>
+              <select value={event} onChange={(e) => setEvent(e.target.value as WCAEvent)} style={inputStyle} onFocus={focusInput} onBlur={blurInput}>
                 {WCA_EVENTS.map((ev) => (
                   <option key={ev} value={ev}>{EVENT_LABELS[ev]}</option>
                 ))}
@@ -694,6 +709,8 @@ function CreatePlanForm({ initialDate, onConfirm, onClose }: CreatePlanFormProps
               onChange={(e) => setGoal(e.target.value)}
               placeholder="e.g. focus on F2L, work on lookahead"
               style={inputStyle}
+              onFocus={focusInput}
+              onBlur={blurInput}
             />
           </label>
 
@@ -714,6 +731,8 @@ function CreatePlanForm({ initialDate, onConfirm, onClose }: CreatePlanFormProps
                 borderColor: targetTimeStr && !targetTimeValid ? 'var(--penalty)' : 'var(--border)',
                 color: targetTimeStr && !targetTimeValid ? 'var(--penalty)' : 'var(--text-primary)',
               }}
+              onFocus={(e) => { if (!targetTimeStr || targetTimeValid) e.currentTarget.style.borderColor = 'var(--accent)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = targetTimeStr && !targetTimeValid ? 'var(--penalty)' : 'var(--border)' }}
             />
           </label>
 
