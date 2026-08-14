@@ -15,6 +15,7 @@ import { useAudioContext } from '@/providers/AudioProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
 import { computeMean } from '@/lib/utils'
+import { useXP } from '@/hooks/useXP'
 import type { AIOpponent, Penalty, Solve, WCAEvent, NotesBehavior } from '@/types'
 
 const DEFAULT_AI_OPPONENTS: AIOpponent[] = [
@@ -58,6 +59,7 @@ export function SessionPage() {
   const { persistSolve, deleteSolve: persistDeleteSolve } = useSolveHistory(user?.uid)
   const { solves, ao5, ao12, mean, sessionId, addSolve, deleteSolve, deleteLastSolve } = useSession(event)
   const mo3 = useMemo(() => computeMean(solves, 3), [solves])
+  const { addXP } = useXP()
 
   currentScrambleRef.current = scramble
 
@@ -112,6 +114,7 @@ export function SessionPage() {
     }
     addSolve(solve)
     void persistSolve(solve)
+    addXP(penalty === 'DNF' ? 5 : 15)
     nextScramble()
     setShowModal(false)
     setLastResult(null)

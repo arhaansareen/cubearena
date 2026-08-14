@@ -317,7 +317,9 @@ function ResultsScreen({
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>Everyone DNF'd</div>
         ) : (
           <>
-            <Avatar name={winner.displayName} color={avatarColor(winner.uid)} size={56} />
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
+              <Avatar name={winner.displayName} color={avatarColor(winner.uid)} size={56} />
+            </div>
             <div style={{ marginTop: 12, fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
               {winner.displayName}{winner.uid === myUid ? ' 🎉' : ''}
             </div>

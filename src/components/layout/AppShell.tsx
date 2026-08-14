@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { type ReactNode, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useProfile } from '@/providers/ProfileProvider'
+import { useXP } from '@/hooks/useXP'
 
 interface NavItem {
   to: string
@@ -170,6 +171,7 @@ const SIDEBAR_WIDTH = 240
 
 function ProfileStrip() {
   const { profile, loading } = useProfile()
+  const { level, progress, xpInLevel, xpForNext } = useXP()
   const displayName = profile?.displayName || null
   const wcaId = profile?.wcaId || null
   const initials = displayName
@@ -183,9 +185,9 @@ function ProfileStrip() {
       to="/profile"
       style={{
         display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '12px 20px',
+        flexDirection: 'column',
+        gap: 0,
+        padding: '12px 20px 14px',
         borderTop: '1px solid var(--border)',
         marginTop: 'auto',
         cursor: 'pointer',
@@ -195,32 +197,63 @@ function ProfileStrip() {
       onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--accent-dim)' }}
       onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
     >
-      <div style={{ position: 'relative', flexShrink: 0 }} aria-hidden="true">
+      {/* Avatar + name row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+        <div style={{ position: 'relative', flexShrink: 0 }} aria-hidden="true">
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            backgroundColor: 'var(--accent-dim)',
+            border: '1px solid var(--accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, fontWeight: 700, color: 'var(--accent)',
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>
+            {initials}
+          </div>
+          <div style={{
+            position: 'absolute', bottom: 0, right: 0,
+            width: 9, height: 9, borderRadius: '50%',
+            backgroundColor: '#22c55e', border: '2px solid var(--surface-0)',
+          }} />
+        </div>
+        <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {displayName ?? 'Set your name'}
+          </div>
+          {wcaId ? (
+            <div style={{ fontSize: 11, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginTop: 1 }}>{wcaId}</div>
+          ) : (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Settings</div>
+          )}
+        </div>
+        {/* Level badge */}
         <div style={{
-          width: 32, height: 32, borderRadius: '50%',
-          backgroundColor: 'var(--accent-dim)',
-          border: '1px solid var(--accent)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, fontWeight: 700, color: 'var(--accent)',
-          fontFamily: "'JetBrains Mono', monospace",
+          flexShrink: 0,
+          fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+          color: 'var(--accent)', backgroundColor: 'var(--accent-dim)',
+          border: '1px solid var(--accent)', borderRadius: 5,
+          padding: '2px 5px', letterSpacing: '0.02em',
         }}>
-          {initials}
+          Lv.{level}
         </div>
-        <div style={{
-          position: 'absolute', bottom: 0, right: 0,
-          width: 9, height: 9, borderRadius: '50%',
-          backgroundColor: '#22c55e', border: '2px solid var(--surface-0)',
-        }} />
       </div>
-      <div style={{ minWidth: 0, overflow: 'hidden' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {displayName ?? 'Set your name'}
+
+      {/* XP bar */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>XP</span>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace" }}>
+            {xpInLevel} / {xpForNext}
+          </span>
         </div>
-        {wcaId ? (
-          <div style={{ fontSize: 11, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginTop: 1 }}>{wcaId}</div>
-        ) : (
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Settings</div>
-        )}
+        <div style={{ height: 4, borderRadius: 999, backgroundColor: 'var(--surface-1)', overflow: 'hidden' }}>
+          <motion.div
+            initial={false}
+            animate={{ width: `${Math.min(progress * 100, 100)}%` }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            style={{ height: '100%', borderRadius: 999, backgroundColor: 'var(--accent)' }}
+          />
+        </div>
       </div>
     </NavLink>
   )
