@@ -280,8 +280,10 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
 
       const current = phaseRef.current
 
-      // Don't intercept spacebar while the user is typing a time
+      // Don't intercept spacebar while the user is typing
       if (current === 'manual_entry') return
+      const tag = (document.activeElement as HTMLElement)?.tagName
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return
 
       e.preventDefault()
 
@@ -309,6 +311,8 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
 
       const current = phaseRef.current
       if (current === 'manual_entry') return
+      const tag = (document.activeElement as HTMLElement)?.tagName
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return
 
       e.preventDefault()
 
