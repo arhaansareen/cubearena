@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWCACompetitions } from '@/hooks/useWCACompetitions'
@@ -63,29 +63,29 @@ export function UpcomingCompsPage() {
 
   const [selectedCountry, setSelectedCountry] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Default country from profile if available
   useEffect(() => {
-    // profile doesn't have country_code yet — just fetch all on load
-    fetchComps(selectedCountry || undefined)
+    fetchComps(selectedCountry || undefined, undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleCountryChange = (iso2: string) => {
     setSelectedCountry(iso2)
-    fetchComps(iso2 || undefined)
+    fetchComps(iso2 || undefined, searchQuery || undefined)
+  }
+
+  const handleSearchChange = (q: string) => {
+    setSearchQuery(q)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      fetchComps(selectedCountry || undefined, q || undefined)
+    }, 400)
   }
 
   const filtered = useMemo(() => {
-    const comps = state.status === 'success' ? state.comps : []
-    if (!searchQuery.trim()) return comps
-    const q = searchQuery.toLowerCase()
-    return comps.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.city.toLowerCase().includes(q),
-    )
-  }, [state, searchQuery])
+    return state.status === 'success' ? state.comps : []
+  }, [state])
 
   return (
     <div
@@ -159,7 +159,7 @@ export function UpcomingCompsPage() {
             type="text"
             placeholder="Search competitions..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             style={{
               width: '100%',
               paddingLeft: 30,

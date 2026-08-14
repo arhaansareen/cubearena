@@ -24,7 +24,7 @@ export type WCACompsState =
 export function useWCACompetitions() {
   const [state, setState] = useState<WCACompsState>({ status: 'idle' })
 
-  const fetchComps = useCallback(async (countryIso2?: string) => {
+  const fetchComps = useCallback(async (countryIso2?: string, query?: string) => {
     setState({ status: 'loading' })
 
     try {
@@ -34,9 +34,8 @@ export function useWCACompetitions() {
         per_page: '50',
         sort: 'start_date',
       })
-      if (countryIso2) {
-        params.set('country_iso2', countryIso2.toUpperCase())
-      }
+      if (countryIso2) params.set('country_iso2', countryIso2.toUpperCase())
+      if (query?.trim()) params.set('q', query.trim())
 
       const res = await fetch(`${WCA_API}/competitions?${params.toString()}`, {
         headers: { Accept: 'application/json' },
