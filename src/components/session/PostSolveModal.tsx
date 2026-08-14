@@ -191,6 +191,24 @@ export function PostSolveModal({ isOpen, time, penalty, notesBehavior, onPenalty
                       </button>
                     )
                   })}
+                  {selectedTags.filter(t => !PREDEFINED_TAGS.includes(t)).map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))}
+                      style={{
+                        padding: '5px 14px', borderRadius: 999,
+                        border: '1px solid var(--accent)',
+                        backgroundColor: 'var(--accent-dim)',
+                        color: 'var(--accent)',
+                        fontSize: 12, fontWeight: 500,
+                        cursor: 'pointer', transition: 'all 150ms ease',
+                        display: 'flex', alignItems: 'center', gap: 5,
+                      }}
+                    >
+                      {tag}
+                      <span style={{ fontSize: 14, lineHeight: 1, opacity: 0.7 }}>×</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 

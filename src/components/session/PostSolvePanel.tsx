@@ -125,6 +125,23 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
               </button>
             )
           })}
+          {selectedTags.filter(t => !TAGS.includes(t)).map(tag => (
+            <button
+              key={tag}
+              onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))}
+              style={{
+                padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 500,
+                border: '1px solid var(--accent)',
+                backgroundColor: 'var(--accent-dim)',
+                color: 'var(--accent)',
+                cursor: 'pointer', transition: 'all 120ms ease',
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}
+            >
+              {tag}
+              <span style={{ fontSize: 13, lineHeight: 1, opacity: 0.7 }}>×</span>
+            </button>
+          ))}
         </div>
       </div>
 
