@@ -11,6 +11,7 @@ interface SessionStatsBarProps {
   mean: number | null
   mo3: number | null
   event: WCAEvent
+  onNewSession: () => void
 }
 
 function formatStat(value: number | null): string {
@@ -58,8 +59,15 @@ function StatPill({ label, value, active = false, highlight = false }: StatPillP
   )
 }
 
-export function SessionStatsBar({ solveCount, ao5, ao12, mean, mo3, event }: SessionStatsBarProps) {
+export function SessionStatsBar({ solveCount, ao5, ao12, mean, mo3, event, onNewSession }: SessionStatsBarProps) {
   const isMo3Event = MO3_EVENTS.has(event)
+
+  const handleNewSession = () => {
+    if (solveCount === 0) return
+    if (window.confirm(`End this session (${solveCount} solve${solveCount === 1 ? '' : 's'}) and start a new one?`)) {
+      onNewSession()
+    }
+  }
 
   return (
     <div
@@ -86,6 +94,22 @@ export function SessionStatsBar({ solveCount, ao5, ao12, mean, mo3, event }: Ses
           <StatPill label="Ao12" value={formatStat(ao12)} active={ao12 !== null} />
           <StatPill label="Mean" value={formatStat(mean)} active={false} />
         </>
+      )}
+      {solveCount > 0 && (
+        <button
+          onClick={handleNewSession}
+          style={{
+            padding: '6px 12px', borderRadius: 8,
+            border: '1px solid var(--border)',
+            background: 'none', color: 'var(--text-muted)',
+            fontSize: 11, fontWeight: 500, cursor: 'pointer',
+            transition: 'all 150ms ease', whiteSpace: 'nowrap',
+          }}
+          onMouseOver={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+          onMouseOut={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+        >
+          New session
+        </button>
       )}
     </div>
   )

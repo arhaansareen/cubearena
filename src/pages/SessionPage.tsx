@@ -57,7 +57,7 @@ export function SessionPage() {
   const { playInspectionCallout, startAmbient, stopAmbient } = useAudioContext()
   const { user } = useAuth()
   const { persistSolve, deleteSolve: persistDeleteSolve } = useSolveHistory(user?.uid)
-  const { solves, ao5, ao12, mean, sessionId, addSolve, deleteSolve, deleteLastSolve } = useSession(event)
+  const { solves, ao5, ao12, mean, sessionId, addSolve, deleteSolve, deleteLastSolve, clearSession } = useSession(event)
   const mo3 = useMemo(() => computeMean(solves, 3), [solves])
   const { addXP } = useXP()
 
@@ -254,7 +254,7 @@ export function SessionPage() {
         )}
       </div>
 
-      <SessionStatsBar solveCount={solves.length} ao5={ao5} ao12={ao12} mean={mean} mo3={mo3} event={event} />
+      <SessionStatsBar solveCount={solves.length} ao5={ao5} ao12={ao12} mean={mean} mo3={mo3} event={event} onNewSession={clearSession} />
 
       {/* Mobile-only bottom sheet — desktop uses the inline panel */}
       <div className="session-modal-mobile">
