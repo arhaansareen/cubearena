@@ -265,15 +265,15 @@ export function AppShell() {
                     style={({ isActive }) => ({
                       display: 'flex', alignItems: 'center', gap: 12,
                       padding: '10px 10px 10px 12px',
-                      fontSize: 14, fontWeight: isActive ? 600 : 500,
-                      color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                      fontSize: 14, fontWeight: isActive ? 600 : 400,
+                      color: isActive ? 'var(--accent)' : 'var(--text-primary)',
                       backgroundColor: isActive ? 'var(--accent-dim)' : 'transparent',
-                      transition: 'color 150ms ease, background-color 150ms ease',
+                      transition: 'background-color 150ms ease, transform 120ms ease, box-shadow 120ms ease',
                       borderRadius: 8, margin: '2px 0', cursor: 'pointer', textDecoration: 'none',
                       borderLeft: `3px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
                     })}
-                    onMouseOver={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = 'var(--text-primary)'; el.style.backgroundColor = 'rgba(255,255,255,0.04)' }}
-                    onMouseOut={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = ''; el.style.backgroundColor = '' }}
+                    onMouseOver={(e) => { const el = e.currentTarget as HTMLElement; el.style.backgroundColor = 'rgba(255,255,255,0.05)'; el.style.transform = 'translateX(2px)' }}
+                    onMouseOut={(e) => { const el = e.currentTarget as HTMLElement; el.style.backgroundColor = ''; el.style.transform = '' }}
                   >
                     {item.icon}
                     <span>{item.label}</span>

@@ -94,15 +94,15 @@ export function PostSolveModal({ isOpen, time, penalty, notesBehavior, onPenalty
               <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'var(--border)' }} />
             </div>
 
-            <div style={{ padding: '12px 28px 40px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ padding: '8px 24px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
               {/* Time hero */}
-              <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+              <div style={{ textAlign: 'center', padding: '4px 0 0' }}>
                 <div style={{
                   fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 64,
+                  fontSize: 42,
                   fontWeight: 700,
-                  letterSpacing: '-0.04em',
+                  letterSpacing: '-0.03em',
                   lineHeight: 1,
                   color: penalty === 'DNF' ? 'var(--penalty)' : penalty === '+2' ? 'var(--inspection)' : 'var(--timer-active)',
                 }}>
