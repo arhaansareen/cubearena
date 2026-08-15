@@ -231,7 +231,7 @@ function genClock(): string {
 
 function genSq1(): string {
   const moves: string[] = []
-  const vals = [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6]
+  const vals = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6]
   for (let i = 0; i < 11; i++) {
     const top = pick(vals)
     const bot = pick(vals)

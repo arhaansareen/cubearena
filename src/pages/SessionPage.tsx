@@ -47,7 +47,7 @@ export function SessionPage() {
   const [event, setEvent] = useState<WCAEvent>('333')
   const [showAI] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [isManualMode, setIsManualMode] = useState(false)
+  const [isManualMode, setIsManualMode] = useState(() => localStorage.getItem('cubearena:manual-mode') === 'true')
   const [lastResult, setLastResult] = useState<TimerResult | null>(null)
   const [currentPenalty, setCurrentPenalty] = useState<Penalty>(null)
   const currentScrambleRef = useRef<string>('')
@@ -149,7 +149,14 @@ export function SessionPage() {
 
   const handleManualConfirm = (ms: number) => { confirmManualTime(ms) }
   const handleManualCancel = () => { reset(); setIsManualMode(false) }
-  const toggleManualMode = () => { if (phase === 'idle') setIsManualMode((p) => !p) }
+  const toggleManualMode = () => {
+    if (phase !== 'idle') return
+    setIsManualMode(p => {
+      const next = !p
+      localStorage.setItem('cubearena:manual-mode', String(next))
+      return next
+    })
+  }
 
   const isIdle = phase === 'idle'
 
