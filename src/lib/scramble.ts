@@ -227,17 +227,56 @@ function genClock(): string {
 }
 
 // ─── Square-1 ────────────────────────────────────────────────────────────────
-// Format: (top,bottom)/ repeated
+// Tracks piece boundary positions (12 units of 30° each) for top and bottom
+// layers so slash moves are only generated when physically valid.
+// A slash is possible only when positions 0 AND 6 are piece boundaries in
+// both layers (no piece straddles the left/right cut line).
 
 function genSq1(): string {
-  const moves: string[] = []
-  const vals = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6]
-  for (let i = 0; i < 11; i++) {
-    const top = pick(vals)
-    const bot = pick(vals)
-    moves.push(`(${top},${bot})`)
+  // Initial solved boundaries: corners=2u, edges=1u → {0,2,3,5,6,8,9,11}
+  let top = [0, 2, 3, 5, 6, 8, 9, 11]
+  let bot = [0, 2, 3, 5, 6, 8, 9, 11]
+
+  function rotate(bounds: number[], a: number): number[] {
+    return bounds.map(b => ((b + a) % 12 + 12) % 12).sort((x, y) => x - y)
   }
-  return moves.join('/ ') + '/'
+
+  function slash(t: number[], b: number[]): [number[], number[]] {
+    const nt = [...t.filter(x => x < 6), ...b.filter(x => x >= 6)].sort((x, y) => x - y)
+    const nb = [...b.filter(x => x < 6), ...t.filter(x => x >= 6)].sort((x, y) => x - y)
+    return [nt, nb]
+  }
+
+  function validRotations(bounds: number[]): number[] {
+    const bset = new Set(bounds)
+    const out: number[] = []
+    for (let a = -5; a <= 6; a++) {
+      const need0 = ((-a) % 12 + 12) % 12
+      const need6 = ((6 - a) % 12 + 12) % 12
+      if (bset.has(need0) && bset.has(need6)) out.push(a)
+    }
+    return out
+  }
+
+  // Start with a slash (TNoodle convention — establishes equator state)
+  ;[top, bot] = slash(top, bot)
+
+  const moves: string[] = []
+  for (let i = 0; i < 11; i++) {
+    const vTop = validRotations(top)
+    const vBot = validRotations(bot)
+    if (!vTop.length || !vBot.length) break
+
+    const a = vTop[Math.floor(Math.random() * vTop.length)]
+    const b = vBot[Math.floor(Math.random() * vBot.length)]
+
+    top = rotate(top, a)
+    bot = rotate(bot, b)
+    moves.push(`(${a},${b})`)
+    ;[top, bot] = slash(top, bot)
+  }
+
+  return '/ ' + moves.join('/ ') + '/'
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
