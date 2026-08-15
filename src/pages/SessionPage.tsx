@@ -3,7 +3,6 @@ import { AnimatePresence } from 'framer-motion'
 import { ScramblePanel } from '@/components/session/ScramblePanel'
 import { TimerDisplay } from '@/components/session/TimerDisplay'
 import { ManualTimeInput } from '@/components/session/ManualTimeInput'
-import { AIOpponentRail } from '@/components/session/AIOpponentRail'
 import { SessionStatsBar } from '@/components/session/SessionStatsBar'
 import { SessionSolveList } from '@/components/session/SessionSolveList'
 import { PostSolveModal } from '@/components/session/PostSolveModal'
@@ -16,42 +15,17 @@ import { useAuth } from '@/providers/AuthProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
 import { computeMean } from '@/lib/utils'
 import { useXP } from '@/hooks/useXP'
-import type { AIOpponent, Penalty, Solve, WCAEvent, NotesBehavior } from '@/types'
-
-const DEFAULT_AI_OPPONENTS: AIOpponent[] = [
-  {
-    id: 'ai-1',
-    name: 'Felix',
-    wcaId: null,
-    avatarColor: '#7C3AED',
-    targetMean: 8500,
-    sigma: 700,
-    currentTime: null,
-    isFinished: false,
-  },
-  {
-    id: 'ai-2',
-    name: 'Max',
-    wcaId: null,
-    avatarColor: '#DC2626',
-    targetMean: 11000,
-    sigma: 1200,
-    currentTime: null,
-    isFinished: false,
-  },
-]
+import type { Penalty, Solve, WCAEvent, NotesBehavior } from '@/types'
 
 const DEFAULT_NOTES_BEHAVIOR: NotesBehavior = 'soft'
 
 export function SessionPage() {
   const [event, setEvent] = useState<WCAEvent>('333')
-  const [showAI, setShowAI] = useState(() => localStorage.getItem('cubearena:show-ai') === 'true')
   const [showModal, setShowModal] = useState(false)
   const [isManualMode, setIsManualMode] = useState(() => localStorage.getItem('cubearena:manual-mode') === 'true')
   const [lastResult, setLastResult] = useState<TimerResult | null>(null)
   const [currentPenalty, setCurrentPenalty] = useState<Penalty>(null)
   const currentScrambleRef = useRef<string>('')
-  const solveStartTimeRef = useRef<number | null>(null)
 
   const { scramble, next: nextScramble } = useScramble(event)
   const { playInspectionCallout, startAmbient, stopAmbient, isAmbientPlaying } = useAudioContext()
@@ -101,8 +75,6 @@ export function SessionPage() {
     (phase === 'idle' || phase === 'stopped' || phase === 'manual_entry') &&
     (prevPhaseRef.current === 'solving' || prevPhaseRef.current === 'inspection' || prevPhaseRef.current === 'armed')
   ) stopAmbient()
-  if (phase === 'solving' && prevPhaseRef.current !== 'solving') solveStartTimeRef.current = performance.now()
-  if (phase === 'idle' && prevPhaseRef.current !== 'idle') solveStartTimeRef.current = null
   prevPhaseRef.current = phase
 
   const handleConfirm = (notes: string | null, tags: string[]) => {
@@ -165,15 +137,6 @@ export function SessionPage() {
     setIsManualMode(p => {
       const next = !p
       localStorage.setItem('cubearena:manual-mode', String(next))
-      return next
-    })
-  }
-
-  const toggleAI = () => {
-    if (phase !== 'idle') return
-    setShowAI(p => {
-      const next = !p
-      localStorage.setItem('cubearena:show-ai', String(next))
       return next
     })
   }
@@ -248,43 +211,7 @@ export function SessionPage() {
               </button>
             )}
 
-            {/* AI rivals toggle */}
-            {isIdle && (
-              <button
-                onClick={toggleAI}
-                style={{
-                  position: 'absolute', bottom: 16, right: 24,
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: showAI ? 'var(--accent-dim)' : 'none',
-                  border: `1px solid ${showAI ? 'var(--accent)' : 'var(--border)'}`,
-                  borderRadius: 8, padding: '6px 12px',
-                  color: showAI ? 'var(--accent)' : 'var(--text-muted)',
-                  fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                  transition: 'all 150ms ease',
-                }}
-                onMouseOver={(e) => { if (!showAI) { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' } }}
-                onMouseOut={(e) => { if (!showAI) { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' } }}
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <rect x="2" y="4" width="8" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-                  <path d="M4 4V3a2 2 0 0 1 4 0v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                  <circle cx="4.5" cy="7" r="0.75" fill="currentColor" />
-                  <circle cx="7.5" cy="7" r="0.75" fill="currentColor" />
-                  <path d="M5 9h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                  <path d="M1 6.5h1M10 6.5h1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                </svg>
-                {showAI ? 'AI on' : 'AI rivals'}
-              </button>
-            )}
           </div>
-
-          {showAI && (
-            <AIOpponentRail
-              opponents={DEFAULT_AI_OPPONENTS}
-              phase={phase}
-              solveStartTime={solveStartTimeRef.current}
-            />
-          )}
         </div>
 
         {/* Right: solve list or post-solve panel (hidden on mobile via CSS) */}
