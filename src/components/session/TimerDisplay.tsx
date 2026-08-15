@@ -73,9 +73,17 @@ function getScale(phase: TimerPhase): number {
   return 1.0
 }
 
-function getFontSize(phase: TimerPhase): number {
-  if (phase === 'idle' || phase === 'armed') return 72
-  return 112
+function getFontSize(phase: TimerPhase): string {
+  if (phase === 'idle' || phase === 'armed') return 'clamp(56px, 8vw, 96px)'
+  return 'clamp(72px, 12vw, 148px)'
+}
+
+function getHintText(phase: TimerPhase): string | null {
+  if (phase === 'idle') return 'Press Space to begin inspection'
+  if (phase === 'armed') return 'Release to start'
+  if (phase === 'inspection') return 'Release to start solving'
+  if (phase === 'solving') return 'Press Space to stop'
+  return null
 }
 
 export function TimerDisplay({
@@ -88,27 +96,47 @@ export function TimerDisplay({
   const content = getDisplayContent(phase, displayTime, inspectionElapsed)
   const scale = getScale(phase)
   const fontSize = getFontSize(phase)
+  const hintText = getHintText(phase)
 
   const isMonoFont = phase !== 'idle' && phase !== 'armed'
+  const isActive = phase === 'solving' || phase === 'stopped'
+  const isArmed = phase === 'armed'
+  const isInspection = phase === 'inspection'
+
+  const borderColor = isArmed
+    ? 'var(--positive)'
+    : isInspection
+      ? (pendingPenalty ? 'var(--penalty)' : 'var(--inspection)')
+      : isActive
+        ? 'var(--border)'
+        : 'var(--border)'
 
   return (
-    <div
+    <motion.div
+      animate={{ borderColor }}
+      transition={{ duration: 0.25, ease: 'easeInOut' }}
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        flex: 1,
+        width: '100%',
+        padding: '40px 24px',
+        backgroundColor: 'var(--surface-0)',
+        border: '1px solid',
+        borderColor: 'var(--border)',
+        borderRadius: 12,
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: 'none',
+        gap: 0,
+        position: 'relative',
+        minHeight: 200,
       }}
     >
+      {/* Main timer number */}
       <motion.div
-        animate={{
-          scale,
-          color,
-        }}
+        animate={{ scale, color }}
         transition={{
           scale: { duration: 0.15, ease: 'easeOut' },
           color: { duration: 0.2, ease: 'easeInOut' },
@@ -120,35 +148,34 @@ export function TimerDisplay({
           position: 'relative',
         }}
       >
-        {phase === 'inspection' && (
+        {isInspection && (
           <InspectionRing elapsed={inspectionElapsed} penalty={pendingPenalty} />
         )}
         <motion.span
           key={phase === 'idle' || phase === 'armed' ? 'label' : 'timer'}
           initial={{ opacity: 0.7 }}
           animate={
-            phase === 'armed'
+            isArmed
               ? {
                   opacity: 1,
-                  fontSize,
                   textShadow: [
                     '0 0 20px rgba(34,211,238,0)',
                     '0 0 20px rgba(34,211,238,0.6)',
                     '0 0 20px rgba(34,211,238,0)',
                   ],
                 }
-              : { opacity: 1, fontSize }
+              : { opacity: 1 }
           }
           transition={
-            phase === 'armed'
+            isArmed
               ? {
-                  fontSize: { duration: 0.2, ease: 'easeOut' },
                   opacity: { duration: 0.15 },
                   textShadow: { duration: 1.2, repeat: Infinity, ease: 'easeInOut' },
                 }
-              : { fontSize: { duration: 0.2, ease: 'easeOut' }, opacity: { duration: 0.15 } }
+              : { opacity: { duration: 0.15 } }
           }
           style={{
+            fontSize,
             fontFamily: isMonoFont
               ? "'JetBrains Mono', monospace"
               : "'Plus Jakarta Sans', system-ui, sans-serif",
@@ -157,6 +184,7 @@ export function TimerDisplay({
             fontVariantNumeric: 'tabular-nums',
             lineHeight: 1,
             display: 'block',
+            transition: 'font-size 0.2s ease-out',
           }}
         >
           {content}
@@ -164,50 +192,56 @@ export function TimerDisplay({
       </motion.div>
 
       {/* Inspection penalty indicator */}
-      {phase === 'inspection' && pendingPenalty && (
+      {isInspection && pendingPenalty && (
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           style={{
-            marginTop: 16,
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: '0.08em',
+            marginTop: 14,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: '0.1em',
             color: 'var(--penalty)',
+            fontFamily: "'JetBrains Mono', monospace",
           }}
         >
           {pendingPenalty === '+2' ? '+2 SECONDS' : 'DNF'}
         </motion.div>
       )}
 
-      {/* Phase hint */}
-      {phase === 'idle' && (
-        <p
+      {/* Stopped: pending penalty badge */}
+      {phase === 'stopped' && pendingPenalty && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
           style={{
-            marginTop: 16,
-            fontSize: 13,
-            color: 'var(--text-muted)',
-            fontWeight: 400,
+            marginTop: 14,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: '0.1em',
+            color: 'var(--penalty)',
+            fontFamily: "'JetBrains Mono', monospace",
           }}
         >
-          Press Space to begin inspection
-        </p>
+          {pendingPenalty}
+        </motion.div>
       )}
 
-      {phase === 'armed' && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+      {/* Phase hint */}
+      {hintText && (
+        <p
           style={{
-            marginTop: 16,
+            margin: '14px 0 0',
             fontSize: 13,
-            color: 'var(--positive)',
-            fontWeight: 500,
+            color: isArmed ? 'var(--positive)' : 'var(--text-muted)',
+            fontWeight: isArmed ? 500 : 400,
+            textAlign: 'center',
+            transition: 'color 200ms ease',
           }}
         >
-          Release to start
-        </motion.p>
+          {hintText}
+        </p>
       )}
-    </div>
+    </motion.div>
   )
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useCalendar, type DayTodo } from '@/hooks/useCalendar'
+import { useCalendar, type DayTodo, type CompCalendarEntry } from '@/hooks/useCalendar'
 import { useReminders } from '@/hooks/useReminders'
 import { formatTime } from '@/lib/utils'
 import type { DayActivity, PlannedSession, WCAEvent } from '@/types'
@@ -23,6 +23,11 @@ const MONTH_NAMES = [
   'July','August','September','October','November','December',
 ]
 const DURATION_OPTIONS = [30, 45, 60, 90, 120]
+
+// Week view time grid: 06:00 – 22:00
+const GRID_START_HOUR = 6
+const GRID_END_HOUR = 22
+const HOUR_ROW_HEIGHT = 56 // px per hour row
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
@@ -129,17 +134,19 @@ interface DayCellProps {
   isToday: boolean
   isSelected: boolean
   plans: PlannedSession[]
+  competitions: CompCalendarEntry[]
   hasActivity: boolean
   activityCount?: number
   onClick: () => void
 }
 
-function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, activityCount = 0, onClick }: DayCellProps) {
+function DayCell({ gridDate, isToday, isSelected, plans, competitions, hasActivity, activityCount = 0, onClick }: DayCellProps) {
   if (!gridDate) return <div aria-hidden="true" style={{ minHeight: 100 }} />
 
   const hasPlan = plans.length > 0
-  const visiblePlans = plans.slice(0, 3)
+  const visiblePlans = plans.slice(0, 2)
   const overflowCount = plans.length - visiblePlans.length
+  const visibleComps = competitions.slice(0, 2)
 
   return (
     <button
@@ -224,6 +231,39 @@ function DayCell({ gridDate, isToday, isSelected, plans, hasActivity, activityCo
               +{overflowCount} more
             </div>
           )}
+        </div>
+      )}
+
+      {/* Competition pills */}
+      {visibleComps.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+          {visibleComps.map((comp) => (
+            <div
+              key={comp.id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 3,
+                background: 'rgba(245,158,11,0.15)',
+                border: '1px solid rgba(245,158,11,0.4)',
+                borderRadius: 4,
+                fontSize: 10, fontWeight: 500,
+                padding: '2px 6px',
+                color: '#F59E0B',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+                minWidth: 0,
+              }}
+            >
+              {/* Trophy icon */}
+              <svg width="8" height="8" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+                <path d="M8 10c-2.21 0-4-1.79-4-4V2h8v4c0 2.21-1.79 4-4 4z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+                <path d="M4 3H2a2 2 0 002 2M12 3h2a2 2 0 01-2 2M8 10v3M5 13h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {comp.name}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -335,6 +375,205 @@ function PlanCard({
   )
 }
 
+// ─── CompCard ─────────────────────────────────────────────────────────────────
+
+function CompCard({ comp, onDelete }: { comp: CompCalendarEntry; onDelete: (id: string) => void }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '10px 14px',
+      backgroundColor: 'rgba(245,158,11,0.08)',
+      border: '1px solid rgba(245,158,11,0.35)',
+      borderRadius: 8,
+    }}>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0, color: '#F59E0B' }}>
+        <path d="M8 10c-2.21 0-4-1.79-4-4V2h8v4c0 2.21-1.79 4-4 4z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+        <path d="M4 3H2a2 2 0 002 2M12 3h2a2 2 0 01-2 2M8 10v3M5 13h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {comp.name}
+        </div>
+        {comp.wcaId && (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+            WCA: {comp.wcaId}
+          </div>
+        )}
+        {comp.endDate && comp.endDate !== comp.date && (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+            Through {comp.endDate}
+          </div>
+        )}
+      </div>
+      <button
+        onClick={() => onDelete(comp.id)}
+        aria-label="Remove competition"
+        style={{ color: 'var(--text-muted)', opacity: 0.5, padding: 4, transition: 'opacity 150ms ease, color 150ms ease' }}
+        onMouseOver={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'var(--penalty)' }}
+        onMouseOut={(e) => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.color = 'var(--text-muted)' }}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+// ─── AddCompetitionForm ───────────────────────────────────────────────────────
+
+interface AddCompetitionFormProps {
+  initialDate: string
+  onSave: (draft: Omit<CompCalendarEntry, 'id'>) => void
+  onCancel: () => void
+}
+
+function AddCompetitionForm({ initialDate, onSave, onCancel }: AddCompetitionFormProps) {
+  const [name, setName] = useState('')
+  const [wcaId, setWcaId] = useState('')
+  const [endDate, setEndDate] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return
+    onSave({
+      name: name.trim(),
+      date: initialDate,
+      endDate: endDate.trim() || undefined,
+      wcaId: wcaId.trim() || undefined,
+    })
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '7px 10px',
+    borderRadius: 6, border: '1px solid var(--border)',
+    backgroundColor: 'var(--surface-0)',
+    color: 'var(--text-primary)',
+    fontSize: 13, outline: 'none',
+    transition: 'border-color 150ms ease',
+    boxSizing: 'border-box',
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      style={{ overflow: 'hidden' }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          display: 'flex', flexDirection: 'column', gap: 10,
+          padding: '12px 14px',
+          backgroundColor: 'rgba(245,158,11,0.06)',
+          border: '1px solid rgba(245,158,11,0.3)',
+          borderRadius: 8,
+          marginTop: 8,
+        }}
+      >
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#F59E0B', marginBottom: 2 }}>
+          New competition
+        </div>
+
+        {/* Name */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>
+            Name <span style={{ color: 'var(--penalty)' }}>*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="e.g. CubingUSA Nationals 2026"
+            style={inputStyle}
+            onFocus={e => { e.currentTarget.style.borderColor = '#F59E0B' }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+          />
+        </div>
+
+        {/* WCA ID */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>
+            WCA competition ID <span style={{ opacity: 0.45 }}>(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={wcaId}
+            onChange={e => setWcaId(e.target.value)}
+            placeholder="WCA competition ID"
+            style={inputStyle}
+            onFocus={e => { e.currentTarget.style.borderColor = '#F59E0B' }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+          />
+        </div>
+
+        {/* Dates row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>Start date</label>
+            <input
+              type="date"
+              value={initialDate}
+              readOnly
+              style={{ ...inputStyle, opacity: 0.6, cursor: 'not-allowed' }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>
+              End date <span style={{ opacity: 0.45 }}>(optional)</span>
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              min={initialDate}
+              onChange={e => setEndDate(e.target.value)}
+              style={inputStyle}
+              onFocus={e => { e.currentTarget.style.borderColor = '#F59E0B' }}
+              onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+            />
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 2 }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              padding: '6px 14px', borderRadius: 6,
+              border: '1px solid var(--border)',
+              backgroundColor: 'var(--surface-1)',
+              color: 'var(--text-muted)',
+              fontSize: 12, fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={!name.trim()}
+            style={{
+              padding: '6px 16px', borderRadius: 6,
+              backgroundColor: name.trim() ? '#F59E0B' : 'var(--surface-1)',
+              color: name.trim() ? '#020617' : 'var(--text-muted)',
+              fontSize: 12, fontWeight: 700,
+              border: 'none',
+              cursor: name.trim() ? 'pointer' : 'not-allowed',
+              transition: 'background-color 150ms ease, color 150ms ease',
+            }}
+          >
+            Save
+          </button>
+        </div>
+      </form>
+    </motion.div>
+  )
+}
+
 // ─── TodoSection ─────────────────────────────────────────────────────────────
 
 function TodoSection({ date, todos, onCreateTodo, onToggleTodo, onDeleteTodo }: {
@@ -424,6 +663,7 @@ function TodoSection({ date, todos, onCreateTodo, onToggleTodo, onDeleteTodo }: 
 interface DayPanelProps {
   dateKey: string
   plans: PlannedSession[]
+  competitions: CompCalendarEntry[]
   activity: DayActivity | undefined
   todos: DayTodo[]
   onClose: () => void
@@ -433,9 +673,23 @@ interface DayPanelProps {
   onCreateTodo: (date: string, text: string) => void
   onToggleTodo: (id: string) => void
   onDeleteTodo: (id: string) => void
+  onCreateCompetition: (draft: Omit<CompCalendarEntry, 'id'>) => void
+  onDeleteCompetition: (id: string) => void
 }
 
-function DayPanel({ dateKey, plans, activity, todos, onClose, onAddPlan, onMarkComplete, onDeletePlan, onCreateTodo, onToggleTodo, onDeleteTodo }: DayPanelProps) {
+function DayPanel({
+  dateKey, plans, competitions, activity, todos,
+  onClose, onAddPlan, onMarkComplete, onDeletePlan,
+  onCreateTodo, onToggleTodo, onDeleteTodo,
+  onCreateCompetition, onDeleteCompetition,
+}: DayPanelProps) {
+  const [showCompForm, setShowCompForm] = useState(false)
+
+  const handleSaveComp = (draft: Omit<CompCalendarEntry, 'id'>) => {
+    onCreateCompetition(draft)
+    setShowCompForm(false)
+  }
+
   return (
     <>
       <motion.div
@@ -469,31 +723,90 @@ function DayPanel({ dateKey, plans, activity, todos, onClose, onAddPlan, onMarkC
         }} />
 
         {/* Heading row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
             {formatDayHeading(dateKey)}
           </h2>
-          <button
-            onClick={onAddPlan}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '5px 12px', borderRadius: 6,
-              border: '1px solid var(--border)',
-              backgroundColor: 'var(--surface-1)',
-              color: 'var(--text-primary)',
-              fontSize: 12, fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'color 150ms ease, border-color 150ms ease',
-            }}
-            onMouseOver={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
-            onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-              <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            Add plan
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {/* Add competition button */}
+            <button
+              onClick={() => setShowCompForm((v) => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 12px', borderRadius: 6,
+                border: `1px solid ${showCompForm ? 'rgba(245,158,11,0.6)' : 'var(--border)'}`,
+                backgroundColor: showCompForm ? 'rgba(245,158,11,0.1)' : 'var(--surface-1)',
+                color: showCompForm ? '#F59E0B' : 'var(--text-primary)',
+                fontSize: 12, fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'color 150ms ease, border-color 150ms ease, background-color 150ms ease',
+              }}
+              onMouseOver={(e) => {
+                if (!showCompForm) {
+                  e.currentTarget.style.color = '#F59E0B'
+                  e.currentTarget.style.borderColor = 'rgba(245,158,11,0.5)'
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!showCompForm) {
+                  e.currentTarget.style.color = 'var(--text-primary)'
+                  e.currentTarget.style.borderColor = 'var(--border)'
+                }
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M8 10c-2.21 0-4-1.79-4-4V2h8v4c0 2.21-1.79 4-4 4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M4 3H2a2 2 0 002 2M12 3h2a2 2 0 01-2 2M8 10v3M5 13h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              Add competition
+            </button>
+
+            {/* Add plan button */}
+            <button
+              onClick={onAddPlan}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 12px', borderRadius: 6,
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface-1)',
+                color: 'var(--text-primary)',
+                fontSize: 12, fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'color 150ms ease, border-color 150ms ease',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+              onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              Add plan
+            </button>
+          </div>
         </div>
+
+        {/* Inline competition form */}
+        <AnimatePresence>
+          {showCompForm && (
+            <AddCompetitionForm
+              initialDate={dateKey}
+              onSave={handleSaveComp}
+              onCancel={() => setShowCompForm(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Competitions */}
+        {competitions.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16, marginTop: showCompForm ? 12 : 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 500, color: '#F59E0B', marginBottom: 2 }}>
+              Competitions
+            </div>
+            {competitions.map((comp) => (
+              <CompCard key={comp.id} comp={comp} onDelete={onDeleteCompetition} />
+            ))}
+          </div>
+        )}
 
         {/* Plans */}
         {plans.length > 0 ? (
@@ -791,6 +1104,13 @@ function getWeekDates(referenceDate: Date): Date[] {
 }
 
 const WEEK_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const HOUR_LABELS = Array.from(
+  { length: GRID_END_HOUR - GRID_START_HOUR + 1 },
+  (_, i) => {
+    const h = GRID_START_HOUR + i
+    return h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`
+  }
+)
 
 interface WeekViewProps {
   referenceDate: Date
@@ -799,81 +1119,275 @@ interface WeekViewProps {
   plansByDay: Map<string, PlannedSession[]>
   activityByDay: Map<string, DayActivity>
   todosByDay: Map<string, DayTodo[]>
+  competitionsByDay: Map<string, CompCalendarEntry[]>
   onSelectDate: (key: string) => void
 }
 
-function WeekView({ referenceDate, currentTodayKey, selectedDate, plansByDay, activityByDay, todosByDay, onSelectDate }: WeekViewProps) {
+function WeekView({
+  referenceDate,
+  currentTodayKey,
+  selectedDate,
+  plansByDay,
+  activityByDay,
+  todosByDay,
+  competitionsByDay,
+  onSelectDate,
+}: WeekViewProps) {
   const dates = getWeekDates(referenceDate)
+  const now = new Date()
+  const nowHour = now.getHours() + now.getMinutes() / 60
+
+  // Is this week the current week?
+  const weekKeys = dates.map(toDateKey)
+  const isCurrentWeek = weekKeys.includes(currentTodayKey)
+
+  // Current time indicator offset (px from top of grid)
+  const nowOffset =
+    isCurrentWeek && nowHour >= GRID_START_HOUR && nowHour <= GRID_END_HOUR
+      ? (nowHour - GRID_START_HOUR) * HOUR_ROW_HEIGHT
+      : null
+
+  const TIME_COL_WIDTH = 40
+
   return (
-    <div style={{ flex: 1, padding: '0 12px', overflowY: 'auto' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+    <div style={{ flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column' }}>
+      {/* Day header row */}
+      <div style={{ display: 'flex', marginBottom: 4 }}>
+        {/* Spacer for time column */}
+        <div style={{ width: TIME_COL_WIDTH, flexShrink: 0 }} />
         {dates.map((date, i) => {
           const key = toDateKey(date)
           const isToday = key === currentTodayKey
           const isSelected = key === selectedDate
-          const plans = plansByDay.get(key) ?? []
           const activity = activityByDay.get(key)
-          const dayTodos = todosByDay.get(key) ?? []
-          const doneTodos = dayTodos.filter(t => t.done).length
+          const plans = plansByDay.get(key) ?? []
+          const todos = todosByDay.get(key) ?? []
+          const doneTodos = todos.filter(t => t.done).length
+          const comps = competitionsByDay.get(key) ?? []
           return (
             <div
               key={key}
               onClick={() => onSelectDate(key)}
               style={{
-                minHeight: 120,
-                borderRadius: 10,
-                border: `1px solid ${isSelected ? 'var(--accent)' : isToday ? 'rgba(34,211,238,0.3)' : 'var(--border)'}`,
-                backgroundColor: isSelected ? 'var(--accent-dim)' : 'var(--surface-0)',
-                padding: '10px 10px 8px',
-                cursor: 'pointer',
+                flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 4,
-                transition: 'border-color 150ms ease, background-color 150ms ease',
+                alignItems: 'center',
+                padding: '6px 4px',
+                borderRadius: 8,
+                cursor: 'pointer',
+                backgroundColor: isSelected ? 'var(--accent-dim)' : 'transparent',
+                border: `1px solid ${isSelected ? 'var(--accent)' : isToday ? 'rgba(34,211,238,0.3)' : 'transparent'}`,
+                transition: 'background-color 150ms ease, border-color 150ms ease',
+                gap: 2,
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)' }}>{WEEK_DAY_NAMES[i]}</span>
-                <span style={{
-                  fontSize: 13, fontWeight: 700,
-                  color: isToday ? 'var(--accent)' : 'var(--text-primary)',
-                  lineHeight: 1,
-                }}>
-                  {date.getDate()}
-                </span>
+              <span style={{
+                fontSize: 10, fontWeight: 600, color: 'var(--text-muted)',
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+              }}>
+                {WEEK_DAY_NAMES[i]}
+              </span>
+              <span style={{
+                width: 24, height: 24,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: '50%',
+                fontSize: 13, fontWeight: 700,
+                color: isToday ? '#020617' : isSelected ? 'var(--accent)' : 'var(--text-primary)',
+                backgroundColor: isToday ? 'var(--accent)' : 'transparent',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>
+                {date.getDate()}
+              </span>
+              {/* Badges row */}
+              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {activity && activity.solveCount > 0 && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 600,
+                    color: 'var(--positive)', backgroundColor: 'rgba(34,197,94,0.12)',
+                    borderRadius: 3, padding: '1px 4px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}>
+                    {activity.solveCount}s
+                  </span>
+                )}
+                {plans.length > 0 && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 600,
+                    color: 'var(--accent)', backgroundColor: 'var(--accent-dim)',
+                    borderRadius: 3, padding: '1px 4px',
+                  }}>
+                    {plans.length}p
+                  </span>
+                )}
+                {todos.length > 0 && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 600,
+                    color: 'var(--text-muted)', backgroundColor: 'var(--surface-1)',
+                    borderRadius: 3, padding: '1px 4px',
+                  }}>
+                    {doneTodos}/{todos.length}
+                  </span>
+                )}
+                {comps.length > 0 && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 600,
+                    color: '#F59E0B', backgroundColor: 'rgba(245,158,11,0.12)',
+                    borderRadius: 3, padding: '1px 4px',
+                  }}>
+                    🏆
+                  </span>
+                )}
               </div>
-              {activity && activity.solveCount > 0 && (
-                <div style={{
-                  fontSize: 11, fontWeight: 600,
-                  color: 'var(--positive)',
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}>
-                  {activity.solveCount} solve{activity.solveCount !== 1 ? 's' : ''}
-                </div>
-              )}
-              {plans.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
-                  {plans.slice(0, 2).map(p => (
-                    <div key={p.id} style={{
-                      fontSize: 10, fontWeight: 500,
-                      color: p.completedAt ? 'var(--positive)' : 'var(--accent)',
-                      backgroundColor: p.completedAt ? 'rgba(34,197,94,0.1)' : 'var(--accent-dim)',
-                      borderRadius: 4, padding: '2px 5px',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {EVENT_LABELS[p.event as WCAEvent] ?? p.event}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {dayTodos.length > 0 && (
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 'auto' }}>
-                  {doneTodos}/{dayTodos.length} done
-                </div>
-              )}
             </div>
           )
         })}
+      </div>
+
+      {/* Time-slot grid */}
+      <div style={{ overflowY: 'auto', maxHeight: 480, position: 'relative' }}>
+        <div style={{ display: 'flex', position: 'relative' }}>
+          {/* Time labels column */}
+          <div style={{ width: TIME_COL_WIDTH, flexShrink: 0 }}>
+            {HOUR_LABELS.map((label, i) => (
+              <div
+                key={i}
+                style={{
+                  height: HOUR_ROW_HEIGHT,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'flex-end',
+                  paddingRight: 8,
+                  paddingTop: 2,
+                  fontSize: 10,
+                  color: 'var(--text-muted)',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  boxSizing: 'border-box',
+                }}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
+
+          {/* Day columns */}
+          {dates.map((date) => {
+            const key = toDateKey(date)
+            const dayPlans = plansByDay.get(key) ?? []
+
+            return (
+              <div
+                key={key}
+                style={{
+                  flex: 1,
+                  position: 'relative',
+                  borderLeft: '1px solid rgba(var(--border-rgb, 51,65,85), 0.4)',
+                }}
+              >
+                {/* Hour rows (horizontal lines) */}
+                {HOUR_LABELS.map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      height: HOUR_ROW_HEIGHT,
+                      borderBottom: `1px solid var(--border)`,
+                      opacity: 0.4,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                ))}
+
+                {/* Event blocks */}
+                {dayPlans.map((plan) => {
+                  const planDate = new Date(plan.scheduledAt)
+                  const planHour = planDate.getHours() + planDate.getMinutes() / 60
+                  // Clamp to grid
+                  const clampedHour = Math.max(GRID_START_HOUR, Math.min(planHour, GRID_END_HOUR - 0.5))
+                  const topOffset = (clampedHour - GRID_START_HOUR) * HOUR_ROW_HEIGHT
+                  const blockHeight = Math.max(18, (plan.durationMins / 60) * HOUR_ROW_HEIGHT - 2)
+                  const done = plan.completedAt !== null
+                  const label = EVENT_LABELS[plan.event as WCAEvent] ?? plan.event
+
+                  return (
+                    <div
+                      key={plan.id}
+                      title={`${label}${plan.goal ? ` — ${plan.goal}` : ''}`}
+                      style={{
+                        position: 'absolute',
+                        top: topOffset + 1,
+                        left: 2,
+                        right: 2,
+                        height: blockHeight,
+                        backgroundColor: done ? 'rgba(34,197,94,0.12)' : 'var(--accent-dim)',
+                        border: `1px solid ${done ? 'var(--positive)' : 'var(--accent)'}`,
+                        borderRadius: 4,
+                        padding: '2px 5px',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-start',
+                        zIndex: 1,
+                      }}
+                    >
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: done ? 'var(--positive)' : 'var(--accent)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        lineHeight: 1.3,
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}>
+                        {label}
+                      </span>
+                      {plan.goal && blockHeight > 30 && (
+                        <span style={{
+                          fontSize: 9,
+                          color: 'var(--text-muted)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          lineHeight: 1.3,
+                        }}>
+                          {plan.goal}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+
+          {/* Current time indicator */}
+          {nowOffset !== null && (
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: nowOffset,
+                left: TIME_COL_WIDTH,
+                right: 0,
+                height: 2,
+                backgroundColor: 'var(--accent)',
+                zIndex: 2,
+                pointerEvents: 'none',
+              }}
+            >
+              {/* Dot at left edge */}
+              <div style={{
+                position: 'absolute',
+                left: -4,
+                top: -3,
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                backgroundColor: 'var(--accent)',
+              }} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -894,8 +1408,12 @@ export function CalendarPage() {
 
   const [view, setView] = useState<'month' | 'week'>('month')
 
-  const { activityByDay, plansByDay, plans, streak, weeklyFrequency, createPlan, deletePlan, markComplete, todosByDay, createTodo, toggleTodo, deleteTodo } =
-    useCalendar()
+  const {
+    activityByDay, plansByDay, plans, streak, weeklyFrequency,
+    createPlan, deletePlan, markComplete,
+    todosByDay, createTodo, toggleTodo, deleteTodo,
+    competitions, competitionsByDay, createCompetition, deleteCompetition,
+  } = useCalendar()
 
   useReminders(plans)
 
@@ -918,6 +1436,7 @@ export function CalendarPage() {
 
   const selectedPlans = selectedDate ? (plansByDay.get(selectedDate) ?? []) : []
   const selectedActivity = selectedDate ? activityByDay.get(selectedDate) : undefined
+  const selectedComps = selectedDate ? (competitionsByDay.get(selectedDate) ?? []) : []
 
   const requestNotifPermission = () => {
     if (typeof Notification === 'undefined') return
@@ -927,6 +1446,9 @@ export function CalendarPage() {
       // ignore
     })
   }
+
+  // Suppress unused variable warning — competitions is used in competitionsByDay derivation
+  void competitions
 
   const navBtnStyle: React.CSSProperties = {
     width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1058,6 +1580,7 @@ export function CalendarPage() {
                 const key = gridDate ? toDateKey(gridDate) : null
                 const dayPlans = key ? (plansByDay.get(key) ?? []) : []
                 const dayActivity = key ? activityByDay.get(key) : undefined
+                const dayComps = key ? (competitionsByDay.get(key) ?? []) : []
                 return (
                   <DayCell
                     key={i}
@@ -1065,6 +1588,7 @@ export function CalendarPage() {
                     isToday={key === currentTodayKey}
                     isSelected={key === selectedDate}
                     plans={dayPlans}
+                    competitions={dayComps}
                     hasActivity={!!dayActivity && dayActivity.solveCount > 0}
                     activityCount={dayActivity?.solveCount ?? 0}
                     onClick={() => key && setSelectedDate((prev) => (prev === key ? null : key))}
@@ -1081,6 +1605,7 @@ export function CalendarPage() {
             plansByDay={plansByDay}
             activityByDay={activityByDay}
             todosByDay={todosByDay}
+            competitionsByDay={competitionsByDay}
             onSelectDate={(key) => setSelectedDate((prev) => prev === key ? null : key)}
           />
         )}
@@ -1106,6 +1631,7 @@ export function CalendarPage() {
             key={selectedDate}
             dateKey={selectedDate}
             plans={selectedPlans}
+            competitions={selectedComps}
             activity={selectedActivity}
             todos={todosByDay.get(selectedDate) ?? []}
             onClose={() => setSelectedDate(null)}
@@ -1115,6 +1641,8 @@ export function CalendarPage() {
             onCreateTodo={createTodo}
             onToggleTodo={toggleTodo}
             onDeleteTodo={deleteTodo}
+            onCreateCompetition={createCompetition}
+            onDeleteCompetition={deleteCompetition}
           />
         )}
       </AnimatePresence>

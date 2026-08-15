@@ -142,7 +142,7 @@ export function ScramblePanel({
           style={{
             flex: 1,
             fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 17,
+            fontSize: 'clamp(14px, 1.5vw, 19px)',
             fontWeight: 500,
             letterSpacing: '0.04em',
             lineHeight: 1.6,

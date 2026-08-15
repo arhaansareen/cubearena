@@ -1,10 +1,32 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Cropper from 'react-easy-crop'
+import type { Area } from 'react-easy-crop'
 import { useAuth } from '@/providers/AuthProvider'
 import { useSupabaseProfile, type ProfileUpdate } from '@/hooks/useSupabaseProfile'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { formatTime } from '@/lib/utils'
 import type { SupabaseAchievement } from '@/lib/supabase'
+
+// ─── Crop utility ─────────────────────────────────────────────────────────────
+async function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number },
+): Promise<Blob> {
+  const image = await createImageBitmap(await fetch(imageSrc).then((r) => r.blob()))
+  const canvas = document.createElement('canvas')
+  canvas.width = pixelCrop.width
+  canvas.height = pixelCrop.height
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height)
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('canvas.toBlob returned null'))),
+      'image/jpeg',
+      0.9,
+    )
+  )
+}
 
 // ─── Country list (subset) ────────────────────────────────────────────────────
 const COUNTRIES: { code: string; name: string; flag: string }[] = [
@@ -105,6 +127,8 @@ function Avatar({
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) onUpload?.(file)
+              // reset so the same file can be re-selected
+              e.target.value = ''
             }}
           />
         </>
@@ -235,6 +259,16 @@ export function ProfilePage() {
   // Edit form state
   const [form, setForm] = useState<ProfileUpdate>({})
 
+  // Crop modal state
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
+
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixelsProp: Area) => {
+    setCroppedAreaPixels(croppedAreaPixelsProp)
+  }, [])
+
   useEffect(() => {
     if (profile) {
       setForm({
@@ -291,6 +325,33 @@ export function ProfilePage() {
     setUploadingAvatar(false)
   }
 
+  function handleAvatarSelect(file: File) {
+    const url = URL.createObjectURL(file)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCroppedAreaPixels(null)
+    setCropSrc(url)
+  }
+
+  async function applyCrop() {
+    if (!cropSrc || !croppedAreaPixels) return
+    try {
+      const blob = await getCroppedImg(cropSrc, croppedAreaPixels)
+      const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' })
+      URL.revokeObjectURL(cropSrc)
+      setCropSrc(null)
+      await handleAvatarUpload(file)
+    } catch {
+      URL.revokeObjectURL(cropSrc)
+      setCropSrc(null)
+    }
+  }
+
+  function cancelCrop() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
+  }
+
   if (!isSupabaseConfigured) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -305,6 +366,82 @@ export function ProfilePage() {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '32px 24px 80px' }}>
+
+      {/* ── Crop modal ── */}
+      {cropSrc && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) cancelCrop() }}
+        >
+          <div style={{
+            display: 'flex', flexDirection: 'column',
+            backgroundColor: 'var(--surface-0)',
+            borderRadius: 16, overflow: 'hidden',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          }}>
+            <div style={{
+              position: 'relative',
+              width: 'min(480px, 90vw)',
+              height: 'min(480px, 80vh)',
+              backgroundColor: 'var(--surface-0)',
+              borderRadius: '16px 16px 0 0',
+              overflow: 'hidden',
+            }}>
+              <Cropper
+                image={cropSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <div style={{
+              display: 'flex', gap: 8, padding: 12,
+              backgroundColor: 'var(--surface-0)',
+              justifyContent: 'flex-end',
+            }}>
+              <button
+                onClick={cancelCrop}
+                style={{
+                  padding: '8px 18px', borderRadius: 8,
+                  border: '1px solid var(--border)', backgroundColor: 'transparent',
+                  color: 'var(--text-muted)', fontSize: 13, fontWeight: 500,
+                  cursor: 'pointer', transition: 'all 150ms ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--accent)'
+                  e.currentTarget.style.color = 'var(--text-primary)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)'
+                  e.currentTarget.style.color = 'var(--text-muted)'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={applyCrop}
+                style={{
+                  padding: '8px 20px', borderRadius: 8,
+                  border: 'none', backgroundColor: 'var(--accent)',
+                  color: '#020617', fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Profile card ── */}
       <motion.div
@@ -347,7 +484,7 @@ export function ProfilePage() {
                 name={displayName}
                 size={88}
                 editable={editing && !loading}
-                onUpload={handleAvatarUpload}
+                onUpload={handleAvatarSelect}
               />
             </div>
 
@@ -361,7 +498,15 @@ export function ProfilePage() {
                       padding: '7px 16px', borderRadius: 8,
                       border: '1px solid var(--border)', backgroundColor: 'transparent',
                       color: 'var(--text-muted)', fontSize: 13, fontWeight: 500,
-                      cursor: 'pointer',
+                      cursor: 'pointer', transition: 'all 150ms ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--accent)'
+                      e.currentTarget.style.color = 'var(--text-primary)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border)'
+                      e.currentTarget.style.color = 'var(--text-muted)'
                     }}
                   >
                     Cancel

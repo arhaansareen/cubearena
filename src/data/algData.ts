@@ -93,29 +93,29 @@ export const PLL: AlgCase[] = [
     alg: "x R2 D2 R U R' D2 R U' R" },
   { id: 'PLL-E',  name: 'E-perm',  subset: 'PLL', group: 'Corners', probability: '1/36',
     alg: "x' R U' R' D R U R' D' R U R' D R U' R' D'" },
-  // Edges only
-  { id: 'PLL-Ua', name: 'Ua-perm', subset: 'PLL', group: 'Edges', probability: '1/18',
+  // EPLL (edges only)
+  { id: 'PLL-Ua', name: 'Ua-perm', subset: 'PLL', group: 'EPLL', probability: '1/18',
     alg: "R U' R U R U R U' R' U' R2" },
-  { id: 'PLL-Ub', name: 'Ub-perm', subset: 'PLL', group: 'Edges', probability: '1/18',
+  { id: 'PLL-Ub', name: 'Ub-perm', subset: 'PLL', group: 'EPLL', probability: '1/18',
     alg: "R2 U R U R' U' R' U' R' U R'" },
-  { id: 'PLL-H',  name: 'H-perm',  subset: 'PLL', group: 'Edges', probability: '1/72',
+  { id: 'PLL-H',  name: 'H-perm',  subset: 'PLL', group: 'EPLL', probability: '1/72',
     alg: "M2 U M2 U2 M2 U M2" },
-  { id: 'PLL-Z',  name: 'Z-perm',  subset: 'PLL', group: 'Edges', probability: '1/36',
+  { id: 'PLL-Z',  name: 'Z-perm',  subset: 'PLL', group: 'EPLL', probability: '1/36',
     alg: "M' U M2 U M2 U M' U2 M2" },
-  // Adjacent corner swap
-  { id: 'PLL-Ja', name: 'Ja-perm', subset: 'PLL', group: 'Adjacent', probability: '1/18',
+  // Adjacent Swap
+  { id: 'PLL-Ja', name: 'Ja-perm', subset: 'PLL', group: 'Adjacent Swap', probability: '1/18',
     alg: "x R2 F R F' R U2 r' U r U2" },
-  { id: 'PLL-Jb', name: 'Jb-perm', subset: 'PLL', group: 'Adjacent', probability: '1/18',
+  { id: 'PLL-Jb', name: 'Jb-perm', subset: 'PLL', group: 'Adjacent Swap', probability: '1/18',
     alg: "R U R' F' R U R' U' R' F R2 U' R'" },
-  { id: 'PLL-T',  name: 'T-perm',  subset: 'PLL', group: 'Adjacent', probability: '1/18',
+  { id: 'PLL-T',  name: 'T-perm',  subset: 'PLL', group: 'Adjacent Swap', probability: '1/18',
     alg: "R U R' U' R' F R2 U' R' U' R U R' F'" },
-  { id: 'PLL-F',  name: 'F-perm',  subset: 'PLL', group: 'Adjacent', probability: '1/18',
+  { id: 'PLL-F',  name: 'F-perm',  subset: 'PLL', group: 'Adjacent Swap', probability: '1/18',
     alg: "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R" },
-  { id: 'PLL-Ra', name: 'Ra-perm', subset: 'PLL', group: 'Adjacent', probability: '1/18',
+  { id: 'PLL-Ra', name: 'Ra-perm', subset: 'PLL', group: 'Adjacent Swap', probability: '1/18',
     alg: "R U' R' U' R U R D R' U' R D' R' U2 R'" },
-  { id: 'PLL-Rb', name: 'Rb-perm', subset: 'PLL', group: 'Adjacent', probability: '1/18',
+  { id: 'PLL-Rb', name: 'Rb-perm', subset: 'PLL', group: 'Adjacent Swap', probability: '1/18',
     alg: "R' U2 R U2 R' F R U R' U' R' F' R2" },
-  // Diagonal corner swap
+  // Diagonal
   { id: 'PLL-Y',  name: 'Y-perm',  subset: 'PLL', group: 'Diagonal', probability: '1/18',
     alg: "F R U' R' U' R U R' F' R U R' U' R' F R F'" },
   { id: 'PLL-V',  name: 'V-perm',  subset: 'PLL', group: 'Diagonal', probability: '1/18',
@@ -124,14 +124,14 @@ export const PLL: AlgCase[] = [
     alg: "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'" },
   { id: 'PLL-Nb', name: 'Nb-perm', subset: 'PLL', group: 'Diagonal', probability: '1/72',
     alg: "R' U R U' R' F' U' F R U R' F R' F' R U' R" },
-  // G-perms
-  { id: 'PLL-Ga', name: 'Ga-perm', subset: 'PLL', group: 'G-perms', probability: '1/18',
+  // G perms
+  { id: 'PLL-Ga', name: 'Ga-perm', subset: 'PLL', group: 'G perms', probability: '1/18',
     alg: "R2 U R' U R' U' R U' R2 D U' R' U R D'" },
-  { id: 'PLL-Gb', name: 'Gb-perm', subset: 'PLL', group: 'G-perms', probability: '1/18',
+  { id: 'PLL-Gb', name: 'Gb-perm', subset: 'PLL', group: 'G perms', probability: '1/18',
     alg: "R' U' R U D' R2 U R' U R U' R U' R2 D" },
-  { id: 'PLL-Gc', name: 'Gc-perm', subset: 'PLL', group: 'G-perms', probability: '1/18',
+  { id: 'PLL-Gc', name: 'Gc-perm', subset: 'PLL', group: 'G perms', probability: '1/18',
     alg: "R2 U' R U' R U R' U R2 D' U R U' R' D" },
-  { id: 'PLL-Gd', name: 'Gd-perm', subset: 'PLL', group: 'G-perms', probability: '1/18',
+  { id: 'PLL-Gd', name: 'Gd-perm', subset: 'PLL', group: 'G perms', probability: '1/18',
     alg: "R U R' U' D R2 U' R U' R' U R' U R2 D'" },
 ]
 

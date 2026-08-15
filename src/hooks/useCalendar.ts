@@ -5,6 +5,7 @@ import { generateId } from '@/lib/utils'
 const PLANS_KEY = 'cubearena:plans'
 const ACTIVITY_KEY = 'cubearena:activity'
 const TODOS_KEY = 'cubearena:todos'
+const COMPETITIONS_KEY = 'cubearena:cal-competitions'
 
 export interface DayTodo {
   id: string
@@ -12,6 +13,14 @@ export interface DayTodo {
   text: string
   done: boolean
   createdAt: number
+}
+
+export interface CompCalendarEntry {
+  id: string
+  name: string
+  date: string       // ISO date string YYYY-MM-DD
+  endDate?: string   // for multi-day comps
+  wcaId?: string     // WCA competition ID for linking
 }
 
 function loadJSON<T>(key: string, fallback: T): T {
@@ -49,6 +58,10 @@ export interface UseCalendarReturn {
   createTodo: (date: string, text: string) => void
   toggleTodo: (id: string) => void
   deleteTodo: (id: string) => void
+  competitions: CompCalendarEntry[]
+  competitionsByDay: Map<string, CompCalendarEntry[]>
+  createCompetition: (draft: Omit<CompCalendarEntry, 'id'>) => void
+  deleteCompetition: (id: string) => void
 }
 
 export function useCalendar(): UseCalendarReturn {
@@ -60,6 +73,9 @@ export function useCalendar(): UseCalendarReturn {
   )
   const [todos, setTodos] = useState<DayTodo[]>(() =>
     loadJSON<DayTodo[]>(TODOS_KEY, [])
+  )
+  const [competitions, setCompetitions] = useState<CompCalendarEntry[]>(() =>
+    loadJSON<CompCalendarEntry[]>(COMPETITIONS_KEY, [])
   )
 
   const createPlan = useCallback((draft: Omit<PlannedSession, 'id' | 'completedAt'>) => {
@@ -123,6 +139,22 @@ export function useCalendar(): UseCalendarReturn {
     })
   }, [])
 
+  const createCompetition = useCallback((draft: Omit<CompCalendarEntry, 'id'>) => {
+    setCompetitions((prev) => {
+      const next = [...prev, { ...draft, id: generateId() }]
+      localStorage.setItem(COMPETITIONS_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  const deleteCompetition = useCallback((id: string) => {
+    setCompetitions((prev) => {
+      const next = prev.filter((c) => c.id !== id)
+      localStorage.setItem(COMPETITIONS_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   const activityByDay = useMemo(() => {
     const map = new Map<string, DayActivity>()
     for (const a of activity) map.set(a.date, a)
@@ -149,6 +181,24 @@ export function useCalendar(): UseCalendarReturn {
     }
     return map
   }, [todos])
+
+  // competitionsByDay: a competition appears on every day in its range
+  const competitionsByDay = useMemo(() => {
+    const map = new Map<string, CompCalendarEntry[]>()
+    for (const c of competitions) {
+      const startDate = new Date(c.date + 'T00:00:00')
+      const endDate = c.endDate ? new Date(c.endDate + 'T00:00:00') : startDate
+      const cur = new Date(startDate)
+      while (cur <= endDate) {
+        const key = toDateKey(cur)
+        const arr = map.get(key) ?? []
+        arr.push(c)
+        map.set(key, arr)
+        cur.setDate(cur.getDate() + 1)
+      }
+    }
+    return map
+  }, [competitions])
 
   // Consecutive days ending at today that have activity or a completed plan
   const streak = useMemo(() => {
@@ -202,5 +252,9 @@ export function useCalendar(): UseCalendarReturn {
     createTodo,
     toggleTodo,
     deleteTodo,
+    competitions,
+    competitionsByDay,
+    createCompetition,
+    deleteCompetition,
   }
 }

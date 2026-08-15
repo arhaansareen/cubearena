@@ -45,6 +45,16 @@ export function useAudio(): UseAudioReturn {
 
   const playInspectionCallout = useCallback(
     (seconds: '8' | '12') => {
+      if ('speechSynthesis' in window && window.speechSynthesis != null) {
+        window.speechSynthesis.cancel()
+        const utterance = new SpeechSynthesisUtterance(`${seconds} seconds`)
+        utterance.rate = 1.1
+        utterance.pitch = 1.0
+        utterance.volume = 1.0
+        window.speechSynthesis.speak(utterance)
+        return
+      }
+      // Fallback: beep
       getContext().then((ctx) => {
         try {
           const frequency = seconds === '8' ? 880 : 1100
