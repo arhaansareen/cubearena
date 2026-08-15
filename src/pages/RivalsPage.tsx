@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWCAData, type WCAPersonResult } from '@/hooks/useWCAData'
 import { formatTime } from '@/lib/utils'
 import type { Rival, WCAEvent } from '@/types'
 import { generateId } from '@/lib/utils'
+import { useAuth } from '@/providers/AuthProvider'
+import { useSolveHistory } from '@/hooks/useSolveHistory'
 
 function SearchIcon() {
   return (
@@ -169,10 +171,311 @@ function ErrorBanner({ message }: { message: string }) {
   )
 }
 
+// ── Rival comparison card ────────────────────────────────────────────────────
+
+interface RivalCardProps {
+  rival: Rival
+  userPBs: Partial<Record<WCAEvent, number>>
+  index: number
+  onRemove: (id: string) => void
+}
+
+function RivalCard({ rival, userPBs, index, onRemove }: RivalCardProps) {
+  const colorSum = rival.wcaId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  const avatarColors = ['#7C3AED', '#DC2626', '#D97706', '#059669', '#2563EB', '#DB2777']
+  const avatarBg = avatarColors[colorSum % avatarColors.length]
+  const initials = rival.name.trim().split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+
+  // Events this rival has data for
+  const rivalEvents = DISPLAY_EVENTS.filter((event) =>
+    rival.stats.some((s) => s.event === event && (s.single !== null || s.ao100 !== null))
+  )
+
+  // Count beaten events
+  const beatenCount = rivalEvents.reduce((count, event) => {
+    const stat = rival.stats.find((s) => s.event === event)
+    const userPB = userPBs[event]
+    if (!stat || userPB === undefined || !stat.single) return count
+    return userPB < stat.single ? count + 1 : count
+  }, 0)
+
+  const hasBeats = beatenCount > 0
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1], delay: index * 0.05 }}
+      style={{
+        backgroundColor: 'var(--surface-0)',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Card header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--border)',
+          gap: 12,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          {/* Avatar */}
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              backgroundColor: avatarBg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 13,
+              fontWeight: 700,
+              color: '#fff',
+              fontFamily: "'JetBrains Mono', monospace",
+              flexShrink: 0,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {initials}
+          </div>
+
+          {/* Name + WCA ID */}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+              {rival.name}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: 'var(--accent)',
+                fontFamily: "'JetBrains Mono', monospace",
+                marginTop: 2,
+                letterSpacing: '0.04em',
+              }}
+            >
+              {rival.wcaId}
+            </div>
+          </div>
+
+          {/* Beat summary badge */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '3px 9px',
+              borderRadius: 999,
+              backgroundColor: hasBeats ? 'var(--accent-dim)' : 'transparent',
+              border: `1px solid ${hasBeats ? 'var(--positive)' : 'var(--border)'}`,
+              flexShrink: 0,
+            }}
+          >
+            {hasBeats && (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M1.5 5L4 7.5L8.5 2.5" stroke="var(--positive)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                fontFamily: "'JetBrains Mono', monospace",
+                color: hasBeats ? 'var(--positive)' : 'var(--text-muted)',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {beatenCount}/{rivalEvents.length} beaten
+            </span>
+          </div>
+        </div>
+
+        {/* Remove button */}
+        <button
+          onClick={() => onRemove(rival.id)}
+          aria-label={`Remove ${rival.name}`}
+          style={{
+            background: 'none',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            padding: '4px 10px',
+            color: 'var(--text-muted)',
+            fontSize: 12,
+            cursor: 'pointer',
+            transition: 'color 150ms ease, border-color 150ms ease',
+            flexShrink: 0,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.color = 'var(--penalty)'
+            e.currentTarget.style.borderColor = 'var(--penalty)'
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.color = 'var(--text-muted)'
+            e.currentTarget.style.borderColor = 'var(--border)'
+          }}
+        >
+          Remove
+        </button>
+      </div>
+
+      {/* Comparison grid */}
+      {rivalEvents.length > 0 ? (
+        <div
+          style={{
+            display: 'flex',
+            gap: 0,
+            overflowX: 'auto',
+            padding: '0',
+            scrollbarWidth: 'none',
+          }}
+        >
+          {rivalEvents.map((event, i) => {
+            const stat = rival.stats.find((s) => s.event === event)
+            const userPB = userPBs[event]
+            const rivalSingle = stat?.single ?? null
+            const rivalAvg = stat?.ao100 ?? null
+
+            // Beat logic
+            const beatsSingle = userPB !== undefined && rivalSingle !== null && userPB < rivalSingle
+            const beatsAvgOnly = !beatsSingle && userPB !== undefined && rivalAvg !== null && userPB < rivalAvg
+
+            const accentColor = beatsSingle
+              ? 'var(--positive)'
+              : beatsAvgOnly
+              ? 'var(--accent)'
+              : 'transparent'
+
+            const isLast = i === rivalEvents.length - 1
+
+            return (
+              <div
+                key={event}
+                style={{
+                  minWidth: 90,
+                  flexShrink: 0,
+                  borderRight: isLast ? 'none' : '1px solid var(--border)',
+                  borderTop: `2px solid ${beatsSingle || beatsAvgOnly ? accentColor : 'var(--border)'}`,
+                  padding: '12px 14px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                }}
+              >
+                {/* Event label */}
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    marginBottom: 2,
+                  }}
+                >
+                  {EVENT_LABELS[event] ?? event}
+                </div>
+
+                {/* You row */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                    You
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontWeight: 600,
+                      color: beatsSingle ? 'var(--positive)' : beatsAvgOnly ? 'var(--accent)' : 'var(--text-primary)',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {userPB !== undefined ? formatTime(userPB) : '—'}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div style={{ height: 1, backgroundColor: 'var(--border)', opacity: 0.5 }} />
+
+                {/* Them row */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                    Them
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontWeight: 600,
+                      color: 'var(--text-primary)',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {rivalSingle !== null ? formatTime(rivalSingle) : '—'}
+                  </div>
+                  {rivalAvg !== null && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        color: 'var(--text-muted)',
+                        marginTop: 1,
+                      }}
+                    >
+                      avg {formatTime(rivalAvg)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div style={{ padding: '20px 20px', fontSize: 13, color: 'var(--text-muted)' }}>
+          No event records available.
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
+
 export function RivalsPage() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [rivals, setRivals] = useState<Rival[]>([])
+  const [rivals, setRivals] = useState<Rival[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cubearena:rivals') ?? '[]')
+    } catch {
+      return []
+    }
+  })
   const { state, lookup, reset } = useWCAData()
+
+  const { user } = useAuth()
+  const { solves } = useSolveHistory(user?.uid)
+
+  // Persist rivals to localStorage
+  useEffect(() => {
+    localStorage.setItem('cubearena:rivals', JSON.stringify(rivals))
+  }, [rivals])
+
+  // Compute user PBs per event
+  const userPBs = useMemo(() => {
+    const pbs: Partial<Record<WCAEvent, number>> = {}
+    for (const s of solves) {
+      if (!isFinite(s.effectiveTime)) continue
+      if (!pbs[s.event] || s.effectiveTime < pbs[s.event]!) pbs[s.event] = s.effectiveTime
+    }
+    return pbs
+  }, [solves])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -200,12 +503,13 @@ export function RivalsPage() {
 
   return (
     <div style={{ padding: '32px', maxWidth: 880, margin: '0 auto', width: '100%' }}>
+      {/* Page header */}
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
           Rivals
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-          Track other competitors and compare your stats.
+          Track competitors and see exactly where you stand against their PBs.
         </p>
       </div>
 
@@ -279,7 +583,7 @@ export function RivalsPage() {
         </button>
       </form>
 
-      {/* Error states */}
+      {/* Error / result states */}
       <AnimatePresence mode="wait">
         {state.status === 'error' && (
           <motion.div
@@ -319,83 +623,36 @@ export function RivalsPage() {
       {/* Tracked rivals */}
       {rivals.length > 0 && (
         <div>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 3 }}>
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                fontSize: 11,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                fontWeight: 600,
+                marginBottom: 3,
+              }}
+            >
               Tracked ({rivals.length})
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', opacity: 0.7 }}>
-              Compare your times against tracked rivals
+              Green = you beat their single &middot; Cyan = you beat their average
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {rivals.map((rival) => {
-              // Hash wcaId chars to pick avatar color
-              const colorSum = rival.wcaId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-              const avatarColors = ['#7C3AED', '#DC2626', '#D97706', '#059669']
-              const avatarBg = avatarColors[colorSum % 4]
-              const initials = rival.name.trim().split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
-              return (
-                <div
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <AnimatePresence>
+              {rivals.map((rival, index) => (
+                <RivalCard
                   key={rival.id}
-                  style={{
-                    backgroundColor: 'var(--surface-0)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 10,
-                    padding: '14px 18px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 16,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {/* Avatar circle */}
-                    <div style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      backgroundColor: avatarBg,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: '#fff',
-                      fontFamily: "'JetBrains Mono', monospace",
-                      flexShrink: 0,
-                    }}>
-                      {initials}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {rival.name}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
-                        {rival.wcaId}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleRemoveRival(rival.id)}
-                    aria-label={`Remove ${rival.name}`}
-                    style={{
-                      background: 'none',
-                      border: '1px solid var(--border)',
-                      borderRadius: 6,
-                      padding: '4px 10px',
-                      color: 'var(--text-muted)',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      transition: 'color 150ms ease, border-color 150ms ease',
-                    }}
-                    onMouseOver={(e) => { e.currentTarget.style.color = 'var(--penalty)'; e.currentTarget.style.borderColor = 'var(--penalty)' }}
-                    onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )
-            })}
+                  rival={rival}
+                  userPBs={userPBs}
+                  index={index}
+                  onRemove={handleRemoveRival}
+                />
+              ))}
+            </AnimatePresence>
           </div>
         </div>
       )}
@@ -416,14 +673,25 @@ export function RivalsPage() {
             gap: 8,
           }}
         >
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <svg
+            width="32"
+            height="32"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--text-muted)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ opacity: 0.4 }}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-muted)', margin: 0 }}>
-            Search for a WCA competitor above
+            No rivals tracked yet
           </p>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 300, opacity: 0.7 }}>
-            Enter a WCA ID to find a competitor and start tracking their stats.
+            Search a WCA ID above to add a competitor. You'll see a live head-to-head breakdown across every event.
           </p>
         </div>
       )}

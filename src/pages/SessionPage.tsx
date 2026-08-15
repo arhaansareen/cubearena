@@ -45,7 +45,7 @@ const DEFAULT_NOTES_BEHAVIOR: NotesBehavior = 'soft'
 
 export function SessionPage() {
   const [event, setEvent] = useState<WCAEvent>('333')
-  const [showAI] = useState(false)
+  const [showAI, setShowAI] = useState(() => localStorage.getItem('cubearena:show-ai') === 'true')
   const [showModal, setShowModal] = useState(false)
   const [isManualMode, setIsManualMode] = useState(() => localStorage.getItem('cubearena:manual-mode') === 'true')
   const [lastResult, setLastResult] = useState<TimerResult | null>(null)
@@ -169,6 +169,15 @@ export function SessionPage() {
     })
   }
 
+  const toggleAI = () => {
+    if (phase !== 'idle') return
+    setShowAI(p => {
+      const next = !p
+      localStorage.setItem('cubearena:show-ai', String(next))
+      return next
+    })
+  }
+
   const isIdle = phase === 'idle'
 
   return (
@@ -236,6 +245,35 @@ export function SessionPage() {
                   <path d="M2 6h8M6 2v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
                 {isManualMode ? 'Manual ON' : 'Manual entry'}
+              </button>
+            )}
+
+            {/* AI rivals toggle */}
+            {isIdle && (
+              <button
+                onClick={toggleAI}
+                style={{
+                  position: 'absolute', bottom: 16, right: 24,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: showAI ? 'var(--accent-dim)' : 'none',
+                  border: `1px solid ${showAI ? 'var(--accent)' : 'var(--border)'}`,
+                  borderRadius: 8, padding: '6px 12px',
+                  color: showAI ? 'var(--accent)' : 'var(--text-muted)',
+                  fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                  transition: 'all 150ms ease',
+                }}
+                onMouseOver={(e) => { if (!showAI) { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' } }}
+                onMouseOut={(e) => { if (!showAI) { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' } }}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <rect x="2" y="4" width="8" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M4 4V3a2 2 0 0 1 4 0v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  <circle cx="4.5" cy="7" r="0.75" fill="currentColor" />
+                  <circle cx="7.5" cy="7" r="0.75" fill="currentColor" />
+                  <path d="M5 9h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  <path d="M1 6.5h1M10 6.5h1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+                {showAI ? 'AI on' : 'AI rivals'}
               </button>
             )}
           </div>
