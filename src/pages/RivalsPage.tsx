@@ -319,8 +319,13 @@ export function RivalsPage() {
       {/* Tracked rivals */}
       {rivals.length > 0 && (
         <div>
-          <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 12 }}>
-            Tracked ({rivals.length})
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 3 }}>
+              Tracked ({rivals.length})
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', opacity: 0.7 }}>
+              Compare your times against tracked rivals
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {rivals.map((rival) => {

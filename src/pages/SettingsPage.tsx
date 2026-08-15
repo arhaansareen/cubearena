@@ -244,6 +244,20 @@ export function SettingsPage() {
                   cursor: 'pointer', transition: 'all 150ms ease',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}
+                onMouseEnter={(e) => {
+                  if (mode !== m) {
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (mode !== m) {
+                    e.currentTarget.style.borderColor = 'var(--border)'
+                    e.currentTarget.style.backgroundColor = 'var(--surface-1)'
+                    e.currentTarget.style.color = 'var(--text-muted)'
+                  }
+                }}
               >
                 {m === 'dark' ? (
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

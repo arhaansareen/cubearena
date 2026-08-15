@@ -54,10 +54,22 @@ export function SessionPage() {
   const solveStartTimeRef = useRef<number | null>(null)
 
   const { scramble, next: nextScramble } = useScramble(event)
-  const { playInspectionCallout, startAmbient, stopAmbient } = useAudioContext()
+  const { playInspectionCallout, startAmbient, stopAmbient, isAmbientPlaying } = useAudioContext()
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('cubearena:sound-enabled') !== 'false')
+  const soundEnabledRef = useRef(soundEnabled)
+  soundEnabledRef.current = soundEnabled
+
+  const handleToggleSound = () => {
+    setSoundEnabled(prev => {
+      const next = !prev
+      localStorage.setItem('cubearena:sound-enabled', String(next))
+      if (!next && isAmbientPlaying) stopAmbient()
+      return next
+    })
+  }
   const { user } = useAuth()
   const { persistSolve, deleteSolve: persistDeleteSolve } = useSolveHistory(user?.uid)
-  const { solves, ao5, ao12, mean, sessionId, addSolve, deleteSolve, deleteLastSolve, clearSession } = useSession(event)
+  const { solves, ao5, ao12, mean, sessionId, addSolve, deleteSolve, clearSession } = useSession(event)
   const mo3 = useMemo(() => computeMean(solves, 3), [solves])
   const { addXP } = useXP()
 
@@ -67,7 +79,6 @@ export function SessionPage() {
     setLastResult(result)
     setCurrentPenalty(result.pendingPenalty)
     setShowModal(true)
-    if (isManualMode) setIsManualMode(false)
   }
 
   const {
@@ -83,9 +94,9 @@ export function SessionPage() {
     mode: isManualMode ? 'manual' : 'live',
   })
 
-  // Ambient audio: start on inspection, stop on idle/stopped/manual_entry
+  // Ambient audio: start on inspection (if sound enabled), stop on idle/stopped/manual_entry
   const prevPhaseRef = useRef(phase)
-  if (phase === 'inspection' && prevPhaseRef.current === 'armed') startAmbient()
+  if (phase === 'inspection' && prevPhaseRef.current !== 'inspection' && soundEnabledRef.current) startAmbient()
   if (
     (phase === 'idle' || phase === 'stopped' || phase === 'manual_entry') &&
     (prevPhaseRef.current === 'solving' || prevPhaseRef.current === 'inspection' || prevPhaseRef.current === 'armed')
@@ -168,6 +179,8 @@ export function SessionPage() {
         event={event}
         onNewScramble={nextScramble}
         onEventChange={setEvent}
+        soundEnabled={soundEnabled}
+        onToggleSound={handleToggleSound}
       />
 
       {/* Content row: timer (left) + solve list (right, desktop only) */}
@@ -253,7 +266,6 @@ export function SessionPage() {
             ) : (
               <SessionSolveList
                 solves={solves}
-                onDeleteLast={deleteLastSolve}
                 onDeleteSolve={(id) => { deleteSolve(id); void persistDeleteSolve(id) }}
               />
             )}

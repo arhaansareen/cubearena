@@ -480,13 +480,13 @@ function DayPanel({ dateKey, plans, activity, todos, onClose, onAddPlan, onMarkC
               padding: '5px 12px', borderRadius: 6,
               border: '1px solid var(--border)',
               backgroundColor: 'var(--surface-1)',
-              color: 'var(--text-muted)',
+              color: 'var(--text-primary)',
               fontSize: 12, fontWeight: 600,
               cursor: 'pointer',
               transition: 'color 150ms ease, border-color 150ms ease',
             }}
             onMouseOver={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
-            onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border)' }}
           >
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
               <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -644,6 +644,7 @@ function CreatePlanForm({ initialDate, onConfirm, onClose }: CreatePlanFormProps
           width: 'min(460px, calc(100vw - 32px))',
           maxHeight: 'calc(100dvh - 48px)',
           overflowY: 'auto',
+          overscrollBehavior: 'contain',
           backgroundColor: 'var(--surface-0)',
           border: '1px solid var(--border)',
           borderRadius: 16,

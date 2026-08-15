@@ -3,6 +3,7 @@ import { type ReactNode, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useProfile } from '@/providers/ProfileProvider'
 import { useXP } from '@/hooks/useXP'
+import { useTheme } from '@/providers/ThemeProvider'
 
 interface NavItem {
   to: string
@@ -259,6 +260,52 @@ function ProfileStrip() {
   )
 }
 
+function ThemeToggleButton() {
+  const { mode, setMode } = useTheme()
+  const isDark = mode === 'dark'
+  return (
+    <button
+      onClick={() => setMode(isDark ? 'light' : 'dark')}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      style={{
+        position: 'fixed', top: 16, right: 16, zIndex: 150,
+        width: 28, height: 28, borderRadius: 7,
+        border: '1px solid var(--border)',
+        backgroundColor: 'var(--surface-1)',
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 0,
+        transition: 'color 150ms ease, border-color 150ms ease, background-color 150ms ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.color = 'var(--accent)'
+        e.currentTarget.style.borderColor = 'var(--accent)'
+        e.currentTarget.style.backgroundColor = 'var(--accent-dim)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.color = 'var(--text-muted)'
+        e.currentTarget.style.borderColor = 'var(--border)'
+        e.currentTarget.style.backgroundColor = 'var(--surface-1)'
+      }}
+    >
+      {isDark ? (
+        // Sun icon for dark mode (click to go light)
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="10" cy="10" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.343 4.343l1.414 1.414M14.243 14.243l1.414 1.414M4.343 15.657l1.414-1.414M14.243 5.757l1.414-1.414" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      ) : (
+        // Moon icon for light mode (click to go dark)
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M17 13.5A7.5 7.5 0 0 1 6.5 3a7.5 7.5 0 1 0 10.5 10.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 export function AppShell() {
   const [collapsed, setCollapsed] = useState(false)
   const effectiveWidth = collapsed ? 0 : SIDEBAR_WIDTH
@@ -342,6 +389,9 @@ export function AppShell() {
         </AnimatePresence>
 
       </div>
+
+      {/* Theme toggle — top-right corner */}
+      <ThemeToggleButton />
 
       {/* Collapse toggle — fixed so it's always reachable */}
       <button

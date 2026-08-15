@@ -336,7 +336,7 @@ function NotesInsights({ solves }: { solves: Solve[] }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function HistoryPage() {
   const { user } = useAuth()
-  const { solves, loading } = useSolveHistory(user?.uid)
+  const { solves, loading, isConfigured } = useSolveHistory(user?.uid)
   const [searchQuery, setSearchQuery] = useState('')
   const [tab, setTab] = useState<'solves' | 'notes'>('solves')
   const [notesOnly, setNotesOnly] = useState(false)
@@ -375,7 +375,7 @@ export function HistoryPage() {
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>History</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-            {loading ? 'Loading…' : solves.length === 0 ? 'No solves recorded yet' : `${solves.length} solve${solves.length !== 1 ? 's' : ''} · ${notesCount} with notes`}
+            {loading ? 'Loading…' : !isConfigured ? 'Cloud sync not configured' : solves.length === 0 ? 'No solves recorded yet' : `${solves.length} solve${solves.length !== 1 ? 's' : ''} · ${notesCount} with notes`}
           </p>
         </div>
         <button
@@ -492,8 +492,32 @@ export function HistoryPage() {
             </div>
           )}
 
+          {/* No-backend state */}
+          {!loading && !isConfigured && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              padding: '72px 32px', backgroundColor: 'var(--surface-0)',
+              border: '1px solid var(--border)', borderRadius: 12, textAlign: 'center', gap: 10,
+            }}>
+              <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'var(--surface-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                  <path d="M4 11h14M11 4c-3.5 2-5 4.5-5 7s1.5 5 5 7M11 4c3.5 2 5 4.5 5 7s-1.5 5-5 7" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="11" cy="11" r="8.5" stroke="var(--text-muted)" strokeWidth="1.5" />
+                </svg>
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Cloud sync not configured</p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 320 }}>
+                Connect a Supabase project to see your solve history across devices. Add{' '}
+                <code style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, backgroundColor: 'var(--surface-1)', padding: '1px 5px', borderRadius: 4 }}>VITE_SUPABASE_URL</code>{' '}
+                and{' '}
+                <code style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, backgroundColor: 'var(--surface-1)', padding: '1px 5px', borderRadius: 4 }}>VITE_SUPABASE_ANON_KEY</code>{' '}
+                to your environment variables.
+              </p>
+            </div>
+          )}
+
           {/* Empty state */}
-          {!loading && solves.length === 0 && (
+          {!loading && isConfigured && solves.length === 0 && (
             <div style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               padding: '72px 32px', backgroundColor: 'var(--surface-0)',
@@ -511,7 +535,7 @@ export function HistoryPage() {
           )}
 
           {/* Solve table grouped by session */}
-          {!loading && filteredSolves.length > 0 && (() => {
+          {!loading && isConfigured && filteredSolves.length > 0 && (() => {
             // Group solves by session_id, preserving order (most recent session first)
             const sessionOrder: string[] = []
             const sessionMap = new Map<string, Solve[]>()
@@ -566,7 +590,7 @@ export function HistoryPage() {
             )
           })()}
 
-          {!loading && solves.length > 0 && filteredSolves.length === 0 && (
+          {!loading && isConfigured && solves.length > 0 && filteredSolves.length === 0 && (
             <div style={{ textAlign: 'center', padding: '48px 32px', backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-muted)', fontSize: 14 }}>
               No solves match your search.
             </div>

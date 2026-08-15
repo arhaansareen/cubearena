@@ -242,11 +242,14 @@ function genSq1(): string {
   }
 
   function slash(t: number[], b: number[]): [number[], number[]] {
-    const nt = [...t.filter(x => x < 6), ...b.filter(x => x >= 6)].sort((x, y) => x - y)
-    const nb = [...b.filter(x => x < 6), ...t.filter(x => x >= 6)].sort((x, y) => x - y)
+    // WCA slash swaps the front half (positions 0–5) between layers
+    const nt = [...b.filter(x => x < 6), ...t.filter(x => x >= 6)].sort((x, y) => x - y)
+    const nb = [...t.filter(x => x < 6), ...b.filter(x => x >= 6)].sort((x, y) => x - y)
     return [nt, nb]
   }
 
+  // Returns all rotation amounts a ∈ [-5..6] such that after rotating by a,
+  // positions 0 and 6 are still piece boundaries (slash becomes valid).
   function validRotations(bounds: number[]): number[] {
     const bset = new Set(bounds)
     const out: number[] = []
@@ -258,25 +261,29 @@ function genSq1(): string {
     return out
   }
 
-  // Start with a slash (TNoodle convention — establishes equator state)
-  ;[top, bot] = slash(top, bot)
-
   const moves: string[] = []
-  for (let i = 0; i < 11; i++) {
+  let attempts = 0
+  while (moves.length < 11 && attempts < 1000) {
+    attempts++
     const vTop = validRotations(top)
     const vBot = validRotations(bot)
-    if (!vTop.length || !vBot.length) break
+    if (!vTop.length || !vBot.length) continue
 
     const a = vTop[Math.floor(Math.random() * vTop.length)]
     const b = vBot[Math.floor(Math.random() * vBot.length)]
 
+    // Never generate (0, 0) — that move does nothing before the slash
+    if (a === 0 && b === 0) continue
+
     top = rotate(top, a)
     bot = rotate(bot, b)
-    moves.push(`(${a},${b})`)
+    moves.push(`(${a}, ${b})`)
     ;[top, bot] = slash(top, bot)
   }
 
-  return '/ ' + moves.join('/ ') + '/'
+  // WCA format: "(a, b)/ (a, b)/ ..." — each move includes trailing slash,
+  // joined by spaces, no leading slash
+  return moves.map(m => m + '/').join(' ')
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────

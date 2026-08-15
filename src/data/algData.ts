@@ -22,18 +22,18 @@ export const OLL: AlgCase[] = [
   { id: 'OLL-18', name: 'OLL 18', subset: 'OLL', group: 'Cross', alg: "r U R' U R U2 r2 U' R U' R' U2 r" },
   { id: 'OLL-19', name: 'OLL 19', subset: 'OLL', group: 'Cross', alg: "r' R U R U R' U' M' R' F R F'" },
   { id: 'OLL-20', name: 'OLL 20', subset: 'OLL', group: 'Cross', alg: "M U R U R' U' M2 U R U' r'" },
-  // T-shape
-  { id: 'OLL-33', name: 'OLL 33', subset: 'OLL', group: 'T-shape', alg: "R U R' U' R' F R F'" },
-  { id: 'OLL-45', name: 'OLL 45', subset: 'OLL', group: 'T-shape', alg: "F R U R' U' F'" },
+  // T
+  { id: 'OLL-33', name: 'OLL 33', subset: 'OLL', group: 'T', alg: "R U R' U' R' F R F'" },
+  { id: 'OLL-45', name: 'OLL 45', subset: 'OLL', group: 'T', alg: "F R U R' U' F'" },
   // Square
   { id: 'OLL-5',  name: 'OLL 5',  subset: 'OLL', group: 'Square', alg: "r' U2 R U R' U r" },
   { id: 'OLL-6',  name: 'OLL 6',  subset: 'OLL', group: 'Square', alg: "r U2 R' U' R U' r'" },
-  // C-shape
-  { id: 'OLL-34', name: 'OLL 34', subset: 'OLL', group: 'C-shape', alg: "R U R2 U' R' F R U R U' F'" },
-  { id: 'OLL-46', name: 'OLL 46', subset: 'OLL', group: 'C-shape', alg: "R' U' R' F R F' U R" },
-  // W-shape
-  { id: 'OLL-36', name: 'OLL 36', subset: 'OLL', group: 'W-shape', alg: "R' U' R U' R' U R U R B' R' B" },
-  { id: 'OLL-38', name: 'OLL 38', subset: 'OLL', group: 'W-shape', alg: "R U R' U R U' R' U' R' F R F'" },
+  // C
+  { id: 'OLL-34', name: 'OLL 34', subset: 'OLL', group: 'C', alg: "R U R2 U' R' F R U R U' F'" },
+  { id: 'OLL-46', name: 'OLL 46', subset: 'OLL', group: 'C', alg: "R' U' R' F R F' U R" },
+  // W
+  { id: 'OLL-36', name: 'OLL 36', subset: 'OLL', group: 'W', alg: "R' U' R U' R' U R U R B' R' B" },
+  { id: 'OLL-38', name: 'OLL 38', subset: 'OLL', group: 'W', alg: "R U R' U R U' R' U' R' F R F'" },
   // Corners only
   { id: 'OLL-21', name: 'OLL 21', subset: 'OLL', group: 'Corners', alg: "R U2 R' U' R U R' U' R U' R'" },
   { id: 'OLL-22', name: 'OLL 22', subset: 'OLL', group: 'Corners', alg: "R U2 R2 U' R2 U' R2 U2 R" },
@@ -42,45 +42,45 @@ export const OLL: AlgCase[] = [
   { id: 'OLL-25', name: 'OLL 25', subset: 'OLL', group: 'Corners', alg: "F' r U R' U' r' F R" },
   { id: 'OLL-26', name: 'OLL 26 (Anti-Sune)', subset: 'OLL', group: 'Corners', alg: "R U2 R' U' R U' R'" },
   { id: 'OLL-27', name: 'OLL 27 (Sune)',      subset: 'OLL', group: 'Corners', alg: "R U R' U R U2 R'" },
-  // P-shape
-  { id: 'OLL-31', name: 'OLL 31', subset: 'OLL', group: 'P-shape', alg: "R' U' F U R U' R' F' R" },
-  { id: 'OLL-32', name: 'OLL 32', subset: 'OLL', group: 'P-shape', alg: "S R U R' U' R' F R f'" },
-  { id: 'OLL-43', name: 'OLL 43', subset: 'OLL', group: 'P-shape', alg: "R' U' F' U F R" },
-  { id: 'OLL-44', name: 'OLL 44', subset: 'OLL', group: 'P-shape', alg: "f R U R' U' f'" },
-  // Z-shape (Fish)
-  { id: 'OLL-9',  name: 'OLL 9',  subset: 'OLL', group: 'Fish', alg: "R U R' U' R' F R2 U R' U' F'" },
-  { id: 'OLL-10', name: 'OLL 10', subset: 'OLL', group: 'Fish', alg: "R U R' U R' F R F' R U2 R'" },
-  { id: 'OLL-35', name: 'OLL 35', subset: 'OLL', group: 'Fish', alg: "R U2 R2 F R F' R U2 R'" },
-  { id: 'OLL-37', name: 'OLL 37', subset: 'OLL', group: 'Fish', alg: "F R' F' R U R U' R'" },
-  // Knight / S-shape
-  { id: 'OLL-7',  name: 'OLL 7',  subset: 'OLL', group: 'Knight', alg: "r U R' U R U2 r'" },
-  { id: 'OLL-8',  name: 'OLL 8',  subset: 'OLL', group: 'Knight', alg: "r' U' R U' R' U2 r" },
-  { id: 'OLL-11', name: 'OLL 11', subset: 'OLL', group: 'Knight', alg: "r' R2 U R' U R U2 R' U M'" },
-  { id: 'OLL-12', name: 'OLL 12', subset: 'OLL', group: 'Knight', alg: "M' R' U' R U' R' U2 R U' M" },
-  // L-shape
-  { id: 'OLL-13', name: 'OLL 13', subset: 'OLL', group: 'L-shape', alg: "F U R U' R2 F' R U R U' R'" },
-  { id: 'OLL-14', name: 'OLL 14', subset: 'OLL', group: 'L-shape', alg: "R' F R U R' F' R F U' F'" },
-  { id: 'OLL-15', name: 'OLL 15', subset: 'OLL', group: 'L-shape', alg: "r' U' r R' U' R U r' U r" },
-  { id: 'OLL-16', name: 'OLL 16', subset: 'OLL', group: 'L-shape', alg: "r U r' R U R' U' r U' r'" },
-  // I-shape
-  { id: 'OLL-51', name: 'OLL 51', subset: 'OLL', group: 'I-shape', alg: "f R U R' U' R U R' U' f'" },
-  { id: 'OLL-52', name: 'OLL 52', subset: 'OLL', group: 'I-shape', alg: "R U R' U R U' B U' B' R'" },
-  { id: 'OLL-55', name: 'OLL 55', subset: 'OLL', group: 'I-shape', alg: "R' F R U R U' R2 F' R2 U' R' U R U R'" },
-  { id: 'OLL-56', name: 'OLL 56', subset: 'OLL', group: 'I-shape', alg: "r' U' r U' R' U R U' R' U R r' U r" },
+  // P
+  { id: 'OLL-31', name: 'OLL 31', subset: 'OLL', group: 'P', alg: "R' U' F U R U' R' F' R" },
+  { id: 'OLL-32', name: 'OLL 32', subset: 'OLL', group: 'P', alg: "S R U R' U' R' F R f'" },
+  { id: 'OLL-43', name: 'OLL 43', subset: 'OLL', group: 'P', alg: "R' U' F' U F R" },
+  { id: 'OLL-44', name: 'OLL 44', subset: 'OLL', group: 'P', alg: "f R U R' U' f'" },
+  // F (Fish)
+  { id: 'OLL-9',  name: 'OLL 9',  subset: 'OLL', group: 'F', alg: "R U R' U' R' F R2 U R' U' F'" },
+  { id: 'OLL-10', name: 'OLL 10', subset: 'OLL', group: 'F', alg: "R U R' U R' F R F' R U2 R'" },
+  { id: 'OLL-35', name: 'OLL 35', subset: 'OLL', group: 'F', alg: "R U2 R2 F R F' R U2 R'" },
+  { id: 'OLL-37', name: 'OLL 37', subset: 'OLL', group: 'F', alg: "F R' F' R U R U' R'" },
+  // S (small lightning / S-shape)
+  { id: 'OLL-7',  name: 'OLL 7',  subset: 'OLL', group: 'S', alg: "r U R' U R U2 r'" },
+  { id: 'OLL-8',  name: 'OLL 8',  subset: 'OLL', group: 'S', alg: "r' U' R U' R' U2 r" },
+  { id: 'OLL-11', name: 'OLL 11', subset: 'OLL', group: 'S', alg: "r' R2 U R' U R U2 R' U M'" },
+  { id: 'OLL-12', name: 'OLL 12', subset: 'OLL', group: 'S', alg: "M' R' U' R U' R' U2 R U' M" },
+  // L
+  { id: 'OLL-13', name: 'OLL 13', subset: 'OLL', group: 'L', alg: "F U R U' R2 F' R U R U' R'" },
+  { id: 'OLL-14', name: 'OLL 14', subset: 'OLL', group: 'L', alg: "R' F R U R' F' R F U' F'" },
+  { id: 'OLL-15', name: 'OLL 15', subset: 'OLL', group: 'L', alg: "r' U' r R' U' R U r' U r" },
+  { id: 'OLL-16', name: 'OLL 16', subset: 'OLL', group: 'L', alg: "r U r' R U R' U' r U' r'" },
+  // I
+  { id: 'OLL-51', name: 'OLL 51', subset: 'OLL', group: 'I', alg: "f R U R' U' R U R' U' f'" },
+  { id: 'OLL-52', name: 'OLL 52', subset: 'OLL', group: 'I', alg: "R U R' U R U' B U' B' R'" },
+  { id: 'OLL-55', name: 'OLL 55', subset: 'OLL', group: 'I', alg: "R' F R U R U' R2 F' R2 U' R' U R U R'" },
+  { id: 'OLL-56', name: 'OLL 56', subset: 'OLL', group: 'I', alg: "r' U' r U' R' U R U' R' U R r' U r" },
   // Remaining numbered cases
   { id: 'OLL-28', name: 'OLL 28', subset: 'OLL', group: 'Corners', alg: "r U R' U' M U R U' R'" },
-  { id: 'OLL-29', name: 'OLL 29', subset: 'OLL', group: 'P-shape',  alg: "R U R' U' R U' R' F' U' F R U R'" },
-  { id: 'OLL-30', name: 'OLL 30', subset: 'OLL', group: 'P-shape',  alg: "F R' F R2 U' R' U' R U R' F2" },
-  { id: 'OLL-39', name: 'OLL 39', subset: 'OLL', group: 'L-shape',  alg: "R U R' F' U' F U R U2 R'" },
-  { id: 'OLL-40', name: 'OLL 40', subset: 'OLL', group: 'L-shape',  alg: "R' F R U R' U' F' U R" },
-  { id: 'OLL-41', name: 'OLL 41', subset: 'OLL', group: 'Sune',     alg: "R U R' U R U2 R' F R U R' U' F'" },
-  { id: 'OLL-42', name: 'OLL 42', subset: 'OLL', group: 'Sune',     alg: "R' U' R U' R' U2 R F R U R' U' F'" },
-  { id: 'OLL-47', name: 'OLL 47', subset: 'OLL', group: 'I-shape',  alg: "F' L' U' L U F" },
-  { id: 'OLL-48', name: 'OLL 48', subset: 'OLL', group: 'I-shape',  alg: "F R U R' U' F'" },
-  { id: 'OLL-49', name: 'OLL 49', subset: 'OLL', group: 'I-shape',  alg: "r U' r2 U r2 U r2 U' r" },
-  { id: 'OLL-50', name: 'OLL 50', subset: 'OLL', group: 'I-shape',  alg: "r' U r2 U' r2 U' r2 U r'" },
-  { id: 'OLL-53', name: 'OLL 53', subset: 'OLL', group: 'W-shape',  alg: "r' U' R U' R' U R U' R' U2 r" },
-  { id: 'OLL-54', name: 'OLL 54', subset: 'OLL', group: 'W-shape',  alg: "r U R' U R U' R' U R U2 r'" },
+  { id: 'OLL-29', name: 'OLL 29', subset: 'OLL', group: 'P',  alg: "R U R' U' R U' R' F' U' F R U R'" },
+  { id: 'OLL-30', name: 'OLL 30', subset: 'OLL', group: 'P',  alg: "F R' F R2 U' R' U' R U R' F2" },
+  { id: 'OLL-39', name: 'OLL 39', subset: 'OLL', group: 'L',  alg: "R U R' F' U' F U R U2 R'" },
+  { id: 'OLL-40', name: 'OLL 40', subset: 'OLL', group: 'L',  alg: "R' F R U R' U' F' U R" },
+  { id: 'OLL-41', name: 'OLL 41', subset: 'OLL', group: 'Corners', alg: "R U R' U R U2 R' F R U R' U' F'" },
+  { id: 'OLL-42', name: 'OLL 42', subset: 'OLL', group: 'Corners', alg: "R' U' R U' R' U2 R F R U R' U' F'" },
+  { id: 'OLL-47', name: 'OLL 47', subset: 'OLL', group: 'I',  alg: "F' L' U' L U F" },
+  { id: 'OLL-48', name: 'OLL 48', subset: 'OLL', group: 'I',  alg: "F R U R' U' F'" },
+  { id: 'OLL-49', name: 'OLL 49', subset: 'OLL', group: 'I',  alg: "r U' r2 U r2 U r2 U' r" },
+  { id: 'OLL-50', name: 'OLL 50', subset: 'OLL', group: 'I',  alg: "r' U r2 U' r2 U' r2 U r'" },
+  { id: 'OLL-53', name: 'OLL 53', subset: 'OLL', group: 'W',  alg: "r' U' R U' R' U R U' R' U2 r" },
+  { id: 'OLL-54', name: 'OLL 54', subset: 'OLL', group: 'W',  alg: "r U R' U R U' R' U R U2 r'" },
   { id: 'OLL-57', name: 'OLL 57', subset: 'OLL', group: 'Corners',  alg: "R U R' U' M' U R U' r'" },
 ]
 
@@ -141,7 +141,8 @@ export const F2L: AlgCase[] = [
   { id: 'F2L-1',  name: 'F2L 1',  subset: 'F2L', group: 'Basic', alg: "U R U' R'" },
   { id: 'F2L-2',  name: 'F2L 2',  subset: 'F2L', group: 'Basic', alg: "U' F' U F" },
   { id: 'F2L-3',  name: 'F2L 3',  subset: 'F2L', group: 'Basic', alg: "U' R U R' U2 R U' R'" },
-  { id: 'F2L-4',  name: 'F2L 4',  subset: 'F2L', group: 'Basic', alg: "U F' U' F U2 F' U F" },
+  // F2L 4: corner+edge already paired with white facing front — insert directly with R U R'
+  { id: 'F2L-4',  name: 'F2L 4',  subset: 'F2L', group: 'Basic', alg: "R U R'" },
   { id: 'F2L-5',  name: 'F2L 5',  subset: 'F2L', group: 'Basic', alg: "R U' R' U R U' R'" },
   { id: 'F2L-6',  name: 'F2L 6',  subset: 'F2L', group: 'Basic', alg: "F' U F U' F' U F" },
   { id: 'F2L-7',  name: 'F2L 7',  subset: 'F2L', group: 'Basic', alg: "U' R U2 R' U2 R U' R'" },
@@ -174,7 +175,10 @@ export const F2L: AlgCase[] = [
   { id: 'F2L-34', name: 'F2L 34', subset: 'F2L', group: 'Both in slot', alg: "U F' U' F U' F' U' F" },
   { id: 'F2L-35', name: 'F2L 35', subset: 'F2L', group: 'Both in slot', alg: "U' R U' R' U R U R'" },
   { id: 'F2L-36', name: 'F2L 36', subset: 'F2L', group: 'Both in slot', alg: "U F' U F U' F' U' F" },
-  { id: 'F2L-37', name: 'F2L 37', subset: 'F2L', group: 'Both in slot', alg: "R U2 R2 U' R2 U' R2 U2 R" },
+  // TODO: F2L 37 previously had "R U2 R2 U' R2 U' R2 U2 R" which is the OLL-22 algorithm — clearly wrong.
+  // F2L 37 (both pieces in slot, corner and edge both incorrectly placed/oriented):
+  // standard alg per bestsiteever.net is "R U' R' U2 R U R' U' R U R'"
+  { id: 'F2L-37', name: 'F2L 37', subset: 'F2L', group: 'Both in slot', alg: "R U' R' U2 R U R' U' R U R'" },
   { id: 'F2L-38', name: 'F2L 38', subset: 'F2L', group: 'Both in slot', alg: "R U R' U' U' R U' R' U' R U R'" },
   { id: 'F2L-39', name: 'F2L 39', subset: 'F2L', group: 'Both in slot', alg: "R U' R' U U R U R'" },
   { id: 'F2L-40', name: 'F2L 40', subset: 'F2L', group: 'Both in slot', alg: "R U' R' U R U' R' U R U' R'" },

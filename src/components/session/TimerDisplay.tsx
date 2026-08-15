@@ -190,7 +190,7 @@ export function TimerDisplay({
             fontWeight: 400,
           }}
         >
-          Hold Space to begin inspection
+          Press Space to begin inspection
         </p>
       )}
 

@@ -318,6 +318,27 @@ export function UpcomingCompsPage() {
                         >
                           {comp.name}
                         </h3>
+                        <a
+                          href={`https://www.worldcubeassociation.org/competitions/${comp.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          title="View on WCA"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            color: 'var(--text-muted)',
+                            flexShrink: 0,
+                            transition: 'color 150ms ease',
+                          }}
+                          onMouseOver={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--accent)' }}
+                          onMouseOut={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-muted)' }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <path d="M5 2H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M8 1h4v4M12 1L7 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </a>
                       </div>
 
                       <div

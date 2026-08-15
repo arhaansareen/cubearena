@@ -11,6 +11,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
+    exclude: ['cubing'],
     esbuildOptions: {
       target: 'es2022',
     },

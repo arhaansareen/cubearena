@@ -346,7 +346,7 @@ export function ProfilePage() {
                 url={profile?.avatar_url ?? null}
                 name={displayName}
                 size={88}
-                editable={!loading}
+                editable={editing && !loading}
                 onUpload={handleAvatarUpload}
               />
             </div>

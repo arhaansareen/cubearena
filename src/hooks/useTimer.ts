@@ -297,9 +297,11 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
 
       holdStartRef.current = performance.now()
 
-      if (current === 'inspection' || current === 'idle') {
+      // During inspection, require a hold to arm before starting the solve (stackmat-style).
+      // From idle, no hold required — release immediately starts inspection.
+      if (current === 'inspection') {
         holdTimerRef.current = setTimeout(() => {
-          if (phaseRef.current === current) {
+          if (phaseRef.current === 'inspection') {
             arm()
           }
         }, HOLD_THRESHOLD_MS)
@@ -319,7 +321,10 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       holdStartRef.current = null
       clearHoldTimer()
 
-      if (current === 'armed') {
+      if (current === 'idle') {
+        // Short press from idle instantly starts inspection
+        startInspection()
+      } else if (current === 'armed') {
         dispatchFromArmed()
       }
     }
@@ -331,7 +336,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [arm, clearHoldTimer, dispatchFromArmed, stopSolve])
+  }, [arm, clearHoldTimer, dispatchFromArmed, startInspection, stopSolve])
 
   // Touch handling
   useEffect(() => {
@@ -352,9 +357,9 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
 
       holdStartRef.current = performance.now()
 
-      if (current === 'inspection' || current === 'idle') {
+      if (current === 'inspection') {
         holdTimerRef.current = setTimeout(() => {
-          if (phaseRef.current === current) {
+          if (phaseRef.current === 'inspection') {
             arm()
           }
         }, HOLD_THRESHOLD_MS)
@@ -368,7 +373,9 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       holdStartRef.current = null
       clearHoldTimer()
 
-      if (current === 'armed') {
+      if (current === 'idle') {
+        startInspection()
+      } else if (current === 'armed') {
         dispatchFromArmed()
       }
     }
@@ -380,7 +387,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       window.removeEventListener('touchstart', handleTouchStart)
       window.removeEventListener('touchend', handleTouchEnd)
     }
-  }, [arm, clearHoldTimer, dispatchFromArmed, stopSolve])
+  }, [arm, clearHoldTimer, dispatchFromArmed, startInspection, stopSolve])
 
   useEffect(() => {
     return () => {

@@ -673,6 +673,17 @@ export function CompetitionPage() {
   const [searchParams] = useSearchParams()
   const preselectedCompId = searchParams.get('compId')
 
+  // Prevent spacebar from scrolling the page (but not when typing in inputs)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (document.activeElement as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.code === 'Space') e.preventDefault()
+    }
+    document.addEventListener('keydown', handler, { capture: true })
+    return () => document.removeEventListener('keydown', handler, { capture: true })
+  }, [])
+
   // ── Setup state ──
   const [compPhase, setCompPhase] = useState<CompPhase>('setup')
   const [isManualMode, setIsManualMode] = useState(false)

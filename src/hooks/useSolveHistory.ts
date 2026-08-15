@@ -5,6 +5,7 @@ import type { Solve, Penalty, WCAEvent } from '@/types'
 export interface UseSolveHistoryReturn {
   solves: Solve[]
   loading: boolean
+  isConfigured: boolean
   persistSolve: (solve: Solve) => Promise<void>
   deleteSolve: (id: string) => Promise<void>
 }
@@ -133,8 +134,8 @@ export function useSolveHistory(uid: string | null | undefined): UseSolveHistory
   )
 
   if (!uid || !isSupabaseConfigured) {
-    return { solves: [], loading: false, persistSolve: noopPersist, deleteSolve: noopDelete }
+    return { solves: [], loading: false, isConfigured: isSupabaseConfigured, persistSolve: noopPersist, deleteSolve: noopDelete }
   }
 
-  return { solves, loading, persistSolve, deleteSolve }
+  return { solves, loading, isConfigured: isSupabaseConfigured, persistSolve, deleteSolve }
 }

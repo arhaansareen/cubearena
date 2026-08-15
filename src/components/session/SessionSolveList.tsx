@@ -2,11 +2,9 @@ import { useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Solve } from '@/types'
 import { computeAo, formatTime } from '@/lib/utils'
-import { HoldDeleteButton } from './HoldDeleteButton'
 
 interface SessionSolveListProps {
   solves: Solve[]
-  onDeleteLast: () => void
   onDeleteSolve: (id: string) => void
 }
 
@@ -17,7 +15,7 @@ function timeColor(solve: Solve, isBest: boolean): string {
   return 'var(--text-primary)'
 }
 
-export function SessionSolveList({ solves, onDeleteLast, onDeleteSolve }: SessionSolveListProps) {
+export function SessionSolveList({ solves, onDeleteSolve }: SessionSolveListProps) {
   const rows = useMemo(() => {
     const bestTime = Math.min(
       ...solves
@@ -117,7 +115,7 @@ export function SessionSolveList({ solves, onDeleteLast, onDeleteSolve }: Sessio
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 16, height: 16, padding: 0,
                   background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--text-muted)', opacity: 0,
+                  color: 'var(--text-muted)', opacity: 0.4,
                   transition: 'opacity 120ms, color 120ms',
                   borderRadius: 3,
                 }}
@@ -144,11 +142,6 @@ export function SessionSolveList({ solves, onDeleteLast, onDeleteSolve }: Sessio
         ))}
         </AnimatePresence>
       </div>
-
-      {/* Delete last solve */}
-      {solves.length > 0 && (
-        <HoldDeleteButton onDelete={onDeleteLast} />
-      )}
 
       <style>{`
         .solve-row:hover .solve-delete-btn { opacity: 1 !important; }

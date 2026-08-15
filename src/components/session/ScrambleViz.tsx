@@ -37,6 +37,8 @@ export function ScrambleViz({ scramble, event, size = 100 }: ScrambleVizProps) {
     import('cubing/twisty').then(({ TwistyPlayer }) => {
       if (cancelled || !container) return
       container.innerHTML = ''
+      // sq1 SVG is 360×552 → aspect ratio ~1.53; all others use 0.8
+      const heightMultiplier = event === 'sq1' ? 1.53 : 0.8
       const player = new TwistyPlayer({
         puzzle: (EVENT_TO_PUZZLE[event] ?? '3x3x3') as '3x3x3',
         experimentalSetupAlg: scramble,
@@ -47,7 +49,7 @@ export function ScrambleViz({ scramble, event, size = 100 }: ScrambleVizProps) {
         hintFacelets: 'none',
       })
       player.style.width = `${size}px`
-      player.style.height = `${Math.round(size * 0.8)}px`
+      player.style.height = `${Math.round(size * heightMultiplier)}px`
       container.appendChild(player)
     }).catch(() => {})
 
@@ -57,7 +59,7 @@ export function ScrambleViz({ scramble, event, size = 100 }: ScrambleVizProps) {
   return (
     <div
       ref={containerRef}
-      style={{ width: size, height: Math.round(size * 0.8), flexShrink: 0, opacity: scramble ? 1 : 0, transition: 'opacity 200ms ease' }}
+      style={{ width: size, height: Math.round(size * (event === 'sq1' ? 1.53 : 0.8)), flexShrink: 0, opacity: scramble ? 1 : 0, transition: 'opacity 200ms ease' }}
     />
   )
 }
