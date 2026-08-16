@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { TimerPhase, Penalty } from '@/types'
 import { formatTime } from '@/lib/utils'
 
@@ -44,14 +44,21 @@ interface TimerDisplayProps {
 
 function getTimerColor(phase: TimerPhase, pendingPenalty: Penalty): string {
   if (phase === 'inspection') {
-    if (pendingPenalty === 'DNF') return 'var(--penalty)'
-    if (pendingPenalty === '+2') return 'var(--penalty)'
+    if (pendingPenalty === 'DNF' || pendingPenalty === '+2') return 'var(--penalty)'
     return 'var(--inspection)'
   }
   if (phase === 'armed') return 'var(--positive)'
   if (phase === 'solving') return 'var(--timer-active)'
-  if (phase === 'stopped') return 'var(--timer-active)'
+  if (phase === 'stopped') return pendingPenalty ? 'var(--penalty)' : 'var(--positive)'
   return 'var(--timer-idle)'
+}
+
+function getContainerBg(phase: TimerPhase, pendingPenalty: Penalty): string {
+  if (phase === 'armed') return 'rgba(34,211,238,0.04)'
+  if (phase === 'solving') return 'rgba(34,211,238,0.02)'
+  if (phase === 'stopped') return pendingPenalty ? 'rgba(239,68,68,0.04)' : 'rgba(34,197,94,0.05)'
+  if (phase === 'inspection') return pendingPenalty ? 'rgba(239,68,68,0.04)' : 'rgba(251,191,36,0.03)'
+  return 'var(--surface-0)'
 }
 
 function getDisplayContent(
@@ -93,13 +100,13 @@ export function TimerDisplay({
   pendingPenalty,
 }: TimerDisplayProps) {
   const color = getTimerColor(phase, pendingPenalty)
+  const containerBg = getContainerBg(phase, pendingPenalty)
   const content = getDisplayContent(phase, displayTime, inspectionElapsed)
   const scale = getScale(phase)
   const fontSize = getFontSize(phase)
   const hintText = getHintText(phase)
 
   const isMonoFont = phase !== 'idle' && phase !== 'armed'
-  const isActive = phase === 'solving' || phase === 'stopped'
   const isArmed = phase === 'armed'
   const isInspection = phase === 'inspection'
 
@@ -107,31 +114,31 @@ export function TimerDisplay({
     ? 'var(--positive)'
     : isInspection
       ? (pendingPenalty ? 'var(--penalty)' : 'var(--inspection)')
-      : isActive
-        ? 'var(--border)'
+      : phase === 'stopped'
+        ? (pendingPenalty ? 'var(--penalty)' : 'var(--positive)')
         : 'var(--border)'
 
   return (
     <motion.div
-      animate={{ borderColor }}
-      transition={{ duration: 0.25, ease: 'easeInOut' }}
+      animate={{ borderColor, backgroundColor: containerBg }}
+      transition={{ duration: 0.3, ease: 'easeInOut' }}
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
-        padding: '40px 24px',
+        padding: '44px 24px 36px',
         backgroundColor: 'var(--surface-0)',
         border: '1px solid',
         borderColor: 'var(--border)',
-        borderRadius: 12,
+        borderRadius: 16,
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: 'none',
         gap: 0,
         position: 'relative',
-        minHeight: 200,
+        minHeight: 220,
       }}
     >
       {/* Main timer number */}
@@ -228,20 +235,27 @@ export function TimerDisplay({
       )}
 
       {/* Phase hint */}
-      {hintText && (
-        <p
-          style={{
-            margin: '14px 0 0',
-            fontSize: 13,
-            color: isArmed ? 'var(--positive)' : 'var(--text-muted)',
-            fontWeight: isArmed ? 500 : 400,
-            textAlign: 'center',
-            transition: 'color 200ms ease',
-          }}
-        >
-          {hintText}
-        </p>
-      )}
+      <AnimatePresence mode="wait">
+        {hintText && (
+          <motion.p
+            key={hintText}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            style={{
+              margin: '16px 0 0',
+              fontSize: 12,
+              color: isArmed ? 'var(--positive)' : 'var(--text-muted)',
+              fontWeight: isArmed ? 600 : 400,
+              textAlign: 'center',
+              letterSpacing: '0.02em',
+            }}
+          >
+            {hintText}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

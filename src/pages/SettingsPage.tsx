@@ -30,7 +30,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   notesBehavior: 'soft',
   crowdNoiseVolume: 0.5,
   inspectionCallouts: true,
-  aiOpponents: true,
+  aiOpponents: false,
   aiDifficulty: 'medium',
   customAiMean: 10000,
   clutchModeEnabled: false,
@@ -621,104 +621,6 @@ export function SettingsPage() {
             }}
           />
         </div>
-      </Section>
-
-      {/* AI Opponents */}
-      <Section title="AI Opponents">
-        <Toggle
-          checked={settings.aiOpponents}
-          onChange={(v) => update('aiOpponents', v)}
-          label="Enable AI Opponents"
-          description="Compete against virtual opponents during solves."
-        />
-
-        {settings.aiOpponents && (
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 8 }}>
-              Difficulty
-            </div>
-            {/* Segmented control */}
-            <div style={{
-              display: 'flex',
-              borderRadius: 8,
-              border: '1px solid var(--border)',
-              overflow: 'hidden',
-              backgroundColor: 'var(--surface-1)',
-            }}>
-              {(['easy', 'medium', 'hard', 'custom'] as const).map((d) => {
-                const isSelected = settings.aiDifficulty === d
-                return (
-                  <button
-                    key={d}
-                    onClick={() => update('aiDifficulty', d)}
-                    style={{
-                      flex: 1,
-                      padding: '8px 4px',
-                      borderRadius: 0,
-                      border: 'none',
-                      backgroundColor: isSelected ? 'var(--accent)' : 'transparent',
-                      color: isSelected ? 'var(--bg)' : 'var(--text-muted)',
-                      fontSize: 13,
-                      fontWeight: isSelected ? 700 : 500,
-                      cursor: 'pointer',
-                      transition: 'all 150ms ease',
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {d}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {settings.aiOpponents && settings.aiDifficulty === 'custom' && (
-          <div>
-            <div
-              style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}
-            >
-              <label
-                htmlFor="custom-ai-mean"
-                style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}
-              >
-                Target Mean
-              </label>
-              <span
-                className="font-mono"
-                style={{ fontSize: 13, color: 'var(--text-primary)' }}
-              >
-                {(settings.customAiMean / 1000).toFixed(2)}s
-              </span>
-            </div>
-            <input
-              id="custom-ai-mean"
-              type="range"
-              min={3000}
-              max={120000}
-              step={100}
-              value={settings.customAiMean}
-              onChange={(e) => update('customAiMean', parseInt(e.target.value))}
-              style={{
-                width: '100%',
-                accentColor: 'var(--accent)',
-                cursor: 'pointer',
-              }}
-            />
-          </div>
-        )}
-      </Section>
-
-      {/* Clutch Mode */}
-      <Section
-        title="Clutch Mode"
-        description="Increases pressure: AI opponents speed up in the final seconds."
-      >
-        <Toggle
-          checked={settings.clutchModeEnabled}
-          onChange={(v) => update('clutchModeEnabled', v)}
-          label="Enable Clutch Mode"
-        />
       </Section>
 
       {/* Account */}
