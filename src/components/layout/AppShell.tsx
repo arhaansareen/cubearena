@@ -374,20 +374,27 @@ export function AppShell() {
 
               <div style={{
                 padding: '6px 20px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                fontSize: 10,
+                color: 'var(--text-muted)',
+                opacity: 0.45,
+                letterSpacing: '0.01em',
               }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', opacity: 0.45, letterSpacing: '0.01em' }}>
-                  © {new Date().getFullYear()} Arhaan Sareen
-                </span>
-                <ThemeToggleButton />
+                © {new Date().getFullYear()} Arhaan Sareen
               </div>
 
               <ProfileStrip />
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Theme toggle — bottom of sidebar, always visible even when collapsed */}
+        <div style={{
+          position: 'absolute', bottom: 16, right: collapsed ? '50%' : 16,
+          transform: collapsed ? 'translateX(50%)' : 'none',
+          transition: 'right 0.2s ease, transform 0.2s ease',
+        }}>
+          <ThemeToggleButton />
+        </div>
 
       </div>
 
@@ -465,6 +472,10 @@ export function AppShell() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+        {/* Theme toggle in mobile nav */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}>
+          <ThemeToggleButton />
+        </div>
       </div>
 
       <style>{`
