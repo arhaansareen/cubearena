@@ -66,22 +66,6 @@ function getTimerColor(phase: TimerPhase, pendingPenalty: Penalty): string {
   return 'var(--timer-idle)'
 }
 
-function getGlowColor(phase: TimerPhase, pendingPenalty: Penalty): string {
-  if (phase === 'inspection') return pendingPenalty ? '#EF4444' : '#F59E0B'
-  if (phase === 'armed') return '#22D3EE'
-  if (phase === 'solving') return '#22D3EE'
-  if (phase === 'stopped') return pendingPenalty ? '#EF4444' : '#22C55E'
-  return '#22D3EE'
-}
-
-function getGlowOpacity(phase: TimerPhase): number {
-  if (phase === 'idle') return 0
-  if (phase === 'armed') return 0.22
-  if (phase === 'solving') return 0.07
-  if (phase === 'inspection') return 0.15
-  if (phase === 'stopped') return 0.18
-  return 0
-}
 
 function getDisplayContent(phase: TimerPhase, displayTime: number, inspectionElapsed: number): string {
   if (phase === 'idle') return 'READY'
@@ -118,8 +102,6 @@ export function TimerDisplay({
   pendingPenalty,
 }: TimerDisplayProps) {
   const color = getTimerColor(phase, pendingPenalty)
-  const glowColor = getGlowColor(phase, pendingPenalty)
-  const glowOpacity = getGlowOpacity(phase)
   const content = getDisplayContent(phase, displayTime, inspectionElapsed)
   const scale = getScale(phase)
   const fontSize = getFontSize(phase)
@@ -143,21 +125,6 @@ export function TimerDisplay({
         touchAction: 'none',
       }}
     >
-      {/* Ambient glow orb — shifts color by phase */}
-      <motion.div
-        animate={{ backgroundColor: glowColor, opacity: glowOpacity }}
-        transition={{ duration: 0.5, ease: 'easeInOut' }}
-        style={{
-          position: 'absolute',
-          width: 560,
-          height: 360,
-          borderRadius: '50%',
-          filter: 'blur(90px)',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-      />
-
       {/* Main timer number */}
       <motion.div
         animate={{ scale, color }}
