@@ -8,13 +8,26 @@ const RING_CIRC = 2 * Math.PI * RING_R
 function InspectionRing({ elapsed, penalty }: { elapsed: number; penalty: Penalty }) {
   const progress = Math.min(elapsed / 15000, 1)
   const offset = RING_CIRC * (1 - progress)
-  const color = penalty === 'DNF' || penalty === '+2' ? '#EF4444' : elapsed > 12000 ? '#EF4444' : elapsed > 8000 ? '#F59E0B' : '#22D3EE'
+  const color =
+    penalty === 'DNF' || penalty === '+2'
+      ? '#EF4444'
+      : elapsed > 12000
+        ? '#EF4444'
+        : elapsed > 8000
+          ? '#F59E0B'
+          : '#22D3EE'
   return (
     <svg
       width={200}
       height={200}
       viewBox="0 0 200 200"
-      style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        pointerEvents: 'none',
+      }}
       aria-hidden="true"
     >
       <circle cx={100} cy={100} r={RING_R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={3} />
@@ -53,19 +66,24 @@ function getTimerColor(phase: TimerPhase, pendingPenalty: Penalty): string {
   return 'var(--timer-idle)'
 }
 
-function getContainerBg(phase: TimerPhase, pendingPenalty: Penalty): string {
-  if (phase === 'armed') return 'rgba(34,211,238,0.04)'
-  if (phase === 'solving') return 'rgba(34,211,238,0.02)'
-  if (phase === 'stopped') return pendingPenalty ? 'rgba(239,68,68,0.04)' : 'rgba(34,197,94,0.05)'
-  if (phase === 'inspection') return pendingPenalty ? 'rgba(239,68,68,0.04)' : 'rgba(251,191,36,0.03)'
-  return 'var(--surface-0)'
+function getGlowColor(phase: TimerPhase, pendingPenalty: Penalty): string {
+  if (phase === 'inspection') return pendingPenalty ? '#EF4444' : '#F59E0B'
+  if (phase === 'armed') return '#22D3EE'
+  if (phase === 'solving') return '#22D3EE'
+  if (phase === 'stopped') return pendingPenalty ? '#EF4444' : '#22C55E'
+  return '#22D3EE'
 }
 
-function getDisplayContent(
-  phase: TimerPhase,
-  displayTime: number,
-  inspectionElapsed: number
-): string {
+function getGlowOpacity(phase: TimerPhase): number {
+  if (phase === 'idle') return 0
+  if (phase === 'armed') return 0.22
+  if (phase === 'solving') return 0.07
+  if (phase === 'inspection') return 0.15
+  if (phase === 'stopped') return 0.18
+  return 0
+}
+
+function getDisplayContent(phase: TimerPhase, displayTime: number, inspectionElapsed: number): string {
   if (phase === 'idle') return 'READY'
   if (phase === 'armed') return '...'
   if (phase === 'inspection') {
@@ -100,7 +118,8 @@ export function TimerDisplay({
   pendingPenalty,
 }: TimerDisplayProps) {
   const color = getTimerColor(phase, pendingPenalty)
-  const containerBg = getContainerBg(phase, pendingPenalty)
+  const glowColor = getGlowColor(phase, pendingPenalty)
+  const glowOpacity = getGlowOpacity(phase)
   const content = getDisplayContent(phase, displayTime, inspectionElapsed)
   const scale = getScale(phase)
   const fontSize = getFontSize(phase)
@@ -110,49 +129,48 @@ export function TimerDisplay({
   const isArmed = phase === 'armed'
   const isInspection = phase === 'inspection'
 
-  const borderColor = isArmed
-    ? 'var(--positive)'
-    : isInspection
-      ? (pendingPenalty ? 'var(--penalty)' : 'var(--inspection)')
-      : phase === 'stopped'
-        ? (pendingPenalty ? 'var(--penalty)' : 'var(--positive)')
-        : 'var(--border)'
-
   return (
-    <motion.div
-      animate={{ borderColor, backgroundColor: containerBg }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
+    <div
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
-        padding: '44px 24px 36px',
-        backgroundColor: 'var(--surface-0)',
-        border: '1px solid',
-        borderColor: 'var(--border)',
-        borderRadius: 16,
+        position: 'relative',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: 'none',
-        gap: 0,
-        position: 'relative',
-        minHeight: 220,
       }}
     >
+      {/* Ambient glow orb — shifts color by phase */}
+      <motion.div
+        animate={{ backgroundColor: glowColor, opacity: glowOpacity }}
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+        style={{
+          position: 'absolute',
+          width: 560,
+          height: 360,
+          borderRadius: '50%',
+          filter: 'blur(90px)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
       {/* Main timer number */}
       <motion.div
         animate={{ scale, color }}
         transition={{
           scale: { duration: 0.15, ease: 'easeOut' },
-          color: { duration: 0.2, ease: 'easeInOut' },
+          color: { duration: 0.25, ease: 'easeInOut' },
         }}
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           position: 'relative',
+          zIndex: 1,
         }}
       >
         {isInspection && (
@@ -166,20 +184,20 @@ export function TimerDisplay({
               ? {
                   opacity: 1,
                   textShadow: [
-                    '0 0 20px rgba(34,211,238,0)',
-                    '0 0 20px rgba(34,211,238,0.6)',
-                    '0 0 20px rgba(34,211,238,0)',
+                    '0 0 30px rgba(34,211,238,0)',
+                    '0 0 30px rgba(34,211,238,0.5)',
+                    '0 0 30px rgba(34,211,238,0)',
                   ],
                 }
-              : { opacity: 1 }
+              : { opacity: 1, textShadow: '0 0 0px rgba(0,0,0,0)' }
           }
           transition={
             isArmed
               ? {
                   opacity: { duration: 0.15 },
-                  textShadow: { duration: 1.2, repeat: Infinity, ease: 'easeInOut' },
+                  textShadow: { duration: 1.4, repeat: Infinity, ease: 'easeInOut' },
                 }
-              : { opacity: { duration: 0.15 } }
+              : { opacity: { duration: 0.15 }, textShadow: { duration: 0.2 } }
           }
           style={{
             fontSize,
@@ -199,40 +217,50 @@ export function TimerDisplay({
       </motion.div>
 
       {/* Inspection penalty indicator */}
-      {isInspection && pendingPenalty && (
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{
-            marginTop: 14,
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-            color: 'var(--penalty)',
-            fontFamily: "'JetBrains Mono', monospace",
-          }}
-        >
-          {pendingPenalty === '+2' ? '+2 SECONDS' : 'DNF'}
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {isInspection && pendingPenalty && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            style={{
+              marginTop: 12,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              color: 'var(--penalty)',
+              fontFamily: "'JetBrains Mono', monospace",
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            {pendingPenalty === '+2' ? '+2 SECONDS' : 'DNF'}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Stopped: pending penalty badge */}
-      {phase === 'stopped' && pendingPenalty && (
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{
-            marginTop: 14,
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-            color: 'var(--penalty)',
-            fontFamily: "'JetBrains Mono', monospace",
-          }}
-        >
-          {pendingPenalty}
-        </motion.div>
-      )}
+      {/* Stopped: penalty badge */}
+      <AnimatePresence>
+        {phase === 'stopped' && pendingPenalty && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            style={{
+              marginTop: 12,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              color: 'var(--penalty)',
+              fontFamily: "'JetBrains Mono', monospace",
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            {pendingPenalty}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Phase hint */}
       <AnimatePresence mode="wait">
@@ -244,18 +272,20 @@ export function TimerDisplay({
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             style={{
-              margin: '16px 0 0',
+              margin: '20px 0 0',
               fontSize: 12,
               color: isArmed ? 'var(--positive)' : 'var(--text-muted)',
               fontWeight: isArmed ? 600 : 400,
               textAlign: 'center',
               letterSpacing: '0.02em',
+              position: 'relative',
+              zIndex: 1,
             }}
           >
             {hintText}
           </motion.p>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   )
 }
