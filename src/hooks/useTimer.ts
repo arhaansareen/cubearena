@@ -278,15 +278,23 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
   // Keyboard handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== 'Space') return
       if (e.repeat) return
 
       const current = phaseRef.current
-
-      // Don't intercept spacebar while the user is typing
       if (current === 'manual_entry') return
       const tag = (document.activeElement as HTMLElement)?.tagName
       if (tag === 'TEXTAREA' || tag === 'INPUT') return
+
+      // In manual mode, Enter during inspection jumps straight to time entry.
+      if (e.code === 'Enter' && current === 'inspection' && modeRef.current === 'manual') {
+        e.preventDefault()
+        clearHoldTimer()
+        holdStartRef.current = null
+        enterManualEntry()
+        return
+      }
+
+      if (e.code !== 'Space') return
 
       e.preventDefault()
 
@@ -300,9 +308,9 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
 
       holdStartRef.current = performance.now()
 
-      // During inspection, require a hold to arm before starting the solve (stackmat-style).
-      // From idle, no hold required — release immediately starts inspection.
-      if (current === 'inspection') {
+      // In live mode during inspection, require a hold to arm (stackmat-style).
+      // In manual mode, skip arming — any space release goes to manual_entry.
+      if (current === 'inspection' && modeRef.current !== 'manual') {
         holdTimerRef.current = setTimeout(() => {
           if (phaseRef.current === 'inspection') {
             arm()
@@ -325,8 +333,10 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       clearHoldTimer()
 
       if (current === 'idle') {
-        // Short press from idle instantly starts inspection
         startInspection()
+      } else if (current === 'inspection' && modeRef.current === 'manual') {
+        // In manual mode, any space tap during inspection → go straight to entry.
+        enterManualEntry()
       } else if (current === 'armed') {
         dispatchFromArmed()
       }
@@ -339,7 +349,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [arm, clearHoldTimer, dispatchFromArmed, startInspection, stopSolve])
+  }, [arm, clearHoldTimer, dispatchFromArmed, enterManualEntry, startInspection, stopSolve])
 
   // Touch handling
   useEffect(() => {
