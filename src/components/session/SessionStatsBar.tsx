@@ -37,7 +37,7 @@ function StatPill({ label, value, active = false, highlight = false }: StatPillP
       alignItems: 'center',
       gap: 2,
       minWidth: 64,
-      border: highlight ? '1px solid rgba(34,211,238,0.25)' : '1px solid transparent',
+      border: highlight ? '1px solid rgba(34,211,238,0.25)' : '1px solid var(--border)',
     }}>
       <span style={{
         fontSize: 10,

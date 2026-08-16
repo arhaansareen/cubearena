@@ -147,17 +147,38 @@ export function ScramblePanel({
             letterSpacing: '0.04em',
             lineHeight: 1.6,
             wordBreak: 'break-word',
-            color: loading ? 'var(--text-muted)' : 'var(--text-primary)',
+            color: 'var(--text-primary)',
             transition: 'color 150ms ease',
             minHeight: '1.6em',
           }}
         >
-          {loading ? 'Generating…' : scramble}
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+              <div style={{
+                height: 16, borderRadius: 4,
+                backgroundColor: 'var(--surface-1)',
+                width: '90%',
+                animation: 'shimmer 1.4s ease-in-out infinite',
+              }} />
+              <div style={{
+                height: 16, borderRadius: 4,
+                backgroundColor: 'var(--surface-1)',
+                width: '60%',
+                animation: 'shimmer 1.4s ease-in-out infinite 0.2s',
+              }} />
+            </div>
+          ) : scramble}
         </div>
         {!loading && scramble && (
           <ScrambleViz scramble={scramble} event={event} size={100} />
         )}
       </div>
+      <style>{`
+        @keyframes shimmer {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }

@@ -13,8 +13,9 @@ import { useScramble } from '@/hooks/useScramble'
 import { useAudioContext } from '@/providers/AudioProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
-import { computeMean } from '@/lib/utils'
+import { computeAo, computeMean } from '@/lib/utils'
 import { useXP } from '@/hooks/useXP'
+import { useCalendar } from '@/hooks/useCalendar'
 import type { Penalty, Solve, WCAEvent, NotesBehavior } from '@/types'
 
 const DEFAULT_NOTES_BEHAVIOR: NotesBehavior = 'soft'
@@ -46,6 +47,7 @@ export function SessionPage() {
   const { solves, ao5, ao12, mean, sessionId, addSolve, deleteSolve, clearSession } = useSession(event)
   const mo3 = useMemo(() => computeMean(solves, 3), [solves])
   const { addXP } = useXP()
+  const { logActivity } = useCalendar()
 
   currentScrambleRef.current = scramble
 
@@ -98,6 +100,14 @@ export function SessionPage() {
     addSolve(solve)
     void persistSolve(solve)
     addXP(penalty === 'DNF' ? 5 : 15)
+    const updatedSolves = [...solves, solve]
+    const dateKey = new Date().toISOString().slice(0, 10)
+    const updatedAo5 = computeAo(updatedSolves, 5)
+    const validSolves = updatedSolves.filter(s => isFinite(s.effectiveTime))
+    const updatedMean = validSolves.length > 0
+      ? validSolves.reduce((sum, s) => sum + s.effectiveTime, 0) / validSolves.length
+      : null
+    logActivity(dateKey, updatedSolves.length, updatedAo5, updatedMean, [event])
     nextScramble()
     setShowModal(false)
     setLastResult(null)
@@ -124,6 +134,14 @@ export function SessionPage() {
     }
     addSolve(solve)
     void persistSolve(solve)
+    const updatedSolves = [...solves, solve]
+    const dateKey = new Date().toISOString().slice(0, 10)
+    const updatedAo5 = computeAo(updatedSolves, 5)
+    const validSolves = updatedSolves.filter(s => isFinite(s.effectiveTime))
+    const updatedMean = validSolves.length > 0
+      ? validSolves.reduce((sum, s) => sum + s.effectiveTime, 0) / validSolves.length
+      : null
+    logActivity(dateKey, updatedSolves.length, updatedAo5, updatedMean, [event])
     nextScramble()
     setShowModal(false)
     setLastResult(null)
