@@ -1,5 +1,6 @@
 import { Analytics } from '@vercel/analytics/react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AuthProvider } from '@/providers/AuthProvider'
 import { AudioProvider } from '@/providers/AudioProvider'
 import { ProfileProvider } from '@/providers/ProfileProvider'
@@ -87,15 +88,17 @@ const router = createBrowserRouter([
 
 export function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <ProfileProvider>
-          <AudioProvider>
-            <RouterProvider router={router} />
-            <Analytics />
-          </AudioProvider>
-        </ProfileProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <ProfileProvider>
+            <AudioProvider>
+              <RouterProvider router={router} />
+              <Analytics />
+            </AudioProvider>
+          </ProfileProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   )
 }

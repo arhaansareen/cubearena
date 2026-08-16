@@ -302,8 +302,7 @@ function DrillMode({
         {/* Top row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{
-            fontSize: 13, fontWeight: 700, color: 'var(--text-muted)',
-            letterSpacing: '0.08em', textTransform: 'uppercase',
+            fontSize: 13, fontWeight: 500, color: 'var(--text-muted)',
           }}>
             Drill
           </span>
@@ -399,8 +398,12 @@ function DrillMode({
                         backgroundColor: 'rgba(34,211,238,0.08)',
                         color: 'var(--accent)',
                         fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                        transition: 'all 150ms',
+                        transition: 'background-color 150ms ease, border-color 150ms ease',
                       }}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.16)' }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.08)' }}
+                      onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+                      onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
                     >
                       Reveal
                     </button>
@@ -430,8 +433,12 @@ function DrillMode({
                             backgroundColor: 'rgba(34,211,238,0.1)',
                             color: 'var(--accent)',
                             fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                            transition: 'all 150ms',
+                            transition: 'background-color 150ms ease, border-color 150ms ease',
                           }}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.2)' }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.1)' }}
+                          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+                          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
                         >
                           Got it
                         </button>
@@ -444,8 +451,12 @@ function DrillMode({
                             backgroundColor: 'rgba(245,158,11,0.1)',
                             color: '#f59e0b',
                             fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                            transition: 'all 150ms',
+                            transition: 'background-color 150ms ease, border-color 150ms ease',
                           }}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(245,158,11,0.2)' }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(245,158,11,0.1)' }}
+                          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+                          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
                         >
                           Needs work
                         </button>
@@ -458,8 +469,12 @@ function DrillMode({
                             backgroundColor: 'transparent',
                             color: 'var(--text-muted)',
                             fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                            transition: 'all 150ms',
+                            transition: 'background-color 150ms ease, border-color 150ms ease',
                           }}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--surface-1)' }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+                          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
                         >
                           Skip
                         </button>
@@ -568,9 +583,13 @@ export function AlgorithmsPage() {
               backgroundColor: 'rgba(34,211,238,0.08)',
               color: 'var(--accent)',
               fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              transition: 'all 150ms',
+              transition: 'background-color 150ms ease, border-color 150ms ease',
               display: 'flex', alignItems: 'center', gap: 6,
             }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.16)' }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.08)' }}
+            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
           >
             <span style={{ fontSize: 15 }}>⚡</span> Drill
           </button>

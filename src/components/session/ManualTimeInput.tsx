@@ -1,17 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import type { Penalty } from '@/types'
 
 interface ManualTimeInputProps {
-  pendingPenalty: Penalty
   onConfirm: (ms: number) => void
   onCancel: () => void
+}
+
+// Numpad / stackmat format: pure digits, right-to-left = cs, sec, min
+// e.g. "10165" → cs=65, sec=01, min=1 → 1:01.65
+function parseNumpad(digits: string): number | null {
+  if (digits.length < 1 || digits.length > 7) return null
+  const padded = digits.padStart(6, '0')
+  const cs = parseInt(padded.slice(-2), 10)
+  const sec = parseInt(padded.slice(-4, -2), 10)
+  const min = parseInt(padded.slice(0, -4), 10)
+  if (sec >= 60 || cs >= 100) return null
+  return min * 60_000 + sec * 1_000 + cs * 10
 }
 
 function parseTimeInput(raw: string): number | null {
   const s = raw.trim().replace(/\s/g, '')
   if (!s) return null
 
+  // Explicit: mm:ss.xx or mm:ss
   const colonMatch = s.match(/^(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?$/)
   if (colonMatch) {
     const mins = parseInt(colonMatch[1], 10)
@@ -21,46 +32,45 @@ function parseTimeInput(raw: string): number | null {
     return mins * 60_000 + secs * 1000 + Math.round(frac)
   }
 
-  const secMatch = s.match(/^(\d{1,3})(?:\.(\d{1,3}))?$/)
-  if (secMatch) {
-    const secs = parseInt(secMatch[1], 10)
-    const frac = parseFloat(`0.${(secMatch[2] ?? '0').padEnd(3, '0')}`) * 1000
+  // Explicit: ss.xx
+  const decMatch = s.match(/^(\d{1,3})\.(\d{1,3})$/)
+  if (decMatch) {
+    const secs = parseInt(decMatch[1], 10)
+    const frac = parseFloat(`0.${decMatch[2].padEnd(3, '0')}`) * 1000
     return secs * 1000 + Math.round(frac)
+  }
+
+  // Pure digits: 3+ → numpad format, 1-2 → whole seconds
+  if (/^\d+$/.test(s)) {
+    if (s.length >= 3) return parseNumpad(s)
+    return parseInt(s, 10) * 1000
   }
 
   return null
 }
 
 function formatPreview(ms: number): string {
-  if (ms < 60_000) return (ms / 1000).toFixed(3)
-  const mins = Math.floor(ms / 60_000)
-  const secs = ((ms % 60_000) / 1000).toFixed(3).padStart(6, '0')
-  return `${mins}:${secs}`
+  const cs = Math.floor((ms % 1000) / 10)
+  const sec = Math.floor((ms % 60_000) / 1000)
+  const min = Math.floor(ms / 60_000)
+  const csStr = String(cs).padStart(2, '0')
+  const secStr = String(sec).padStart(2, '0')
+  if (min > 0) return `${min}:${secStr}.${csStr}`
+  return `${sec}.${csStr}`
 }
 
-function penaltyLabel(p: Penalty): string {
-  if (p === '+2') return '+2'
-  if (p === 'DNF') return 'DNF'
-  return ''
-}
-
-export function ManualTimeInput({ pendingPenalty, onConfirm, onCancel }: ManualTimeInputProps) {
+export function ManualTimeInput({ onConfirm, onCancel }: ManualTimeInputProps) {
   const [value, setValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Delay focus slightly so the AnimatePresence entrance doesn't compete
-    const t = setTimeout(() => inputRef.current?.focus(), 80)
+    const t = setTimeout(() => inputRef.current?.focus(), 150)
     return () => clearTimeout(t)
   }, [])
 
-  // Escape cancels; Enter confirms if valid
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onCancel()
-      }
+      if (e.key === 'Escape') { e.preventDefault(); onCancel() }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -75,12 +85,7 @@ export function ManualTimeInput({ pendingPenalty, onConfirm, onCancel }: ManualT
     onConfirm(parsed)
   }
 
-  const penaltyColor =
-    pendingPenalty === 'DNF'
-      ? 'var(--penalty)'
-      : pendingPenalty === '+2'
-      ? 'var(--inspection)'
-      : null
+  const preview = isValid && parsed !== null ? formatPreview(parsed) : null
 
   return (
     <motion.div
@@ -93,44 +98,23 @@ export function ManualTimeInput({ pendingPenalty, onConfirm, onCancel }: ManualT
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 12,
+        gap: 8,
         width: '100%',
         padding: '0 24px',
       }}
     >
-      {/* Instruction label */}
-      <div style={{
-        fontSize: 13,
-        color: 'var(--text-muted)',
-        letterSpacing: '0.05em',
-        textTransform: 'uppercase',
-        fontWeight: 500,
-      }}>
-        Enter your time
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
+        Enter time
       </div>
 
-      {/* Penalty badge if inspection was overstayed */}
-      {pendingPenalty && (
-        <div style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: penaltyColor ?? undefined,
-          fontFamily: "'JetBrains Mono', monospace",
-          letterSpacing: '0.04em',
-        }}>
-          {penaltyLabel(pendingPenalty)} from inspection
-        </div>
-      )}
-
-      {/* Main input -- same visual weight as the xl timer display */}
       <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: 480 }}>
         <input
           ref={inputRef}
           type="text"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="9.87"
-          inputMode="decimal"
+          onChange={(e) => setValue(e.target.value.replace(/[^\d:.]/g, ''))}
+          placeholder="10165"
+          inputMode="numeric"
           autoComplete="off"
           spellCheck={false}
           style={{
@@ -138,51 +122,50 @@ export function ManualTimeInput({ pendingPenalty, onConfirm, onCancel }: ManualT
             background: 'none',
             border: 'none',
             borderBottom: `2px solid ${
-              value && !isValid
-                ? 'var(--penalty)'
-                : isValid
-                ? 'var(--accent)'
-                : 'var(--border)'
+              value && !isValid ? 'var(--penalty)' : isValid ? 'var(--accent)' : 'var(--border)'
             }`,
             outline: 'none',
             textAlign: 'center',
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 'clamp(48px, 10vw, 96px)',
             fontWeight: 500,
-            color: value && !isValid
-              ? 'var(--penalty)'
-              : isValid
-              ? 'var(--text-primary)'
-              : 'var(--text-muted)',
+            color: value && !isValid ? 'var(--penalty)' : 'var(--text-primary)',
             padding: '8px 0 12px',
             letterSpacing: '-0.02em',
             transition: 'border-color 150ms ease, color 150ms ease',
           }}
         />
 
-        {/* Live parse feedback */}
+        {/* Live formatted preview */}
         <div style={{
-          height: 22,
+          height: 28,
           textAlign: 'center',
-          marginTop: 8,
+          marginTop: 6,
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 14,
-          transition: 'color 150ms ease',
-          color: isValid
-            ? 'var(--text-muted)'
-            : value
-            ? 'var(--penalty)'
-            : 'transparent',
+          fontSize: 16,
+          fontWeight: 600,
+          transition: 'color 150ms ease, opacity 150ms ease',
+          color: 'var(--accent)',
+          opacity: preview ? 1 : 0,
         }}>
-          {isValid && parsed !== null
-            ? formatPreview(parsed)
-            : value && !isValid
-            ? 'Invalid format -- try 9.87 or 1:23.45'
-            : '.'}
+          {preview ?? '—'}
         </div>
 
-        {/* Confirm / Cancel */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 24, justifyContent: 'center' }}>
+        <div style={{
+          textAlign: 'center',
+          marginTop: 4,
+          fontSize: 11,
+          color: value && !isValid ? 'var(--penalty)' : 'var(--text-muted)',
+          opacity: value ? 1 : 0.5,
+          transition: 'color 150ms ease',
+          fontFamily: "'JetBrains Mono', monospace",
+        }}>
+          {value && !isValid
+            ? 'invalid — try 987, 10165, or 1:23.45'
+            : '987 = 9.87s · 10165 = 1:01.65 · 1:23.45'}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'center' }}>
           <button
             type="button"
             onClick={onCancel}
@@ -197,14 +180,8 @@ export function ManualTimeInput({ pendingPenalty, onConfirm, onCancel }: ManualT
               cursor: 'pointer',
               transition: 'color 150ms ease, border-color 150ms ease',
             }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.color = 'var(--text-primary)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.color = 'var(--text-muted)'
-              e.currentTarget.style.borderColor = 'var(--border)'
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
           >
             Cancel
           </button>
@@ -220,20 +197,17 @@ export function ManualTimeInput({ pendingPenalty, onConfirm, onCancel }: ManualT
               fontWeight: 700,
               border: `1px solid ${isValid ? 'var(--accent)' : 'var(--border)'}`,
               cursor: isValid ? 'pointer' : 'not-allowed',
-              transition: 'all 150ms ease',
+              transition: 'background-color 150ms ease, color 150ms ease, border-color 150ms ease',
             }}
+            onMouseDown={(e) => { if (isValid) e.currentTarget.style.transform = 'scale(0.97)' }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
           >
             Log time
           </button>
         </div>
 
-        <div style={{
-          textAlign: 'center',
-          marginTop: 14,
-          fontSize: 12,
-          color: 'var(--text-muted)',
-        }}>
-          Enter to confirm, Esc to cancel
+        <div style={{ textAlign: 'center', marginTop: 12, fontSize: 11, color: 'var(--text-muted)', opacity: 0.6 }}>
+          Enter to confirm · Esc to cancel
         </div>
       </form>
     </motion.div>

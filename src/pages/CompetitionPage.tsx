@@ -253,11 +253,9 @@ function LeaderboardPanel({ entries, solveIndex }: LeaderboardPanelProps) {
           gap: 8,
           padding: '10px 16px',
           borderBottom: '1px solid var(--border)',
-          fontSize: 11,
-          fontWeight: 600,
+          fontSize: 12,
+          fontWeight: 500,
           color: 'var(--text-muted)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
         }}
       >
         <span>#</span>
@@ -614,7 +612,7 @@ function PickCompetition({
                   backgroundColor: 'var(--surface-1)',
                   cursor: 'pointer',
                   transition: 'border-color 150ms ease, background-color 150ms ease',
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
                   width: '100%',
                 }}
                 onMouseEnter={(e) => {
@@ -779,7 +777,6 @@ export function CompetitionPage() {
         return { ...c, solves: updatedSolves }
       })
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerPhase, compPhase])
 
   // ── Handlers ──
@@ -897,14 +894,12 @@ export function CompetitionPage() {
               <div
                 style={{
                   fontSize: 12,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
                   marginBottom: 12,
                 }}
               >
-                Step 1 — Select a Competition
+                Step 1 — Select a competition
               </div>
               <PickCompetition
                 onSelect={handleCompSelected}
@@ -928,7 +923,7 @@ export function CompetitionPage() {
                   border: 'none',
                   cursor: 'pointer',
                   padding: 0,
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
                   marginBottom: 16,
                 }}
               >
@@ -937,14 +932,12 @@ export function CompetitionPage() {
               <div
                 style={{
                   fontSize: 12,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
                   marginBottom: 6,
                 }}
               >
-                Step 2 — Pick an Event
+                Step 2 — Pick an event
               </div>
               <div
                 style={{
@@ -994,7 +987,7 @@ export function CompetitionPage() {
                         fontWeight: 600,
                         cursor: 'pointer',
                         transition: 'all 150ms ease',
-                        fontFamily: 'Inter, sans-serif',
+                        fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.borderColor = 'var(--accent)'
@@ -1056,7 +1049,7 @@ export function CompetitionPage() {
                   border: 'none',
                   cursor: 'pointer',
                   padding: 0,
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
                   marginBottom: 16,
                 }}
               >
@@ -1065,14 +1058,12 @@ export function CompetitionPage() {
               <div
                 style={{
                   fontSize: 12,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
                   marginBottom: 6,
                 }}
               >
-                Step 3 — Ready to Compete
+                Step 3 — Ready to compete
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
                 {selectedComp?.name}
@@ -1148,11 +1139,11 @@ export function CompetitionPage() {
                   borderRadius: 10,
                   border: 'none',
                   backgroundColor: 'var(--accent)',
-                  color: '#000',
+                  color: '#020617',
                   fontSize: 15,
                   fontWeight: 700,
                   cursor: 'pointer',
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
                   letterSpacing: '-0.01em',
                   transition: 'opacity 150ms ease',
                 }}
@@ -1190,7 +1181,7 @@ export function CompetitionPage() {
         >
           <div style={{ marginBottom: 32 }}>
             {selectedComp && (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 500 }}>
                 {selectedComp.name} · {EVENT_LABELS[selectedRealEvent] ?? selectedRealEvent}
               </div>
             )}
@@ -1249,7 +1240,7 @@ export function CompetitionPage() {
                 fontSize: 14,
                 fontWeight: 700,
                 cursor: 'pointer',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
                 transition: 'opacity 150ms ease',
               }}
               onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85' }}
@@ -1269,7 +1260,7 @@ export function CompetitionPage() {
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: 'pointer',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
                 transition: 'background-color 150ms ease',
               }}
               onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--surface-1)' }}
@@ -1346,7 +1337,7 @@ export function CompetitionPage() {
               color: showLeaderboard ? 'var(--accent)' : 'var(--text-muted)',
               fontSize: 13,
               cursor: 'pointer',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
               transition: 'all 150ms ease',
             }}
           >
@@ -1362,7 +1353,7 @@ export function CompetitionPage() {
               color: 'var(--text-muted)',
               fontSize: 13,
               cursor: 'pointer',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
             }}
           >
             Quit
@@ -1394,11 +1385,9 @@ export function CompetitionPage() {
           >
             <div
               style={{
-                fontSize: 11,
-                fontWeight: 600,
+                fontSize: 12,
+                fontWeight: 500,
                 color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
                 marginBottom: 10,
               }}
             >
@@ -1447,7 +1436,6 @@ export function CompetitionPage() {
               {timerPhase === 'manual_entry' ? (
                 <ManualTimeInput
                   key="manual-input"
-                  pendingPenalty={pendingPenalty}
                   onConfirm={(ms) => confirmManualTime(ms)}
                   onCancel={() => { resetTimer(); setIsManualMode(false) }}
                 />
@@ -1502,7 +1490,7 @@ export function CompetitionPage() {
                   fontSize: 11,
                   fontWeight: 500,
                   cursor: 'pointer',
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
                   transition: 'all 150ms ease',
                 }}
               >
@@ -1526,15 +1514,13 @@ export function CompetitionPage() {
             >
               <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 600,
+                  fontSize: 12,
+                  fontWeight: 500,
                   color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
                   marginBottom: 10,
                 }}
               >
-                Your Solves
+                Your solves
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {userSolves.map((s, i) => (
@@ -1566,18 +1552,16 @@ export function CompetitionPage() {
             >
               <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 600,
+                  fontSize: 12,
+                  fontWeight: 500,
                   color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
                   marginBottom: 10,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
                 }}
               >
-                <span>Live Standings</span>
+                <span>Live standings</span>
                 <span
                   style={{
                     fontSize: 10,

@@ -399,13 +399,14 @@ export function AppShell() {
         onClick={() => setCollapsed((p) => !p)}
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         style={{
-          position: 'fixed', top: 22, left: effectiveWidth - 11, zIndex: 200,
+          position: 'fixed', top: 22, left: effectiveWidth, zIndex: 200,
+          transform: 'translateX(-50%)',
           width: 22, height: 22, borderRadius: '50%',
           border: '1px solid var(--border)', backgroundColor: 'var(--surface-0)',
           color: 'var(--text-muted)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 0, boxShadow: '0 1px 6px rgba(0,0,0,0.4)',
-          transition: 'left 0.2s ease, color 150ms ease, border-color 150ms ease',
+          transition: 'left 0.2s ease, transform 0s, color 150ms ease, border-color 150ms ease',
         }}
         onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
         onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}

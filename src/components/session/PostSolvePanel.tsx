@@ -27,7 +27,7 @@ function penaltyStyle(p: Penalty, active: boolean) {
     fontSize: 12, fontWeight: 600,
     fontFamily: "'JetBrains Mono', monospace",
     cursor: 'pointer' as const,
-    transition: 'all 120ms ease',
+    transition: 'background-color 120ms ease, border-color 120ms ease, color 120ms ease',
   }
 }
 
@@ -88,7 +88,9 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
         }}>
           {displayTime === Infinity ? 'DNF' : formatTime(displayTime)}
         </div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>new solve</div>
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+          {penalty === 'DNF' ? 'DNF — does not count' : penalty === '+2' ? '+2s added' : 'new solve'}
+        </div>
       </div>
 
       {/* Penalty */}
@@ -105,7 +107,7 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
 
       {/* Tags */}
       <div>
-        <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>Tags</div>
+        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6 }}>Tags</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {TAGS.map(tag => {
             const active = selectedTags.includes(tag)
@@ -118,7 +120,7 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
                   border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
                   backgroundColor: active ? 'var(--accent-dim)' : 'transparent',
                   color: active ? 'var(--accent)' : 'var(--text-muted)',
-                  cursor: 'pointer', transition: 'all 120ms ease',
+                  cursor: 'pointer', transition: 'background-color 120ms ease, border-color 120ms ease, color 120ms ease',
                 }}
               >
                 {tag}
@@ -134,7 +136,7 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
                 border: '1px solid var(--accent)',
                 backgroundColor: 'var(--accent-dim)',
                 color: 'var(--accent)',
-                cursor: 'pointer', transition: 'all 120ms ease',
+                cursor: 'pointer', transition: 'background-color 120ms ease, border-color 120ms ease, color 120ms ease',
                 display: 'flex', alignItems: 'center', gap: 4,
               }}
             >
@@ -169,7 +171,7 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
           style={{
             padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
             border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)',
-            color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 150ms ease',
+            color: 'var(--text-muted)', cursor: 'pointer', transition: 'color 150ms ease, border-color 150ms ease',
           }}
         >
           Add
@@ -179,7 +181,7 @@ export function PostSolvePanel({ time, penalty, notesBehavior, onPenaltyChange, 
       {/* Notes */}
       {notesBehavior !== 'off' && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>
             Notes{notesBehavior === 'required' ? ' *' : ''}
           </div>
           <textarea

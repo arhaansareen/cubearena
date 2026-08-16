@@ -175,6 +175,9 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
   // Stops the inspection loop and waits for the user to type a time.
   const enterManualEntry = useCallback(() => {
     clearRaf()
+    // In manual mode the user isn't live-timing, so inspection penalties don't apply.
+    pendingPenaltyRef.current = null
+    setPendingPenalty(null)
     setPhase('manual_entry')
     phaseRef.current = 'manual_entry'
   }, [clearRaf])

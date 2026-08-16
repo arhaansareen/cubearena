@@ -887,6 +887,7 @@ export function HistoryPage() {
             }
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <AnimatePresence mode="popLayout">
                 {sessionOrder.map((sid, sIdx) => {
                   const sessionSolves = sessionMap.get(sid)!
                   const firstTs = sessionSolves[sessionSolves.length - 1].timestamp
@@ -897,7 +898,15 @@ export function HistoryPage() {
                     : `${formatDateShort(firstTs)} – ${formatDate(lastTs)}`
                   const best = Math.min(...sessionSolves.filter(s => isFinite(s.effectiveTime)).map(s => s.effectiveTime))
                   return (
-                    <div key={sid} style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                    <motion.div
+                      key={sid}
+                      layout="position"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}
+                    >
                       <div style={{
                         display: 'flex', alignItems: 'center', gap: 10,
                         padding: '10px 16px', borderBottom: '1px solid var(--border)',
@@ -925,9 +934,10 @@ export function HistoryPage() {
                       {sessionSolves.map((solve, i) => (
                         <SolveRow key={solve.id} solve={solve} index={i} total={sessionSolves.length} />
                       ))}
-                    </div>
+                    </motion.div>
                   )
                 })}
+                </AnimatePresence>
               </div>
             )
           })()}

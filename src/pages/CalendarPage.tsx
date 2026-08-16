@@ -1088,6 +1088,13 @@ function CreatePlanForm({ initialDate, onConfirm, onClose }: CreatePlanFormProps
   )
 }
 
+// ─── WeekView helpers ─────────────────────────────────────────────────────────
+
+function findLastIndex<T>(arr: T[], pred: (x: T) => boolean): number {
+  for (let i = arr.length - 1; i >= 0; i--) if (pred(arr[i])) return i
+  return -1
+}
+
 // ─── WeekView ─────────────────────────────────────────────────────────────────
 
 function getWeekDates(referenceDate: Date): Date[] {
@@ -1148,6 +1155,37 @@ function WeekView({
       : null
 
   const TIME_COL_WIDTH = 40
+
+  // ── Spanning competition bars ──────────────────────────────────────────────
+  // Collect unique competition IDs visible in this week
+  const weekCompIds = new Set<string>()
+  for (const d of dates) {
+    for (const c of competitionsByDay.get(toDateKey(d)) ?? []) {
+      weekCompIds.add(c.id)
+    }
+  }
+
+  // For each unique comp, determine which columns (0-6) it occupies in this week
+  const spanningComps = Array.from(weekCompIds).map(id => {
+    // Find the comp object from any day entry
+    let comp: CompCalendarEntry | undefined
+    for (const entries of competitionsByDay.values()) {
+      comp = entries.find(c => c.id === id)
+      if (comp) break
+    }
+    if (!comp) return null
+
+    const endDate = comp.endDate ?? comp.date
+
+    // First column where the comp appears (its start date or the week start)
+    const startCol = dates.findIndex(d => toDateKey(d) >= comp!.date)
+    // Last column where the comp appears (its end date or the week end)
+    const endCol = findLastIndex(dates, d => toDateKey(d) <= endDate)
+
+    return { comp, startCol: Math.max(0, startCol), endCol: Math.min(6, endCol) }
+  }).filter((x): x is { comp: CompCalendarEntry; startCol: number; endCol: number } =>
+    x !== null && x.startCol >= 0 && x.endCol >= 0 && x.startCol <= x.endCol
+  )
 
   return (
     <div style={{ flex: 1, padding: '0 12px', display: 'flex', flexDirection: 'column' }}>
@@ -1243,6 +1281,49 @@ function WeekView({
           )
         })}
       </div>
+
+      {/* Competition banner row — multi-day spanning bars */}
+      {spanningComps.length > 0 && (
+        <div style={{ display: 'flex', marginBottom: 4 }}>
+          {/* Spacer matching the time label column */}
+          <div style={{ width: TIME_COL_WIDTH, flexShrink: 0 }} />
+          {/* Relative container spanning all 7 day columns */}
+          <div style={{ flex: 1, position: 'relative', height: 28 }}>
+            {spanningComps.map(({ comp, startCol, endCol }) => (
+              <div
+                key={comp.id}
+                title={comp.name}
+                style={{
+                  position: 'absolute',
+                  left: `calc(${startCol} * (100% / 7) + 2px)`,
+                  width: `calc(${endCol - startCol + 1} * (100% / 7) - 4px)`,
+                  top: 2,
+                  height: 22,
+                  borderRadius: 4,
+                  backgroundColor: 'rgba(245, 158, 11, 0.18)',
+                  border: '1px solid rgba(245, 158, 11, 0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  paddingLeft: 6,
+                  overflow: 'hidden',
+                  cursor: 'default',
+                }}
+              >
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: '#F59E0B',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>
+                  🏆 {comp.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Time-slot grid */}
       <div style={{ overflowY: 'auto', maxHeight: 480, position: 'relative' }}>

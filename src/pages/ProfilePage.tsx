@@ -100,7 +100,7 @@ function Avatar({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: size * 0.32, fontWeight: 700, color: 'var(--accent)',
           cursor: editable ? 'pointer' : 'default',
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
         }}>
           {initials}
         </div>
@@ -146,7 +146,7 @@ function StatChip({ label, value, accent }: { label: string; value: string; acce
       borderRadius: 10, padding: '12px 16px',
       display: 'flex', flexDirection: 'column', gap: 3,
     }}>
-      <span style={{ fontSize: 10, fontWeight: 600, color: accent ? 'var(--accent)' : 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+      <span style={{ fontSize: 12, fontWeight: 500, color: accent ? 'var(--accent)' : 'var(--text-muted)' }}>
         {label}
       </span>
       <span style={{
@@ -206,7 +206,7 @@ function Field({
     border: '1px solid var(--border)',
     borderRadius: 8, padding: '9px 12px',
     color: 'var(--text-primary)', fontSize: 14,
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
     outline: 'none', resize: 'vertical' as const,
     boxSizing: 'border-box',
     transition: 'border-color 150ms ease',
@@ -214,7 +214,7 @@ function Field({
 
   return (
     <div>
-      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
+      <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
         {label}
       </label>
       {multiline ? (
@@ -382,7 +382,7 @@ export function ProfilePage() {
             display: 'flex', flexDirection: 'column',
             backgroundColor: 'var(--surface-0)',
             borderRadius: 16, overflow: 'hidden',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+            boxShadow: 'var(--shadow-deep)',
           }}>
             <div style={{
               position: 'relative',
@@ -520,7 +520,10 @@ export function ProfilePage() {
                       color: '#020617', fontSize: 13, fontWeight: 700,
                       cursor: saving ? 'not-allowed' : 'pointer',
                       opacity: saving ? 0.7 : 1,
+                      transition: 'opacity 150ms ease, transform 100ms ease',
                     }}
+                    onMouseDown={(e) => { if (!saving) e.currentTarget.style.transform = 'scale(0.97)' }}
+                    onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
                   >
                     {saving ? 'Saving…' : 'Save'}
                   </button>
@@ -533,7 +536,18 @@ export function ProfilePage() {
                     border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)',
                     color: 'var(--text-primary)', fontSize: 13, fontWeight: 500,
                     cursor: 'pointer',
+                    transition: 'background-color 150ms ease, border-color 150ms ease',
                   }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--surface-0)'
+                    e.currentTarget.style.borderColor = 'var(--accent)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--surface-1)'
+                    e.currentTarget.style.borderColor = 'var(--border)'
+                  }}
+                  onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.97)' }}
+                  onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
                 >
                   Edit profile
                 </button>
@@ -568,7 +582,7 @@ export function ProfilePage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>
                     Country
                   </label>
                   <select
@@ -578,7 +592,7 @@ export function ProfilePage() {
                       width: '100%', backgroundColor: 'var(--surface-1)',
                       border: '1px solid var(--border)', borderRadius: 8,
                       padding: '9px 12px', color: 'var(--text-primary)',
-                      fontSize: 14, fontFamily: "'Inter', sans-serif", outline: 'none',
+                      fontSize: 14, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", outline: 'none',
                     }}
                   >
                     <option value="">— Select country —</option>
@@ -757,12 +771,19 @@ export function ProfilePage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {pbEntries.map(([event, pb]) => (
-                  <div key={event} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '7px 0',
-                    borderBottom: '1px solid var(--border)',
-                  }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <div
+                    key={event}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '7px 8px',
+                      borderBottom: '1px solid var(--border)',
+                      borderRadius: 6,
+                      transition: 'background-color 150ms ease',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-1)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                  >
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>
                       {EVENT_LABELS[event] ?? event}
                     </span>
                     <span style={{

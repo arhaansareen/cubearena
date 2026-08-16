@@ -183,7 +183,6 @@ export function SessionPage() {
               {phase === 'manual_entry' ? (
                 <ManualTimeInput
                   key="manual-input"
-                  pendingPenalty={pendingPenalty}
                   onConfirm={handleManualConfirm}
                   onCancel={handleManualCancel}
                 />
@@ -216,12 +215,15 @@ export function SessionPage() {
                   border: `1px solid ${isManualMode ? 'var(--accent)' : 'var(--border)'}`,
                   borderRadius: 8, padding: '6px 12px',
                   color: isManualMode ? 'var(--accent)' : 'var(--text-muted)',
-                  fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                  transition: 'all 150ms ease',
+                  fontSize: 12, fontWeight: isManualMode ? 600 : 500, cursor: 'pointer',
+                  transition: 'background-color 150ms ease, border-color 150ms ease, color 150ms ease',
                 }}
                 onMouseOver={(e) => { if (!isManualMode) { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' } }}
                 onMouseOut={(e) => { if (!isManualMode) { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' } }}
               >
+                {isManualMode && (
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
+                )}
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                   <path d="M2 6h8M6 2v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>

@@ -1,18 +1,140 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <radialGradient id="glow" cx="72%" cy="50%" r="45%">
+      <stop offset="0%" stop-color="#22D3EE" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowLeft" cx="28%" cy="50%" r="40%">
+      <stop offset="0%" stop-color="#0EA5E9" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Dot pattern -->
+    <pattern id="dots" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.04)"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
   <rect width="1200" height="630" fill="#020617"/>
-  <!-- Subtle grid -->
-  <line x1="0" y1="315" x2="1200" y2="315" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <line x1="600" y1="0" x2="600" y2="630" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-  <!-- Glow -->
-  <ellipse cx="600" cy="315" rx="400" ry="200" fill="rgba(34,211,238,0.06)"/>
-  <!-- Cube icon -->
-  <path d="M540 210L600 242L660 210L600 178Z" fill="#22D3EE" opacity="0.95"/>
-  <path d="M540 210L600 242L600 306L540 274Z" fill="#0891B2"/>
-  <path d="M660 210L600 242L600 306L660 274Z" fill="#0E7490"/>
-  <!-- Wordmark -->
-  <text x="600" y="378" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="800" fill="white" text-anchor="middle" letter-spacing="-2">CubeArena</text>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1200" height="630" fill="url(#glowLeft)"/>
+
+  <!-- Left accent line -->
+  <rect x="64" y="160" width="3" height="310" rx="2" fill="#22D3EE" opacity="0.7"/>
+
+  <!-- Tag: speedcubing -->
+  <rect x="88" y="155" width="148" height="28" rx="6" fill="rgba(34,211,238,0.1)" stroke="rgba(34,211,238,0.3)" stroke-width="1"/>
+  <text x="162" y="174" font-family="system-ui,-apple-system,sans-serif" font-size="12" font-weight="600" fill="#22D3EE" text-anchor="middle" letter-spacing="1.5">SPEEDCUBING</text>
+
+  <!-- Main wordmark -->
+  <text x="88" y="285" font-family="system-ui,-apple-system,sans-serif" font-size="96" font-weight="800" fill="#F8FAFC" letter-spacing="-4">Cube</text>
+  <text x="88" y="380" font-family="system-ui,-apple-system,sans-serif" font-size="96" font-weight="800" fill="#22D3EE" letter-spacing="-4">Arena</text>
+
   <!-- Tagline -->
-  <text x="600" y="424" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="400" fill="rgba(148,163,184,0.8)" text-anchor="middle" letter-spacing="0.5">Train like you compete</text>
-  <!-- Accent underline -->
-  <rect x="480" y="444" width="240" height="2" rx="1" fill="rgba(34,211,238,0.4)"/>
+  <text x="88" y="432" font-family="system-ui,-apple-system,sans-serif" font-size="22" font-weight="400" fill="rgba(148,163,184,0.9)" letter-spacing="0.3">Train like you compete.</text>
+
+  <!-- Feature pills -->
+  <rect x="88" y="460" width="130" height="34" rx="17" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <text x="153" y="482" font-family="system-ui,-apple-system,sans-serif" font-size="13" font-weight="500" fill="rgba(203,213,225,0.9)" text-anchor="middle">WCA Timer</text>
+
+  <rect x="230" y="460" width="142" height="34" rx="17" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <text x="301" y="482" font-family="system-ui,-apple-system,sans-serif" font-size="13" font-weight="500" fill="rgba(203,213,225,0.9)" text-anchor="middle">Algo Trainer</text>
+
+  <rect x="384" y="460" width="116" height="34" rx="17" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <text x="442" y="482" font-family="system-ui,-apple-system,sans-serif" font-size="13" font-weight="500" fill="rgba(203,213,225,0.9)" text-anchor="middle">Race Mode</text>
+
+  <!-- URL -->
+  <text x="88" y="572" font-family="system-ui,-apple-system,sans-serif" font-size="14" font-weight="400" fill="rgba(100,116,139,0.8)" letter-spacing="0.5">cubearena-mu.vercel.app</text>
+
+  <!-- ─── Isometric Cube (right side) ─── -->
+  <!-- Cube center: ~(930, 315), side 180px -->
+  <!-- u = (90,45) right-step, v = (-90,45) left-step, h=(0,-90) up-step -->
+  <!-- Top face: apex at (930,180), right (1020,225), bottom (930,270), left (840,225) -->
+
+  <!-- Ambient glow behind cube -->
+  <ellipse cx="930" cy="330" rx="200" ry="140" fill="rgba(34,211,238,0.07)"/>
+
+  <!-- Top face (3x3 grid) -->
+  <!-- Each cell: u/3=(30,15), v/3=(-30,15) -->
+  <!-- Row 0 -->
+  <!-- Cell (0,0): TL=(930,180), TR=(960,195), BR=(930,210), BL=(900,195) -->
+  <polygon points="930,180 960,195 930,210 900,195" fill="#67E8F9" stroke="#020617" stroke-width="1.5"/>
+  <!-- Cell (0,1): TL=(960,195), TR=(990,210), BR=(960,225), BL=(930,210) -->
+  <polygon points="960,195 990,210 960,225 930,210" fill="#22D3EE" stroke="#020617" stroke-width="1.5"/>
+  <!-- Cell (0,2): TL=(990,210), TR=(1020,225), BR=(990,240), BL=(960,225) -->
+  <polygon points="990,210 1020,225 990,240 960,225" fill="#38BDF8" stroke="#020617" stroke-width="1.5"/>
+
+  <!-- Row 1 -->
+  <!-- Cell (1,0): TL=(900,195), TR=(930,210), BR=(900,225), BL=(870,210) -->
+  <polygon points="900,195 930,210 900,225 870,210" fill="#22D3EE" stroke="#020617" stroke-width="1.5"/>
+  <!-- Cell (1,1): center -->
+  <polygon points="930,210 960,225 930,240 900,225" fill="#06B6D4" stroke="#020617" stroke-width="1.5"/>
+  <!-- Cell (1,2) -->
+  <polygon points="960,225 990,240 960,255 930,240" fill="#22D3EE" stroke="#020617" stroke-width="1.5"/>
+
+  <!-- Row 2 -->
+  <!-- Cell (2,0) -->
+  <polygon points="870,210 900,225 870,240 840,225" fill="#38BDF8" stroke="#020617" stroke-width="1.5"/>
+  <!-- Cell (2,1) -->
+  <polygon points="900,225 930,240 900,255 870,240" fill="#22D3EE" stroke="#020617" stroke-width="1.5"/>
+  <!-- Cell (2,2) -->
+  <polygon points="930,240 960,255 930,270 900,255" fill="#0EA5E9" stroke="#020617" stroke-width="1.5"/>
+
+  <!-- Right face (3x3 grid) -->
+  <!-- Right face: top=(1020,225), right=(1020,405), bottom=(930,450), left=(930,270) -->
+  <!-- cell step down: (0,60); cell step left: (-30,15) per row -->
+  <!-- Actually: right face has u=(0,60) going down, v=(-30,15) going left -->
+  <!-- v/3=(0,20) down-step, h/3=(-30,15) left-step -->
+
+  <!-- Right face column 0 (rightmost) -->
+  <!-- R0C0 TL=(1020,225) TR=(1020,245) BR=(990,260) BL=(990,240) -->
+  <polygon points="1020,225 1020,245 990,260 990,240" fill="#0891B2" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="1020,245 1020,265 990,280 990,260" fill="#0E7490" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="1020,265 1020,285 990,300 990,280" fill="#0891B2" stroke="#020617" stroke-width="1.5"/>
+
+  <!-- Right face column 1 -->
+  <polygon points="990,240 990,260 960,275 960,255" fill="#0E7490" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="990,260 990,280 960,295 960,275" fill="#0891B2" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="990,280 990,300 960,315 960,295" fill="#0E7490" stroke="#020617" stroke-width="1.5"/>
+
+  <!-- Right face column 2 (leftmost of right face) -->
+  <polygon points="960,255 960,275 930,290 930,270" fill="#0891B2" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="960,275 960,295 930,310 930,290" fill="#0E7490" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="960,295 960,315 930,330 930,310" fill="#0891B2" stroke="#020617" stroke-width="1.5"/>
+
+  <!-- Left face (3x3 grid) -->
+  <!-- Left face: top=(840,225), left=(840,405), bottom=(930,450), right=(930,270) -->
+  <!-- down-step: (0,60); right-step: (30,15) -->
+
+  <!-- Left face column 0 (leftmost) -->
+  <polygon points="840,225 840,245 870,260 870,240" fill="#155E75" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="840,245 840,265 870,280 870,260" fill="#164E63" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="840,265 840,285 870,300 870,280" fill="#155E75" stroke="#020617" stroke-width="1.5"/>
+
+  <!-- Left face column 1 -->
+  <polygon points="870,240 870,260 900,275 900,255" fill="#164E63" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="870,260 870,280 900,295 900,275" fill="#155E75" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="870,280 870,300 900,315 900,295" fill="#164E63" stroke="#020617" stroke-width="1.5"/>
+
+  <!-- Left face column 2 (rightmost of left face) -->
+  <polygon points="900,255 900,275 930,290 930,270" fill="#155E75" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="900,275 900,295 930,310 930,290" fill="#164E63" stroke="#020617" stroke-width="1.5"/>
+  <polygon points="900,295 900,315 930,330 930,310" fill="#155E75" stroke="#020617" stroke-width="1.5"/>
+
+  <!-- Cube outline edges for clarity -->
+  <!-- Top face outline -->
+  <polygon points="930,180 1020,225 930,270 840,225" fill="none" stroke="rgba(34,211,238,0.4)" stroke-width="1.5"/>
+  <!-- Right face outline -->
+  <polygon points="1020,225 1020,285 930,330 930,270" fill="none" stroke="rgba(34,211,238,0.2)" stroke-width="1.5"/>
+  <!-- Left face outline -->
+  <polygon points="840,225 840,285 930,330 930,270" fill="none" stroke="rgba(34,211,238,0.2)" stroke-width="1.5"/>
+
+  <!-- Vertical dividers on right face -->
+  <line x1="990" y1="240" x2="990" y2="300" stroke="rgba(2,6,23,0.8)" stroke-width="1.5"/>
+  <line x1="960" y1="255" x2="960" y2="315" stroke="rgba(2,6,23,0.8)" stroke-width="1.5"/>
+  <!-- Vertical dividers on left face -->
+  <line x1="870" y1="240" x2="870" y2="300" stroke="rgba(2,6,23,0.8)" stroke-width="1.5"/>
+  <line x1="900" y1="255" x2="900" y2="315" stroke="rgba(2,6,23,0.8)" stroke-width="1.5"/>
+
 </svg>

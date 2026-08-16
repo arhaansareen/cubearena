@@ -103,7 +103,7 @@ export function SessionStatsBar({ solveCount, ao5, ao12, mean, mo3, event, onNew
             border: '1px solid var(--border)',
             background: 'none', color: 'var(--text-muted)',
             fontSize: 11, fontWeight: 500, cursor: 'pointer',
-            transition: 'all 150ms ease', whiteSpace: 'nowrap',
+            transition: 'color 150ms ease, border-color 150ms ease', whiteSpace: 'nowrap',
           }}
           onMouseOver={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
           onMouseOut={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}

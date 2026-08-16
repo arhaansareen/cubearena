@@ -126,7 +126,7 @@ function ResultCard({ data, onAdd }: { data: WCAPersonResult; onAdd: (rival: Riv
                 minWidth: 72,
               }}
             >
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em', marginBottom: 4 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 4 }}>
                 {EVENT_LABELS[event] ?? event}
               </div>
               {rec.single && (
@@ -372,11 +372,9 @@ function RivalCard({ rival, userPBs, index, onRemove }: RivalCardProps) {
                 {/* Event label */}
                 <div
                   style={{
-                    fontSize: 10,
-                    fontWeight: 700,
+                    fontSize: 11,
+                    fontWeight: 600,
                     color: 'var(--text-muted)',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
                     marginBottom: 2,
                   }}
                 >
@@ -385,7 +383,7 @@ function RivalCard({ rival, userPBs, index, onRemove }: RivalCardProps) {
 
                 {/* You row */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-muted)' }}>
                     You
                   </div>
                   <div
@@ -406,7 +404,7 @@ function RivalCard({ rival, userPBs, index, onRemove }: RivalCardProps) {
 
                 {/* Them row */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-muted)' }}>
                     Them
                   </div>
                   <div
@@ -626,11 +624,9 @@ export function RivalsPage() {
           <div style={{ marginBottom: 16 }}>
             <div
               style={{
-                fontSize: 11,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
+                fontSize: 12,
                 color: 'var(--text-muted)',
-                fontWeight: 600,
+                fontWeight: 500,
                 marginBottom: 3,
               }}
             >

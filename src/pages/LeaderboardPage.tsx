@@ -275,11 +275,9 @@ export function LeaderboardPage() {
               gap: 0,
               padding: '10px 20px',
               borderBottom: '1px solid var(--border)',
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 500,
               color: 'var(--text-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
             }}
           >
             <span>Event</span>
@@ -296,6 +294,8 @@ export function LeaderboardPage() {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.04, duration: 0.22, ease: 'easeOut' }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-1)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 90px 100px 100px 56px',
@@ -303,6 +303,7 @@ export function LeaderboardPage() {
                 padding: '14px 20px',
                 borderBottom: i < stats.length - 1 ? '1px solid var(--border)' : 'none',
                 alignItems: 'center',
+                transition: 'background-color 150ms ease',
               }}
             >
               {/* Event label */}

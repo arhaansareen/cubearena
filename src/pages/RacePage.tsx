@@ -92,7 +92,7 @@ function DropdownMenu<T extends string>({
               position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 50,
               backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
               borderRadius: 12, overflow: 'hidden auto', maxHeight: 300,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+              boxShadow: '0 8px 24px rgba(0,8,20,0.25)',
             }}
           >
             {options.map(o => (
@@ -259,7 +259,7 @@ function Scoreboard({ participants, myUid, format }: { participants: RacePartici
               </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 60 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: isMe ? 'var(--accent)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: 80, textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: isMe ? 'var(--accent)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: 80, textOverflow: 'ellipsis' }}>
                 {isMe ? 'You' : p.displayName}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
@@ -335,7 +335,7 @@ function ResultsScreen({
 
       {/* Per-round breakdown */}
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 10 }}>
           Round breakdown
         </div>
         {Array.from({ length: Math.max(...participants.map(p => p.roundTimes.length), 0) }).map((_, i) => {
@@ -414,7 +414,11 @@ function ResultsScreen({
         )}
         <button
           onClick={onLeave}
-          style={{ flex: isHost ? 0 : 1, padding: '13px 28px', borderRadius: 10, border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)', color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+          style={{ flex: isHost ? 0 : 1, padding: '13px 28px', borderRadius: 10, border: '1px solid var(--border)', backgroundColor: 'var(--surface-1)', color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'background-color 150ms ease, border-color 150ms ease' }}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--surface-0)'; e.currentTarget.style.borderColor = 'var(--text-muted)' }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--surface-1)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
         >
           Leave
         </button>
@@ -467,7 +471,7 @@ export function RacePage() {
       setManualMode(false)
       resetTimer()
     }
-  })
+  }, [state, resetTimer])
 
   const copyCode = () => {
     if (state.status !== 'in_room') return
@@ -495,12 +499,12 @@ export function RacePage() {
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20 }}>Create a room</div>
 
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>Event</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 8 }}>Event</div>
             <DropdownMenu value={selectedEvent} options={ALL_EVENTS} onChange={setSelectedEvent} />
           </div>
 
           <div style={{ marginBottom: 22 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>Format</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 8 }}>Format</div>
             <DropdownMenu
               value={selectedFormat}
               options={FORMAT_OPTIONS.map(f => ({ value: f.value, label: f.label, sub: f.description }))}
@@ -605,7 +609,14 @@ export function RacePage() {
               </span>
             </div>
           </div>
-          <button onClick={() => void leaveRoom()} style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>
+          <button
+            onClick={() => void leaveRoom()}
+            style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', transition: 'background-color 150ms ease, border-color 150ms ease' }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--surface-1)'; e.currentTarget.style.borderColor = 'var(--text-muted)' }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+          >
             Leave
           </button>
         </div>
@@ -619,7 +630,7 @@ export function RacePage() {
           }}
         >
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Room code — share this</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6 }}>Room code — share this</div>
             <div style={{ fontSize: 36, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.2em', color: 'var(--accent)' }}>{room.code}</div>
           </div>
           <div style={{ fontSize: 12, color: copied ? 'var(--positive)' : 'var(--text-muted)', transition: 'color 150ms ease' }}>
@@ -628,7 +639,7 @@ export function RacePage() {
         </div>
 
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 10 }}>
             Players ({participants.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -725,7 +736,7 @@ export function RacePage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {/* Scramble */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 4 }}>
               {EVENT_LABELS[room.event] ?? room.event} · {FORMAT_LABELS[room.format]} · Round {room.currentRound}
             </div>
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', letterSpacing: '0.04em', lineHeight: 1.7, wordBreak: 'break-all' }}>
@@ -767,7 +778,7 @@ export function RacePage() {
           <AnimatePresence mode="wait">
             {submitted ? (
               <motion.div key="submitted" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.2 }} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--positive)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--positive)', marginBottom: 8 }}>
                   Submitted
                 </div>
                 <div style={{ fontSize: 64, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.03em', color: myPenalty === 'DNF' ? 'var(--penalty)' : 'var(--positive)', lineHeight: 1 }}>
@@ -860,7 +871,7 @@ export function RacePage() {
         {/* Rivals sidebar */}
         {others.length > 0 && (
           <div className="race-sidebar" style={{ width: 200, borderLeft: '1px solid var(--border)', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', flexShrink: 0 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Rivals</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 4 }}>Rivals</div>
             {others.map(p => {
               const done = p.finishedAt !== null
               const dnf = p.penalty === 'DNF'
