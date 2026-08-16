@@ -211,14 +211,13 @@ function buildDrillQueue(cases: AlgCase[], statusMap: Record<string, Status>): A
     const w = weights[statusMap[c.id] ?? 'unlearned']
     for (let i = 0; i < w; i++) pool.push(c)
   }
-  // Fisher-Yates shuffle
+  // Fisher-Yates shuffle — weighted duplicates intentionally kept
+  // so unlearned cases appear more often in the drill sequence
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]]
   }
-  // Deduplicate while preserving order (first occurrence)
-  const seen = new Set<string>()
-  return pool.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true })
+  return pool
 }
 
 function DrillMode({

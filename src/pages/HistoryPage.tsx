@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
 import { formatTime } from '@/lib/utils'
-import type { Solve } from '@/types'
+import type { Solve, WCAEvent } from '@/types'
 
 const EVENT_LABELS: Record<string, string> = {
   '333': '3×3', '222': '2×2', '444': '4×4', '555': '5×5',
@@ -333,13 +333,255 @@ function NotesInsights({ solves }: { solves: Solve[] }) {
   )
 }
 
+// ─── Stats tab ────────────────────────────────────────────────────────────────
+function StatsTab({ solves }: { solves: Solve[] }) {
+  const finite = useMemo(() => solves.filter((s) => isFinite(s.effectiveTime)), [solves])
+
+  const bestSingle = useMemo(() => {
+    const valid = solves.filter((s) => s.penalty !== 'DNF' && isFinite(s.effectiveTime))
+    return valid.length ? Math.min(...valid.map((s) => s.effectiveTime)) : null
+  }, [solves])
+
+  const mean = useMemo(() => {
+    return finite.length ? finite.reduce((a, b) => a + b.effectiveTime, 0) / finite.length : null
+  }, [finite])
+
+  const consistency = useMemo(() => {
+    if (finite.length < 2 || mean === null) return null
+    const variance = finite.reduce((acc, s) => acc + Math.pow(s.effectiveTime - mean, 2), 0) / finite.length
+    const stddev = Math.sqrt(variance)
+    return (stddev / mean) * 100
+  }, [finite, mean])
+
+  const dnfRate = useMemo(() => {
+    if (solves.length === 0) return null
+    const dnfCount = solves.filter((s) => s.penalty === 'DNF').length
+    return (dnfCount / solves.length) * 100
+  }, [solves])
+
+  const penaltyCounts = useMemo(() => ({
+    ok: solves.filter((s) => !s.penalty).length,
+    plusTwo: solves.filter((s) => s.penalty === '+2').length,
+    dnf: solves.filter((s) => s.penalty === 'DNF').length,
+  }), [solves])
+
+  // Last 50 solves for bar chart (chronological order: oldest first)
+  const chartSolves = useMemo(() => [...solves].slice(0, 50).reverse(), [solves])
+
+  const chartMax = useMemo(() => {
+    const times = chartSolves.map((s) => isFinite(s.effectiveTime) ? s.effectiveTime : 0)
+    return Math.max(...times, 1)
+  }, [chartSolves])
+
+  // Per-event breakdown
+  const eventStats = useMemo(() => {
+    const map = new Map<string, { best: number; count: number }>()
+    for (const s of solves) {
+      if (!isFinite(s.effectiveTime)) continue
+      const existing = map.get(s.event)
+      if (!existing) {
+        map.set(s.event, { best: s.effectiveTime, count: 1 })
+      } else {
+        existing.best = Math.min(existing.best, s.effectiveTime)
+        existing.count++
+      }
+    }
+    return Array.from(map.entries())
+      .map(([event, { best, count }]) => ({ event, best, count }))
+      .sort((a, b) => a.best - b.best)
+  }, [solves])
+
+  const multipleEvents = eventStats.length > 1
+
+  const statCards = [
+    {
+      label: 'Best Single',
+      value: bestSingle !== null ? formatTime(bestSingle) : '—',
+      sub: null,
+    },
+    {
+      label: 'Session Mean',
+      value: mean !== null ? formatTime(mean) : '—',
+      sub: null,
+    },
+    {
+      label: 'Consistency',
+      value: consistency !== null ? `${consistency.toFixed(1)}%` : '—',
+      sub: 'lower = more consistent',
+    },
+    {
+      label: 'DNF Rate',
+      value: dnfRate !== null ? `${dnfRate.toFixed(1)}%` : '—',
+      sub: null,
+    },
+  ]
+
+  if (solves.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '72px 32px', color: 'var(--text-muted)', fontSize: 14 }}>
+        No solves to analyse. Complete some solves to see stats here.
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Summary grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+        {statCards.map(({ label, value, sub }) => (
+          <div key={label} style={{
+            backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: '14px 16px',
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
+              {label}
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.03em' }}>
+              {value}
+            </div>
+            {sub && (
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>{sub}</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Penalty breakdown */}
+      <div style={{
+        backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
+        borderRadius: 10, padding: '12px 16px',
+        display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          By penalty
+        </span>
+        <span style={{ fontSize: 13 }}>
+          <span style={{ color: 'var(--text-muted)' }}>OK: </span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--positive)' }}>{penaltyCounts.ok}</span>
+          <span style={{ color: 'var(--text-muted)', marginLeft: 2 }}> solves</span>
+        </span>
+        <span style={{ fontSize: 13 }}>
+          <span style={{ color: 'var(--text-muted)' }}>+2: </span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--inspection)' }}>{penaltyCounts.plusTwo}</span>
+          <span style={{ color: 'var(--text-muted)', marginLeft: 2 }}> solves</span>
+        </span>
+        <span style={{ fontSize: 13 }}>
+          <span style={{ color: 'var(--text-muted)' }}>DNF: </span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--penalty)' }}>{penaltyCounts.dnf}</span>
+          <span style={{ color: 'var(--text-muted)', marginLeft: 2 }}> solves</span>
+        </span>
+      </div>
+
+      {/* Time distribution bar chart */}
+      {chartSolves.length > 0 && (
+        <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>
+            Time distribution · last {chartSolves.length} solves
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 80 }}>
+            {chartSolves.map((s) => {
+              const isDNF = s.penalty === 'DNF' || !isFinite(s.effectiveTime)
+              const isP2 = s.penalty === '+2'
+              const barH = isDNF ? 80 : Math.max(4, Math.round((s.effectiveTime / chartMax) * 80))
+              const barColor = isDNF
+                ? 'var(--penalty)'
+                : isP2
+                  ? 'var(--inspection)'
+                  : 'rgba(34,211,238,0.6)'
+              const label = isDNF ? 'DNF' : formatTime(s.effectiveTime)
+              return (
+                <div
+                  key={s.id}
+                  title={label}
+                  style={{
+                    width: 6,
+                    height: barH,
+                    backgroundColor: barColor,
+                    borderRadius: 2,
+                    flexShrink: 0,
+                    cursor: 'default',
+                  }}
+                />
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Per-event best singles */}
+      {multipleEvents && (
+        <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              Best single per event
+            </span>
+          </div>
+          <div>
+            {eventStats.map(({ event, best, count }) => (
+              <div key={event} style={{
+                display: 'grid', gridTemplateColumns: '1fr auto auto',
+                alignItems: 'center', gap: 16,
+                padding: '10px 16px', borderBottom: '1px solid var(--border)',
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {EVENT_LABELS[event] ?? event}
+                </span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {formatTime(best)}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {count} solve{count !== 1 ? 's' : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Toast notification ───────────────────────────────────────────────────────
+function Toast({ message, onDone }: { message: string; onDone: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2 }}
+      style={{
+        position: 'fixed', top: 80, right: 24, zIndex: 9999,
+        backgroundColor: 'var(--positive)', color: '#fff',
+        padding: '10px 16px', borderRadius: 8,
+        fontSize: 13, fontWeight: 600,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+        cursor: 'pointer',
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}
+      onClick={onDone}
+    >
+      {message}
+    </motion.div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function HistoryPage() {
   const { user } = useAuth()
-  const { solves, loading, isConfigured } = useSolveHistory(user?.uid)
+  const { solves, loading, isConfigured, persistSolve } = useSolveHistory(user?.uid)
   const [searchQuery, setSearchQuery] = useState('')
-  const [tab, setTab] = useState<'solves' | 'notes'>('solves')
+  const [tab, setTab] = useState<'solves' | 'notes' | 'stats'>('solves')
   const [notesOnly, setNotesOnly] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000)
+  }, [])
 
   const filteredSolves = useMemo(() => {
     let list = solves
@@ -367,8 +609,95 @@ export function HistoryPage() {
     return finite.length ? finite.reduce((a, b) => a + b.effectiveTime, 0) / finite.length : null
   }, [filteredSolves])
 
+  const handleImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset so same file can be re-imported if needed
+    e.target.value = ''
+
+    if (!isConfigured) {
+      showToast('Import requires cloud sync to be configured.')
+      return
+    }
+
+    let json: Record<string, unknown>
+    try {
+      const text = await file.text()
+      json = JSON.parse(text) as Record<string, unknown>
+    } catch {
+      showToast('Failed to parse cstimer JSON.')
+      return
+    }
+
+    const sessionKeys = Object.keys(json).filter((k) => /^session\d+/.test(k))
+    if (sessionKeys.length === 0) {
+      showToast('No sessions found in cstimer file.')
+      return
+    }
+
+    const newSolves: Solve[] = []
+    for (const key of sessionKeys) {
+      const sessionData = json[key]
+      if (!Array.isArray(sessionData)) continue
+      for (const entry of sessionData) {
+        if (!Array.isArray(entry) || entry.length < 2) continue
+        const [penaltyRaw, timeMs, scrambleRaw, commentRaw, epochSecs] = entry as [number, number, string?, string?, number?]
+        const penalty: Solve['penalty'] = penaltyRaw === -1 ? 'DNF' : penaltyRaw === 2000 ? '+2' : null
+        const effectiveTime = penalty === 'DNF' ? Infinity : penalty === '+2' ? timeMs + 2000 : timeMs
+        const solve: Solve = {
+          id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+          sessionId: key,
+          event: '333' as WCAEvent,
+          time: timeMs,
+          penalty,
+          effectiveTime,
+          scramble: scrambleRaw ?? '',
+          notes: commentRaw || null,
+          tags: [],
+          inspectionTime: 0,
+          timestamp: ((epochSecs ?? Date.now() / 1000)) * 1000,
+        }
+        newSolves.push(solve)
+      }
+    }
+
+    if (newSolves.length === 0) {
+      showToast('No valid solves found in cstimer file.')
+      return
+    }
+
+    // Persist all solves
+    await Promise.all(newSolves.map((s) => persistSolve(s)))
+    showToast(`✓ Imported ${newSolves.length} solve${newSolves.length !== 1 ? 's' : ''} from cstimer`)
+  }, [isConfigured, persistSolve, showToast])
+
+  const ghostButtonStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 7,
+    padding: '6px 14px', backgroundColor: 'transparent',
+    border: '1px solid var(--border)', borderRadius: 8,
+    color: 'var(--text-primary)',
+    fontSize: 13, fontWeight: 500,
+    cursor: 'pointer',
+  }
+
   return (
     <div style={{ padding: '32px 24px', maxWidth: 920, margin: '0 auto', width: '100%' }}>
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+      </AnimatePresence>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleImportFile}
+        style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16, flexWrap: 'wrap' }}>
@@ -378,32 +707,43 @@ export function HistoryPage() {
             {loading ? 'Loading…' : !isConfigured ? 'Cloud sync not configured' : solves.length === 0 ? 'No solves recorded yet' : `${solves.length} solve${solves.length !== 1 ? 's' : ''} · ${notesCount} with notes`}
           </p>
         </div>
-        <button
-          onClick={() => exportCSV(filteredSolves)}
-          disabled={filteredSolves.length === 0}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '6px 14px', backgroundColor: 'transparent',
-            border: '1px solid var(--border)', borderRadius: 8,
-            color: filteredSolves.length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
-            fontSize: 13, fontWeight: 500,
-            cursor: filteredSolves.length > 0 ? 'pointer' : 'not-allowed',
-            opacity: filteredSolves.length > 0 ? 1 : 0.45,
-          }}
-          onMouseEnter={(e) => { if (filteredSolves.length > 0) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
-        >
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-            <path d="M7.5 2v7M5 7l2.5 2.5L10 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M2 11.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          Export CSV
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            style={ghostButtonStyle}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <path d="M7.5 10V2M5 5l2.5-2.5L10 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 11.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            Import cstimer
+          </button>
+          <button
+            onClick={() => exportCSV(filteredSolves)}
+            disabled={filteredSolves.length === 0}
+            style={{
+              ...ghostButtonStyle,
+              color: filteredSolves.length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+              cursor: filteredSolves.length > 0 ? 'pointer' : 'not-allowed',
+              opacity: filteredSolves.length > 0 ? 1 : 0.45,
+            }}
+            onMouseEnter={(e) => { if (filteredSolves.length > 0) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <path d="M7.5 2v7M5 7l2.5 2.5L10 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 11.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 2, marginBottom: 16, backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 8, padding: 3, width: 'fit-content' }}>
-        {(['solves', 'notes'] as const).map((t) => (
+        {(['solves', 'stats', 'notes'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -415,13 +755,15 @@ export function HistoryPage() {
               transition: 'all 120ms ease',
             }}
           >
-            {t === 'solves' ? 'Solves' : `Notes & Insights${notesCount > 0 ? ` (${notesCount})` : ''}`}
+            {t === 'solves' ? 'Solves' : t === 'stats' ? 'Stats' : `Notes & Insights${notesCount > 0 ? ` (${notesCount})` : ''}`}
           </button>
         ))}
       </div>
 
       {tab === 'notes' ? (
         <NotesInsights solves={solves} />
+      ) : tab === 'stats' ? (
+        <StatsTab solves={filteredSolves} />
       ) : (
         <>
           {/* Controls row */}
