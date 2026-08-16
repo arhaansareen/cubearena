@@ -269,7 +269,6 @@ function ThemeToggleButton() {
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       style={{
-        position: 'fixed', top: 16, right: 16, zIndex: 150,
         width: 28, height: 28, borderRadius: 7,
         border: '1px solid var(--border)',
         backgroundColor: 'var(--surface-1)',
@@ -375,12 +374,14 @@ export function AppShell() {
 
               <div style={{
                 padding: '6px 20px 10px',
-                fontSize: 10,
-                color: 'var(--text-muted)',
-                opacity: 0.45,
-                letterSpacing: '0.01em',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
               }}>
-                © {new Date().getFullYear()} Arhaan Sareen
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', opacity: 0.45, letterSpacing: '0.01em' }}>
+                  © {new Date().getFullYear()} Arhaan Sareen
+                </span>
+                <ThemeToggleButton />
               </div>
 
               <ProfileStrip />
@@ -389,9 +390,6 @@ export function AppShell() {
         </AnimatePresence>
 
       </div>
-
-      {/* Theme toggle — top-right corner */}
-      <ThemeToggleButton />
 
       {/* Collapse toggle — fixed so it's always reachable */}
       <button
