@@ -27,25 +27,48 @@ async function fetchScramble(event: WCAEvent): Promise<string> {
 export function useScramble(event: WCAEvent): UseScrambleReturn {
   const [scramble, setScramble] = useState<string>(() => generateScramble(event))
   const eventRef = useRef(event)
-  const genRef = useRef(0)
+  // Pre-fetched WCA scramble ready to swap in instantly on next()
+  const nextScrambleRef = useRef<string | null>(null)
+  const prefetchingRef = useRef(false)
 
-  const generate = useCallback((ev: WCAEvent) => {
-    const id = ++genRef.current
-    const placeholder = generateScramble(ev)
-    setScramble(placeholder)
+  const prefetchNext = useCallback((ev: WCAEvent) => {
+    if (prefetchingRef.current) return
+    prefetchingRef.current = true
     void fetchScramble(ev).then(s => {
-      if (genRef.current === id) setScramble(s)
+      nextScrambleRef.current = s
+      prefetchingRef.current = false
     })
   }, [])
 
+  // On mount or event change: show placeholder instantly, fetch real scramble,
+  // then immediately start prefetching the one after.
   useEffect(() => {
     eventRef.current = event
-    generate(event)
-  }, [event, generate])
+    nextScrambleRef.current = null
+    prefetchingRef.current = false
+    setScramble(generateScramble(event))
+    void fetchScramble(event).then(s => {
+      setScramble(s)
+      prefetchNext(event)
+    })
+  }, [event, prefetchNext])
 
   const next = useCallback(() => {
-    generate(eventRef.current)
-  }, [generate])
+    const ev = eventRef.current
+    if (nextScrambleRef.current) {
+      // Pre-fetched WCA scramble ready — show it instantly
+      setScramble(nextScrambleRef.current)
+      nextScrambleRef.current = null
+      prefetchNext(ev)
+    } else {
+      // Nothing ready yet — show placeholder and fetch
+      setScramble(generateScramble(ev))
+      void fetchScramble(ev).then(s => {
+        setScramble(s)
+        prefetchNext(ev)
+      })
+    }
+  }, [prefetchNext])
 
   return { scramble, next }
 }
