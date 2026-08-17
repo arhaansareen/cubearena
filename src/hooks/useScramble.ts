@@ -20,6 +20,9 @@ async function fetchScramble(event: WCAEvent): Promise<string> {
     const alg = await randomScrambleForEvent(EVENT_ID[event] ?? '333')
     return alg.toString()
   } catch {
+    // sq1 MUST come from the cubing package — our generator can produce
+    // unreachable permutations. Return empty so the user sees loading, not garbage.
+    if (event === 'sq1') return ''
     return generateScramble(event)
   }
 }
