@@ -261,9 +261,13 @@ function genSq1(): string {
     return out
   }
 
+  // Target 11–13 moves, matching TNoodle's output length range
+  const targetMoves = 11 + Math.floor(Math.random() * 3)
   const moves: string[] = []
   let attempts = 0
-  while (moves.length < 11 && attempts < 1000) {
+  let lastA = NaN, lastB = NaN
+
+  while (moves.length < targetMoves && attempts < 2000) {
     attempts++
     const vTop = validRotations(top)
     const vBot = validRotations(bot)
@@ -272,18 +276,20 @@ function genSq1(): string {
     const a = vTop[Math.floor(Math.random() * vTop.length)]
     const b = vBot[Math.floor(Math.random() * vBot.length)]
 
-    // Never generate (0, 0) — that move does nothing before the slash
+    // Skip (0, 0) — does nothing before the slash
     if (a === 0 && b === 0) continue
+    // Skip identical consecutive move (redundant)
+    if (a === lastA && b === lastB) continue
 
     top = rotate(top, a)
     bot = rotate(bot, b)
     moves.push(`(${a}, ${b})`)
+    lastA = a; lastB = b
     ;[top, bot] = slash(top, bot)
   }
 
-  // WCA format: "(a, b)/ (a, b)/ ..." — each move includes trailing slash,
-  // joined by spaces, no leading slash
-  return moves.map(m => m + '/').join(' ')
+  // WCA format: "(a, b) / (c, d) / ..." — space before each slash
+  return moves.map(m => m + ' /').join(' ')
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────

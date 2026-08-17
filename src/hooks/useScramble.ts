@@ -31,7 +31,9 @@ export function useScramble(event: WCAEvent): UseScrambleReturn {
 
   const generate = useCallback((ev: WCAEvent) => {
     const id = ++genRef.current
-    setScramble(generateScramble(ev)) // instant placeholder
+    // sq1 placeholder format must match cubing package output; show empty until async resolves
+    const placeholder = ev === 'sq1' ? '' : generateScramble(ev)
+    setScramble(placeholder)
     void fetchScramble(ev).then(s => {
       if (genRef.current === id) setScramble(s)
     })
