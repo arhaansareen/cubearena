@@ -20,9 +20,6 @@ async function fetchScramble(event: WCAEvent): Promise<string> {
     const alg = await randomScrambleForEvent(EVENT_ID[event] ?? '333')
     return alg.toString()
   } catch {
-    // sq1 MUST come from the cubing package — our generator can produce
-    // unreachable permutations. Return empty so the user sees loading, not garbage.
-    if (event === 'sq1') return ''
     return generateScramble(event)
   }
 }
@@ -34,8 +31,7 @@ export function useScramble(event: WCAEvent): UseScrambleReturn {
 
   const generate = useCallback((ev: WCAEvent) => {
     const id = ++genRef.current
-    // sq1 placeholder format must match cubing package output; show empty until async resolves
-    const placeholder = ev === 'sq1' ? '' : generateScramble(ev)
+    const placeholder = generateScramble(ev)
     setScramble(placeholder)
     void fetchScramble(ev).then(s => {
       if (genRef.current === id) setScramble(s)
