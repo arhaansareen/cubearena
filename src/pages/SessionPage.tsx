@@ -21,7 +21,9 @@ import type { Penalty, Solve, WCAEvent, NotesBehavior } from '@/types'
 const DEFAULT_NOTES_BEHAVIOR: NotesBehavior = 'soft'
 
 export function SessionPage() {
-  const [event, setEvent] = useState<WCAEvent>('333')
+  const [event, setEvent] = useState<WCAEvent>(
+    () => (localStorage.getItem('cubearena:last-event') as WCAEvent) || '333'
+  )
   const [showModal, setShowModal] = useState(false)
   const [isManualMode, setIsManualMode] = useState(() => localStorage.getItem('cubearena:manual-mode') === 'true')
   const [lastResult, setLastResult] = useState<TimerResult | null>(null)
@@ -168,7 +170,7 @@ export function SessionPage() {
         loading={false}
         event={event}
         onNewScramble={nextScramble}
-        onEventChange={setEvent}
+        onEventChange={(e) => { setEvent(e); localStorage.setItem('cubearena:last-event', e) }}
         soundEnabled={soundEnabled}
         onToggleSound={handleToggleSound}
       />
@@ -251,6 +253,7 @@ export function SessionPage() {
             ) : (
               <SessionSolveList
                 solves={solves}
+                event={event}
                 onDeleteSolve={(id) => { deleteSolve(id); void persistDeleteSolve(id) }}
               />
             )}

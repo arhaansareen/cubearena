@@ -1,8 +1,8 @@
 import { formatTime } from '@/lib/utils'
 import type { WCAEvent } from '@/types'
 
-// BLD and FMC events use Mo3 as their competition format, not Ao5
-const MO3_EVENTS = new Set(['333bf', '444bf', '555bf', '333fm'])
+// WCA events that use Mo3 as competition format (not Ao5)
+const MO3_EVENTS = new Set(['333bf', '444bf', '555bf', '333fm', '666', '777'])
 
 interface SessionStatsBarProps {
   solveCount: number

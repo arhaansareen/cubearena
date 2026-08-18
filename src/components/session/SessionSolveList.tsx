@@ -1,10 +1,13 @@
 import { useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Solve } from '@/types'
-import { computeAo, formatTime } from '@/lib/utils'
+import type { Solve, WCAEvent } from '@/types'
+import { computeAo, computeMean, formatTime } from '@/lib/utils'
+
+const MO3_EVENTS = new Set<WCAEvent>(['333bf', '444bf', '555bf', '333fm', '666', '777'])
 
 interface SessionSolveListProps {
   solves: Solve[]
+  event: WCAEvent
   onDeleteSolve: (id: string) => void
 }
 
@@ -15,7 +18,9 @@ function timeColor(solve: Solve, isBest: boolean): string {
   return 'var(--text-primary)'
 }
 
-export function SessionSolveList({ solves, onDeleteSolve }: SessionSolveListProps) {
+export function SessionSolveList({ solves, event, onDeleteSolve }: SessionSolveListProps) {
+  const isMo3 = MO3_EVENTS.has(event)
+
   const rows = useMemo(() => {
     const bestTime = Math.min(
       ...solves
@@ -30,6 +35,7 @@ export function SessionSolveList({ solves, onDeleteSolve }: SessionSolveListProp
         index: i,
         ao5: computeAo(subset, 5),
         ao12: computeAo(subset, 12),
+        mo3: computeMean(subset, 3),
         isBest: isFinite(solve.effectiveTime) && solve.effectiveTime === bestTime,
       }
     })
@@ -37,12 +43,14 @@ export function SessionSolveList({ solves, onDeleteSolve }: SessionSolveListProp
 
   const reversed = [...rows].reverse()
 
+  const gridCols = isMo3 ? '28px 1fr 60px 20px' : '28px 1fr 60px 60px 20px'
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '28px 1fr 60px 60px 20px',
+        gridTemplateColumns: gridCols,
         padding: '8px 10px',
         borderBottom: '1px solid var(--border)',
         fontSize: 10, fontWeight: 600,
@@ -52,15 +60,21 @@ export function SessionSolveList({ solves, onDeleteSolve }: SessionSolveListProp
       }}>
         <span>#</span>
         <span>Time</span>
-        <span style={{ textAlign: 'right' }}>ao5</span>
-        <span style={{ textAlign: 'right' }}>ao12</span>
+        {isMo3 ? (
+          <span style={{ textAlign: 'right' }}>mo3</span>
+        ) : (
+          <>
+            <span style={{ textAlign: 'right' }}>ao5</span>
+            <span style={{ textAlign: 'right' }}>ao12</span>
+          </>
+        )}
         <span />
       </div>
 
       {/* Solve rows */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <AnimatePresence initial={false}>
-        {reversed.map(({ solve, index, ao5, ao12, isBest }, rowIdx) => (
+        {reversed.map(({ solve, index, ao5, ao12, mo3, isBest }, rowIdx) => (
           <motion.div
             key={solve.id}
             initial={{ opacity: 0, x: 16 }}
@@ -77,7 +91,7 @@ export function SessionSolveList({ solves, onDeleteSolve }: SessionSolveListProp
           >
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '28px 1fr 60px 60px 20px',
+              gridTemplateColumns: gridCols,
               padding: '6px 10px',
               alignItems: 'center',
             }}>
@@ -92,22 +106,35 @@ export function SessionSolveList({ solves, onDeleteSolve }: SessionSolveListProp
                   <span style={{ fontSize: 9, marginLeft: 2, opacity: 0.7 }}>+2</span>
                 )}
               </span>
-              <span style={{
-                textAlign: 'right',
-                fontFamily: "'JetBrains Mono', monospace",
-                color: ao5 !== null ? 'var(--text-primary)' : 'var(--text-muted)',
-                fontSize: 11,
-              }}>
-                {ao5 !== null ? formatTime(ao5) : '—'}
-              </span>
-              <span style={{
-                textAlign: 'right',
-                fontFamily: "'JetBrains Mono', monospace",
-                color: ao12 !== null ? 'var(--text-primary)' : 'var(--text-muted)',
-                fontSize: 11,
-              }}>
-                {ao12 !== null ? formatTime(ao12) : '—'}
-              </span>
+              {isMo3 ? (
+                <span style={{
+                  textAlign: 'right',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  color: mo3 !== null ? 'var(--accent)' : 'var(--text-muted)',
+                  fontSize: 11,
+                }}>
+                  {mo3 !== null ? formatTime(mo3) : '—'}
+                </span>
+              ) : (
+                <>
+                  <span style={{
+                    textAlign: 'right',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color: ao5 !== null ? 'var(--text-primary)' : 'var(--text-muted)',
+                    fontSize: 11,
+                  }}>
+                    {ao5 !== null ? formatTime(ao5) : '—'}
+                  </span>
+                  <span style={{
+                    textAlign: 'right',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color: ao12 !== null ? 'var(--text-primary)' : 'var(--text-muted)',
+                    fontSize: 11,
+                  }}>
+                    {ao12 !== null ? formatTime(ao12) : '—'}
+                  </span>
+                </>
+              )}
               <button
                 className="solve-delete-btn"
                 onClick={() => onDeleteSolve(solve.id)}
