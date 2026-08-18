@@ -29,6 +29,8 @@ export function SessionPage() {
   const [lastResult, setLastResult] = useState<TimerResult | null>(null)
   const [currentPenalty, setCurrentPenalty] = useState<Penalty>(null)
   const currentScrambleRef = useRef<string>('')
+  // Captures the scramble at the exact moment each solve completes (before nextScramble advances it)
+  const pendingScrambleRef = useRef<string>('')
 
   const { scramble, next: nextScramble } = useScramble(event)
   const { playInspectionCallout, startAmbient, stopAmbient, isAmbientPlaying } = useAudioContext()
@@ -53,7 +55,36 @@ export function SessionPage() {
 
   currentScrambleRef.current = scramble
 
+  // Save a completed solve immediately — used by both explicit confirm and auto-save paths
+  const flushSolve = (result: TimerResult, penalty: Penalty, scramble: string, notes: string | null, tags: string[]) => {
+    const effectiveTime = penalty === 'DNF' ? Infinity : penalty === '+2' ? result.time + 2000 : result.time
+    const solve: Solve = {
+      id: result.id, sessionId, event,
+      time: result.time, penalty, effectiveTime,
+      scramble, inspectionTime: result.inspectionTime,
+      timestamp: result.timestamp, notes, tags,
+    }
+    addSolve(solve)
+    void persistSolve(solve)
+    addXP(penalty === 'DNF' ? 5 : 15)
+    const updatedSolves = [...solves, solve]
+    const dateKey = new Date().toISOString().slice(0, 10)
+    const updatedAo5 = computeAo(updatedSolves, 5)
+    const validSolves = updatedSolves.filter(s => isFinite(s.effectiveTime))
+    const updatedMean = validSolves.length > 0
+      ? validSolves.reduce((a, s) => a + s.effectiveTime, 0) / validSolves.length : null
+    logActivity(dateKey, updatedSolves.length, updatedAo5, updatedMean, [event])
+    return solve
+  }
+
   const handleSolveComplete = (result: TimerResult) => {
+    // If there's already a pending solve in the modal, auto-save it before replacing
+    if (lastResult) {
+      flushSolve(lastResult, currentPenalty, pendingScrambleRef.current, null, [])
+      nextScramble()
+    }
+    // Capture the scramble for this solve now (before nextScramble advances it)
+    pendingScrambleRef.current = currentScrambleRef.current
     setLastResult(result)
     setCurrentPenalty(result.pendingPenalty)
     setShowModal(true)
@@ -83,33 +114,7 @@ export function SessionPage() {
 
   const handleConfirm = (notes: string | null, tags: string[]) => {
     if (!lastResult) return
-    const penalty = currentPenalty
-    const effectiveTime =
-      penalty === 'DNF' ? Infinity : penalty === '+2' ? lastResult.time + 2000 : lastResult.time
-    const solve: Solve = {
-      id: lastResult.id,
-      sessionId,
-      event,
-      time: lastResult.time,
-      penalty,
-      effectiveTime,
-      scramble: currentScrambleRef.current,
-      inspectionTime: lastResult.inspectionTime,
-      timestamp: lastResult.timestamp,
-      notes,
-      tags,
-    }
-    addSolve(solve)
-    void persistSolve(solve)
-    addXP(penalty === 'DNF' ? 5 : 15)
-    const updatedSolves = [...solves, solve]
-    const dateKey = new Date().toISOString().slice(0, 10)
-    const updatedAo5 = computeAo(updatedSolves, 5)
-    const validSolves = updatedSolves.filter(s => isFinite(s.effectiveTime))
-    const updatedMean = validSolves.length > 0
-      ? validSolves.reduce((sum, s) => sum + s.effectiveTime, 0) / validSolves.length
-      : null
-    logActivity(dateKey, updatedSolves.length, updatedAo5, updatedMean, [event])
+    flushSolve(lastResult, currentPenalty, pendingScrambleRef.current, notes, tags)
     nextScramble()
     setShowModal(false)
     setLastResult(null)
@@ -118,32 +123,7 @@ export function SessionPage() {
 
   const handleModalDismiss = () => {
     if (!lastResult) return
-    const penalty = currentPenalty
-    const effectiveTime =
-      penalty === 'DNF' ? Infinity : penalty === '+2' ? lastResult.time + 2000 : lastResult.time
-    const solve: Solve = {
-      id: lastResult.id,
-      sessionId,
-      event,
-      time: lastResult.time,
-      penalty,
-      effectiveTime,
-      scramble: currentScrambleRef.current,
-      inspectionTime: lastResult.inspectionTime,
-      timestamp: lastResult.timestamp,
-      notes: null,
-      tags: [],
-    }
-    addSolve(solve)
-    void persistSolve(solve)
-    const updatedSolves = [...solves, solve]
-    const dateKey = new Date().toISOString().slice(0, 10)
-    const updatedAo5 = computeAo(updatedSolves, 5)
-    const validSolves = updatedSolves.filter(s => isFinite(s.effectiveTime))
-    const updatedMean = validSolves.length > 0
-      ? validSolves.reduce((sum, s) => sum + s.effectiveTime, 0) / validSolves.length
-      : null
-    logActivity(dateKey, updatedSolves.length, updatedAo5, updatedMean, [event])
+    flushSolve(lastResult, currentPenalty, pendingScrambleRef.current, null, [])
     nextScramble()
     setShowModal(false)
     setLastResult(null)
