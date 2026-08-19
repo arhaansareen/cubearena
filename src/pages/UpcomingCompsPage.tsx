@@ -205,8 +205,7 @@ export function UpcomingCompsPage() {
     if (profile?.wcaId) {
       fetchMyComps(profile.wcaId)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [profile?.wcaId, fetchMyComps])
 
   const handleCountryChange = (iso2: string) => {
     setSelectedCountry(iso2)
