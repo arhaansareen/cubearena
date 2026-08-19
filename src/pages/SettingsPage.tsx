@@ -138,13 +138,14 @@ export function SettingsPage() {
   const { mode, accent, customColor, setMode, setAccent, setCustomColor } = useTheme()
   const { profile, save: saveProfile, isSaving } = useProfile()
   const { state: wcaVerifyState, lookup: wcaLookup, reset: wcaReset } = useWCAData()
-  const { user, signOut } = useAuth()
+  const { user, signOut, linkWithGoogle } = useAuth()
 
   const [displayNameInput, setDisplayNameInput] = useState(profile?.displayName ?? '')
   const [wcaIdInput, setWcaIdInput] = useState(profile?.wcaId ?? '')
   const [savedIndicator, setSavedIndicator] = useState(false)
   const [importingWca, setImportingWca] = useState(false)
   const [importToast, setImportToast] = useState<'success' | 'error' | null>(null)
+  const [googleLinkState, setGoogleLinkState] = useState<'idle' | 'loading' | 'linked' | 'already_linked' | 'error'>('idle')
 
   // Sync inputs if profile loads after mount
   const prevProfileRef = useState<string | null>(null)
@@ -624,24 +625,69 @@ export function SettingsPage() {
       </Section>
 
       {/* Account */}
-      <Section title="Account">
-        {user && (
+      <Section title="Account" description="Sync your solves across devices by linking a Google account.">
+        {user?.isAnonymous ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
+              You're using a guest account. Link Google to keep your solves if you clear your browser or switch devices.
+            </p>
+            <button
+              onClick={async () => {
+                setGoogleLinkState('loading')
+                const result = await linkWithGoogle()
+                setGoogleLinkState(result)
+                if (result === 'linked') setTimeout(() => setGoogleLinkState('idle'), 3000)
+              }}
+              disabled={googleLinkState === 'loading'}
+              style={{
+                alignSelf: 'flex-start',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 18px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface-1)',
+                color: 'var(--text-primary)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: googleLinkState === 'loading' ? 'not-allowed' : 'pointer',
+                opacity: googleLinkState === 'loading' ? 0.6 : 1,
+                transition: 'border-color 150ms ease, opacity 150ms ease',
+              }}
+              onMouseEnter={(e) => { if (googleLinkState !== 'loading') e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              {/* Google G logo */}
+              <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+                <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.7 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.1 17.8 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17z"/>
+                <path fill="#FBBC05" d="M10.5 28.7A14.8 14.8 0 0 1 9.5 24c0-1.6.3-3.2.7-4.7l-7.8-6A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.7 10.7l7.8-6z"/>
+                <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2 1.4-4.6 2.2-7.7 2.2-6.2 0-11.5-4.2-13.4-9.9l-7.8 6C6.6 42.6 14.6 48 24 48z"/>
+              </svg>
+              {googleLinkState === 'loading' ? 'Connecting…' : 'Link with Google'}
+            </button>
+            {googleLinkState === 'linked' && (
+              <p style={{ fontSize: 12, color: 'var(--positive)', margin: 0 }}>✓ Google account linked — your solves are now synced.</p>
+            )}
+            {googleLinkState === 'already_linked' && (
+              <p style={{ fontSize: 12, color: 'var(--penalty)', margin: 0 }}>That Google account is already linked to a different CubeArena account. Your current data is safe — sign out first if you want to switch.</p>
+            )}
+            {googleLinkState === 'error' && (
+              <p style={{ fontSize: 12, color: 'var(--penalty)', margin: 0 }}>Something went wrong. Try again.</p>
+            )}
+          </div>
+        ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {user.photoURL && (
-              <img
-                src={user.photoURL}
-                alt=""
-                width={40}
-                height={40}
-                style={{ borderRadius: '50%', flexShrink: 0 }}
-              />
+            {user?.photoURL && (
+              <img src={user.photoURL} alt="" width={40} height={40} style={{ borderRadius: '50%', flexShrink: 0 }} />
             )}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user.displayName ?? 'Signed in'}
+                {user?.displayName ?? 'Signed in'}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user.email}
+                {user?.email}
               </div>
             </div>
           </div>

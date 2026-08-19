@@ -184,9 +184,17 @@ export function UpcomingCompsPage() {
   const { state, fetchComps, myCompsState, fetchMyComps } = useWCACompetitions()
   const { createCompetition, competitions } = useCalendar()
 
-  const [selectedCountry, setSelectedCountry] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [selectedCountry, setSelectedCountry] = useState<string>(() => {
+    const saved = localStorage.getItem('cubearena:comp-country')
+    if (saved !== null) return saved
+    // Detect country from browser locale (e.g. "en-US" → "US")
+    const locale = navigator.language || ''
+    const region = locale.includes('-') ? locale.split('-').pop()?.toUpperCase() ?? '' : ''
+    return COUNTRIES.some((c) => c.iso2 === region) ? region : ''
+  })
 
   useEffect(() => {
     fetchComps(selectedCountry || undefined, undefined)
@@ -202,6 +210,7 @@ export function UpcomingCompsPage() {
 
   const handleCountryChange = (iso2: string) => {
     setSelectedCountry(iso2)
+    localStorage.setItem('cubearena:comp-country', iso2)
     fetchComps(iso2 || undefined, searchQuery || undefined)
   }
 

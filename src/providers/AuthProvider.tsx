@@ -3,6 +3,8 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  linkWithPopup,
   type User,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -11,6 +13,7 @@ interface AuthContextValue {
   user: User | null
   loading: boolean
   signOut: () => Promise<void>
+  linkWithGoogle: () => Promise<'linked' | 'already_linked' | 'error'>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -46,8 +49,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await firebaseSignOut(auth)
   }
 
+  const linkWithGoogle = async (): Promise<'linked' | 'already_linked' | 'error'> => {
+    if (!auth || typeof auth.onAuthStateChanged !== 'function') return 'error'
+    const provider = new GoogleAuthProvider()
+    try {
+      await linkWithPopup(auth.currentUser!, provider)
+      return 'linked'
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err) {
+        // Google account already tied to a different UID — don't switch, keep current data safe
+        if (err.code === 'auth/credential-already-in-use') return 'already_linked'
+        // User closed the popup — not an error worth showing
+        if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return 'error'
+      }
+      return 'error'
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signOut, linkWithGoogle }}>
       {children}
     </AuthContext.Provider>
   )
