@@ -1,9 +1,8 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useWCACompetitions, WCACompetition } from '@/hooks/useWCACompetitions'
+import { useWCACompetitions } from '@/hooks/useWCACompetitions'
 import { useProfile } from '@/providers/ProfileProvider'
-import { useCalendar, CompCalendarEntry } from '@/hooks/useCalendar'
 
 // Country list (ISO2 → name) — common cubing countries
 const COUNTRIES: { iso2: string; name: string; flag: string }[] = [
@@ -57,132 +56,11 @@ function formatDateRange(start: string, end: string): string {
   return `${sMonth} ${s.getDate()} – ${eMonth} ${e.getDate()}, ${year}`
 }
 
-interface MyCompCardProps {
-  comp: WCACompetition
-  competitions: CompCalendarEntry[]
-  createCompetition: (draft: Omit<CompCalendarEntry, 'id'>) => void
-}
-
-function MyCompCard({ comp, competitions, createCompetition }: MyCompCardProps) {
-  const flag = COUNTRY_FLAGS[comp.country_iso2] ?? ''
-  const alreadyAdded = competitions.some((c) => c.wcaId === comp.id)
-
-  return (
-    <div
-      style={{
-        backgroundColor: 'var(--surface-0)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: '14px 16px',
-        minWidth: 260,
-        flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-      }}
-    >
-      {/* Name row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-        {flag && <span style={{ fontSize: 16, lineHeight: '1.4', flexShrink: 0 }}>{flag}</span>}
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 700,
-            color: 'var(--text-primary)',
-            letterSpacing: '-0.01em',
-            lineHeight: 1.4,
-          }}
-        >
-          {comp.name}
-        </span>
-      </div>
-
-      {/* City + date */}
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span>{comp.city}</span>
-        <span>{formatDateRange(comp.start_date, comp.end_date)}</span>
-      </div>
-
-      {/* Event pills */}
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {comp.event_ids.map((evId) => (
-          <span
-            key={evId}
-            style={{
-              display: 'inline-block',
-              padding: '2px 6px',
-              borderRadius: 4,
-              fontSize: 10,
-              fontWeight: 600,
-              backgroundColor: 'var(--surface-1)',
-              color: 'var(--text-muted)',
-              border: '1px solid var(--border)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {EVENT_LABELS[evId] ?? evId}
-          </span>
-        ))}
-      </div>
-
-      {/* Add to calendar button */}
-      {alreadyAdded ? (
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: 'var(--positive)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
-          ✓ In calendar
-        </div>
-      ) : (
-        <button
-          onClick={() =>
-            createCompetition({
-              name: comp.name,
-              date: comp.start_date,
-              endDate: comp.end_date !== comp.start_date ? comp.end_date : undefined,
-              wcaId: comp.id,
-            })
-          }
-          style={{
-            alignSelf: 'flex-start',
-            padding: '6px 12px',
-            borderRadius: 7,
-            border: '1px solid var(--accent)',
-            backgroundColor: 'transparent',
-            color: 'var(--accent)',
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif',
-            transition: 'background-color 150ms ease, color 150ms ease',
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--accent)'
-            e.currentTarget.style.color = '#000'
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent'
-            e.currentTarget.style.color = 'var(--accent)'
-          }}
-        >
-          Add to calendar
-        </button>
-      )}
-    </div>
-  )
-}
 
 export function UpcomingCompsPage() {
   const navigate = useNavigate()
   const { profile } = useProfile()
-  const { state, fetchComps, myCompsState, fetchMyComps } = useWCACompetitions()
-  const { createCompetition, competitions } = useCalendar()
+  const { state, fetchComps } = useWCACompetitions()
 
   const [searchQuery, setSearchQuery] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -200,12 +78,6 @@ export function UpcomingCompsPage() {
     fetchComps(selectedCountry || undefined, undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    if (profile?.wcaId) {
-      fetchMyComps(profile.wcaId)
-    }
-  }, [profile?.wcaId, fetchMyComps])
 
   const handleCountryChange = (iso2: string) => {
     setSelectedCountry(iso2)
@@ -265,76 +137,6 @@ export function UpcomingCompsPage() {
         )}
       </div>
 
-      {/* My Competitions */}
-      {profile?.wcaId && (
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <h2
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                margin: 0,
-                borderLeft: '3px solid var(--accent)',
-                paddingLeft: 10,
-              }}
-            >
-              My Competitions
-            </h2>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{profile.wcaId}</span>
-          </div>
-
-          {myCompsState.status === 'loading' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-muted)', fontSize: 13 }}>
-              <div
-                style={{
-                  width: 16,
-                  height: 16,
-                  border: '2px solid var(--border)',
-                  borderTopColor: 'var(--accent)',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite',
-                  flexShrink: 0,
-                }}
-              />
-              Loading your competitions…
-            </div>
-          )}
-
-          {myCompsState.status === 'error' && (
-            <div style={{ fontSize: 13, color: 'var(--penalty)' }}>
-              {myCompsState.message}
-            </div>
-          )}
-
-          {myCompsState.status === 'success' && myCompsState.comps.length === 0 && (
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              No upcoming competitions found for {profile.wcaId}.
-            </div>
-          )}
-
-          {myCompsState.status === 'success' && myCompsState.comps.length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 12,
-                overflowX: 'auto',
-                paddingBottom: 8,
-                scrollbarWidth: 'none',
-              }}
-            >
-              {myCompsState.comps.map((comp) => (
-                <MyCompCard
-                  key={comp.id}
-                  comp={comp}
-                  competitions={competitions}
-                  createCompetition={createCompetition}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Filters */}
       <div
