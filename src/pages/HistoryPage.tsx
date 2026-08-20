@@ -80,6 +80,7 @@ function SolveRow({ solve, index, total }: { solve: Solve; index: number; total:
   return (
     <>
       <div
+        className="solve-row-grid"
         onClick={() => setOpen((p) => !p)}
         style={{
           display: 'grid',
@@ -97,7 +98,7 @@ function SolveRow({ solve, index, total }: { solve: Solve; index: number; total:
         onMouseLeave={(e) => { if (!open) e.currentTarget.style.backgroundColor = 'transparent' }}
       >
         <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{total - index}</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{formatDateShort(solve.timestamp)}</span>
+        <span className="history-col-date" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{formatDateShort(solve.timestamp)}</span>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace" }}>
           {EVENT_LABELS[solve.event] ?? solve.event}
         </span>
@@ -641,7 +642,7 @@ export function HistoryPage() {
       if (!Array.isArray(sessionData)) continue
       for (const entry of sessionData) {
         if (!Array.isArray(entry) || entry.length < 2) continue
-        const [penaltyRaw, timeMs, scrambleRaw, commentRaw, epochSecs] = entry as [number, number, string?, string?, number?]
+        const [[penaltyRaw, timeMs], scrambleRaw, commentRaw, epochSecs] = entry as [[number, number], string?, string?, number?]
         const penalty: Solve['penalty'] = penaltyRaw === -1 ? 'DNF' : penaltyRaw === 2000 ? '+2' : null
         const effectiveTime = penalty === 'DNF' ? Infinity : penalty === '+2' ? timeMs + 2000 : timeMs
         const solve: Solve = {
@@ -681,7 +682,14 @@ export function HistoryPage() {
   }
 
   return (
-    <div style={{ padding: '32px 24px', maxWidth: 920, margin: '0 auto', width: '100%' }}>
+    <div className="history-page" style={{ padding: '32px 24px', maxWidth: 920, margin: '0 auto', width: '100%' }}>
+      <style>{`
+        @media (max-width: 767px) {
+          .history-page { padding: 12px !important; }
+          .solve-row-grid { grid-template-columns: 28px 64px minmax(0,1fr) 20px !important; font-size: 12px; }
+          .history-col-date { display: none !important; }
+        }
+      `}</style>
 
       {/* Toast */}
       <AnimatePresence>
@@ -692,7 +700,7 @@ export function HistoryPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json"
+        accept=".json,.txt,text/plain"
         onChange={handleImportFile}
         style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
         tabIndex={-1}
@@ -923,13 +931,13 @@ export function HistoryPage() {
                           </span>
                         )}
                       </div>
-                      <div style={{
+                      <div className="solve-row-grid" style={{
                         display: 'grid', gridTemplateColumns: '40px 88px 72px 104px 1fr 20px',
                         padding: '7px 16px', borderBottom: '1px solid var(--border)',
                         fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
                         textTransform: 'uppercase', letterSpacing: '0.07em',
                       }}>
-                        <span>#</span><span>Date</span><span>Event</span><span>Time</span><span>Scramble</span><span />
+                        <span>#</span><span className="history-col-date">Date</span><span>Event</span><span>Time</span><span>Scramble</span><span />
                       </div>
                       {sessionSolves.map((solve, i) => (
                         <SolveRow key={solve.id} solve={solve} index={i} total={sessionSolves.length} />

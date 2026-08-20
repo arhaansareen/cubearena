@@ -5,6 +5,7 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   linkWithPopup,
+  signInWithCredential,
   type User,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -58,7 +59,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'code' in err) {
         // Google account already tied to a different UID — don't switch, keep current data safe
-        if (err.code === 'auth/credential-already-in-use') return 'already_linked'
+        if (err.code === 'auth/credential-already-in-use') {
+          // Same Google account linked to a different anon UID (e.g. second device).
+          // Sign in with the existing credential so this session adopts the real account.
+          const credential = GoogleAuthProvider.credentialFromError(err as Parameters<typeof GoogleAuthProvider.credentialFromError>[0])
+          if (credential) {
+            try {
+              await signInWithCredential(auth, credential)
+              return 'linked'
+            } catch {
+              // fall through to already_linked
+            }
+          }
+          return 'already_linked'
+        }
         // User closed the popup — not an error worth showing
         if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return 'error'
       }
