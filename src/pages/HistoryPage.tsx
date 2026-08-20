@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useAuth } from '@/providers/AuthProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
 import { formatTime } from '@/lib/utils'
@@ -334,88 +335,164 @@ function NotesInsights({ solves }: { solves: Solve[] }) {
   )
 }
 
+// ─── Stats helpers ────────────────────────────────────────────────────────────
+function computeAo(window: Solve[], n: number): number | null {
+  if (window.length < n) return null
+  const slice = window.slice(0, n)
+  const dnfCount = slice.filter((s) => s.penalty === 'DNF').length
+  if (dnfCount > 1) return Infinity
+  const times = slice
+    .map((s) => (isFinite(s.effectiveTime) ? s.effectiveTime : Infinity))
+    .sort((a, b) => a - b)
+  const trimmed = times.slice(1, n - 1)
+  return trimmed.reduce((a, b) => a + b, 0) / trimmed.length
+}
+
 // ─── Stats tab ────────────────────────────────────────────────────────────────
 function StatsTab({ solves }: { solves: Solve[] }) {
-  const finite = useMemo(() => solves.filter((s) => isFinite(s.effectiveTime)), [solves])
+  const [eventFilter, setEventFilter] = useState<string>('all')
+  const [sessionFilter, setSessionFilter] = useState<string>('all')
 
-  const bestSingle = useMemo(() => {
-    const valid = solves.filter((s) => s.penalty !== 'DNF' && isFinite(s.effectiveTime))
-    return valid.length ? Math.min(...valid.map((s) => s.effectiveTime)) : null
+  const events = useMemo(() => [...new Set(solves.map((s) => s.event))], [solves])
+
+  // Sessions sorted by their earliest solve timestamp
+  const sessions = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const s of solves) {
+      const t = map.get(s.sessionId)
+      if (t === undefined || s.timestamp < t) map.set(s.sessionId, s.timestamp)
+    }
+    return [...map.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id)
   }, [solves])
 
-  const mean = useMemo(() => {
-    return finite.length ? finite.reduce((a, b) => a + b.effectiveTime, 0) / finite.length : null
+  const filtered = useMemo(() => {
+    let list = solves
+    if (eventFilter !== 'all') list = list.filter((s) => s.event === eventFilter)
+    if (sessionFilter !== 'all') list = list.filter((s) => s.sessionId === sessionFilter)
+    return list
+  }, [solves, eventFilter, sessionFilter])
+
+  // Chronological (oldest first) for chart and rolling-average windows
+  const chrono = useMemo(() => [...filtered].reverse(), [filtered])
+
+  const finite = useMemo(() => filtered.filter((s) => isFinite(s.effectiveTime)), [filtered])
+
+  const bestSingle = useMemo(() => {
+    const valid = finite.filter((s) => s.penalty !== 'DNF')
+    return valid.length ? Math.min(...valid.map((s) => s.effectiveTime)) : null
   }, [finite])
+
+  const mean = useMemo(
+    () => (finite.length ? finite.reduce((a, b) => a + b.effectiveTime, 0) / finite.length : null),
+    [finite],
+  )
 
   const consistency = useMemo(() => {
     if (finite.length < 2 || mean === null) return null
-    const variance = finite.reduce((acc, s) => acc + Math.pow(s.effectiveTime - mean, 2), 0) / finite.length
-    const stddev = Math.sqrt(variance)
-    return (stddev / mean) * 100
+    const variance =
+      finite.reduce((acc, s) => acc + Math.pow(s.effectiveTime - mean, 2), 0) / finite.length
+    return (Math.sqrt(variance) / mean) * 100
   }, [finite, mean])
 
   const dnfRate = useMemo(() => {
-    if (solves.length === 0) return null
-    const dnfCount = solves.filter((s) => s.penalty === 'DNF').length
-    return (dnfCount / solves.length) * 100
-  }, [solves])
+    if (filtered.length === 0) return null
+    return (filtered.filter((s) => s.penalty === 'DNF').length / filtered.length) * 100
+  }, [filtered])
 
-  const penaltyCounts = useMemo(() => ({
-    ok: solves.filter((s) => !s.penalty).length,
-    plusTwo: solves.filter((s) => s.penalty === '+2').length,
-    dnf: solves.filter((s) => s.penalty === 'DNF').length,
-  }), [solves])
+  const penaltyCounts = useMemo(
+    () => ({
+      ok: filtered.filter((s) => !s.penalty).length,
+      plusTwo: filtered.filter((s) => s.penalty === '+2').length,
+      dnf: filtered.filter((s) => s.penalty === 'DNF').length,
+    }),
+    [filtered],
+  )
 
-  // Last 50 solves for bar chart (chronological order: oldest first)
-  const chartSolves = useMemo(() => [...solves].slice(0, 50).reverse(), [solves])
+  // Rolling averages: current = most recent n; best = sliding window
+  const aoStats = useMemo(() => {
+    const calc = (n: number) => {
+      if (filtered.length < n) return { current: null as number | null, best: null as number | null }
+      const current = computeAo(filtered, n)
+      let best: number | null = null
+      for (let i = 0; i <= filtered.length - n; i++) {
+        const ao = computeAo(filtered.slice(i, i + n), n)
+        if (ao !== null && isFinite(ao) && (best === null || ao < best)) best = ao
+      }
+      return { current, best }
+    }
+    return { ao5: calc(5), ao12: calc(12), ao50: calc(50), ao100: calc(100) }
+  }, [filtered])
 
-  const chartMax = useMemo(() => {
-    const times = chartSolves.map((s) => isFinite(s.effectiveTime) ? s.effectiveTime : 0)
-    return Math.max(...times, 1)
-  }, [chartSolves])
+  // Chart: rolling Ao5 + Ao12 over chronological solves
+  const chartData = useMemo(
+    () =>
+      chrono.map((s, i) => {
+        const w5 = chrono.slice(Math.max(0, i - 4), i + 1).reverse()
+        const w12 = chrono.slice(Math.max(0, i - 11), i + 1).reverse()
+        const ao5 = i >= 4 ? computeAo(w5, 5) : null
+        const ao12 = i >= 11 ? computeAo(w12, 12) : null
+        return {
+          index: i + 1,
+          time: isFinite(s.effectiveTime) ? +(s.effectiveTime / 1000).toFixed(3) : null,
+          ao5: ao5 !== null && isFinite(ao5) ? +(ao5 / 1000).toFixed(3) : null,
+          ao12: ao12 !== null && isFinite(ao12) ? +(ao12 / 1000).toFixed(3) : null,
+        }
+      }),
+    [chrono],
+  )
 
-  // Per-event breakdown
+  // Per-session breakdown (always unfiltered by session, to show all sessions)
+  const sessionBreakdown = useMemo(() => {
+    const base = eventFilter !== 'all' ? solves.filter((s) => s.event === eventFilter) : solves
+    const map = new Map<string, Solve[]>()
+    for (const s of base) {
+      const arr = map.get(s.sessionId) ?? []
+      arr.push(s)
+      map.set(s.sessionId, arr)
+    }
+    return sessions
+      .filter((sid) => map.has(sid))
+      .map((sid, i) => {
+        const ss = map.get(sid)!
+        const v = ss.filter((s) => isFinite(s.effectiveTime))
+        const best = v.length ? Math.min(...v.map((s) => s.effectiveTime)) : null
+        const avg = v.length ? v.reduce((a, b) => a + b.effectiveTime, 0) / v.length : null
+        return { label: `Session ${i + 1}`, sid, count: ss.length, best, avg, dnfs: ss.filter((s) => s.penalty === 'DNF').length }
+      })
+  }, [solves, sessions, eventFilter])
+
+  // Per-event breakdown (always over all solves)
   const eventStats = useMemo(() => {
-    const map = new Map<string, { best: number; count: number }>()
+    const map = new Map<string, { best: number; count: number; total: number }>()
     for (const s of solves) {
       if (!isFinite(s.effectiveTime)) continue
-      const existing = map.get(s.event)
-      if (!existing) {
-        map.set(s.event, { best: s.effectiveTime, count: 1 })
-      } else {
-        existing.best = Math.min(existing.best, s.effectiveTime)
-        existing.count++
-      }
+      const ex = map.get(s.event)
+      if (!ex) map.set(s.event, { best: s.effectiveTime, count: 1, total: s.effectiveTime })
+      else { ex.best = Math.min(ex.best, s.effectiveTime); ex.count++; ex.total += s.effectiveTime }
     }
-    return Array.from(map.entries())
-      .map(([event, { best, count }]) => ({ event, best, count }))
-      .sort((a, b) => a.best - b.best)
+    return [...map.entries()]
+      .map(([event, d]) => ({ event, best: d.best, count: d.count, avg: d.total / d.count }))
+      .sort((a, b) => b.count - a.count)
   }, [solves])
 
-  const multipleEvents = eventStats.length > 1
+  const formatAo = (v: number | null) => {
+    if (v === null) return '—'
+    return isFinite(v) ? formatTime(v) : 'DNF'
+  }
 
-  const statCards = [
-    {
-      label: 'Best Single',
-      value: bestSingle !== null ? formatTime(bestSingle) : '—',
-      sub: null,
-    },
-    {
-      label: 'Session Mean',
-      value: mean !== null ? formatTime(mean) : '—',
-      sub: null,
-    },
-    {
-      label: 'Consistency',
-      value: consistency !== null ? `${consistency.toFixed(1)}%` : '—',
-      sub: 'lower = more consistent',
-    },
-    {
-      label: 'DNF Rate',
-      value: dnfRate !== null ? `${dnfRate.toFixed(1)}%` : '—',
-      sub: null,
-    },
-  ]
+  const sectionHeader = (label: string) => (
+    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+        {label}
+      </span>
+    </div>
+  )
+
+  const tableHeader = (cols: string[], template: string) => (
+    <div style={{ display: 'grid', gridTemplateColumns: template, gap: 16, padding: '7px 16px', borderBottom: '1px solid var(--border)', fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+      {cols.map((c) => <span key={c}>{c}</span>)}
+    </div>
+  )
 
   if (solves.length === 0) {
     return (
@@ -428,116 +505,168 @@ function StatsTab({ solves }: { solves: Solve[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Summary grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-        {statCards.map(({ label, value, sub }) => (
-          <div key={label} style={{
-            backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
-            borderRadius: 10, padding: '14px 16px',
-          }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
-              {label}
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.03em' }}>
-              {value}
-            </div>
-            {sub && (
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>{sub}</div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Penalty breakdown */}
-      <div style={{
-        backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
-        borderRadius: 10, padding: '12px 16px',
-        display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
-      }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-          By penalty
-        </span>
-        <span style={{ fontSize: 13 }}>
-          <span style={{ color: 'var(--text-muted)' }}>OK: </span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--positive)' }}>{penaltyCounts.ok}</span>
-          <span style={{ color: 'var(--text-muted)', marginLeft: 2 }}> solves</span>
-        </span>
-        <span style={{ fontSize: 13 }}>
-          <span style={{ color: 'var(--text-muted)' }}>+2: </span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--inspection)' }}>{penaltyCounts.plusTwo}</span>
-          <span style={{ color: 'var(--text-muted)', marginLeft: 2 }}> solves</span>
-        </span>
-        <span style={{ fontSize: 13 }}>
-          <span style={{ color: 'var(--text-muted)' }}>DNF: </span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: 'var(--penalty)' }}>{penaltyCounts.dnf}</span>
-          <span style={{ color: 'var(--text-muted)', marginLeft: 2 }}> solves</span>
-        </span>
-      </div>
-
-      {/* Time distribution bar chart */}
-      {chartSolves.length > 0 && (
-        <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>
-            Time distribution · last {chartSolves.length} solves
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 80 }}>
-            {chartSolves.map((s) => {
-              const isDNF = s.penalty === 'DNF' || !isFinite(s.effectiveTime)
-              const isP2 = s.penalty === '+2'
-              const barH = isDNF ? 80 : Math.max(4, Math.round((s.effectiveTime / chartMax) * 80))
-              const barColor = isDNF
-                ? 'var(--penalty)'
-                : isP2
-                  ? 'var(--inspection)'
-                  : 'rgba(34,211,238,0.6)'
-              const label = isDNF ? 'DNF' : formatTime(s.effectiveTime)
-              return (
-                <div
-                  key={s.id}
-                  title={label}
-                  style={{
-                    width: 6,
-                    height: barH,
-                    backgroundColor: barColor,
-                    borderRadius: 2,
-                    flexShrink: 0,
-                    cursor: 'default',
-                  }}
-                />
-              )
-            })}
-          </div>
+      {/* Filters */}
+      {(events.length > 1 || sessions.length > 1) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {events.length > 1 && (
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value)}
+              style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer', outline: 'none' }}
+            >
+              <option value="all">All events</option>
+              {events.map((ev) => <option key={ev} value={ev}>{EVENT_LABELS[ev] ?? ev}</option>)}
+            </select>
+          )}
+          {sessions.length > 1 && (
+            <select
+              value={sessionFilter}
+              onChange={(e) => setSessionFilter(e.target.value)}
+              style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer', outline: 'none' }}
+            >
+              <option value="all">All sessions</option>
+              {sessions.map((sid, i) => <option key={sid} value={sid}>Session {i + 1}</option>)}
+            </select>
+          )}
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {filtered.length} solve{filtered.length !== 1 ? 's' : ''}
+          </span>
         </div>
       )}
 
-      {/* Per-event best singles */}
-      {multipleEvents && (
-        <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-              Best single per event
-            </span>
-          </div>
-          <div>
-            {eventStats.map(({ event, best, count }) => (
-              <div key={event} style={{
-                display: 'grid', gridTemplateColumns: '1fr auto auto',
-                alignItems: 'center', gap: 16,
-                padding: '10px 16px', borderBottom: '1px solid var(--border)',
-              }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace" }}>
-                  {EVENT_LABELS[event] ?? event}
-                </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {formatTime(best)}
-                </span>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  {count} solve{count !== 1 ? 's' : ''}
-                </span>
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 32px', color: 'var(--text-muted)', fontSize: 14 }}>
+          No solves match this filter.
+        </div>
+      ) : (
+        <>
+          {/* Summary cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {[
+              { label: 'Best Single', value: bestSingle !== null ? formatTime(bestSingle) : '—' },
+              { label: 'Mean', value: mean !== null ? formatTime(mean) : '—' },
+              { label: 'Consistency', value: consistency !== null ? `${consistency.toFixed(1)}%` : '—', sub: 'lower = better' },
+            ].map(({ label, value, sub }) => (
+              <div key={label} style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{label}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.03em' }}>{value}</div>
+                {sub && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>{sub}</div>}
               </div>
             ))}
           </div>
-        </div>
+
+          {/* Rolling averages */}
+          <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+            {sectionHeader('Rolling averages')}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+              {([['Ao5', aoStats.ao5], ['Ao12', aoStats.ao12], ['Ao50', aoStats.ao50], ['Ao100', aoStats.ao100]] as [string, { current: number | null; best: number | null }][]).map(([label, stat], i, arr) => (
+                <div key={label} style={{ padding: '14px 16px', borderRight: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 10, fontFamily: "'JetBrains Mono', monospace" }}>{label}</div>
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Current</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-primary)' }}>{formatAo(stat.current)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Best</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: 'var(--positive)' }}>{formatAo(stat.best)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Time trend chart */}
+          {chartData.length >= 5 && (
+            <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px' }}>
+              {sectionHeader('Time trend')}
+              <div style={{ display: 'flex', gap: 16, margin: '12px 0 8px' }}>
+                {[
+                  { color: 'rgba(34,211,238,0.35)', label: 'Single' },
+                  { color: '#22D3EE', label: 'Ao5' },
+                  { color: '#a78bfa', label: 'Ao12' },
+                ].map(({ color, label }) => (
+                  <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+                    <span style={{ width: 16, height: 2, backgroundColor: color, display: 'inline-block', borderRadius: 1 }} />
+                    {label}
+                  </span>
+                ))}
+              </div>
+              <ResponsiveContainer width="100%" height={160}>
+                <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="index" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(v: number) => `${v.toFixed(0)}s`} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} width={34} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: 'var(--text-muted)', marginBottom: 4 }}
+                    labelFormatter={(v) => `Solve #${v}`}
+                    formatter={(v: unknown, name: unknown) => [typeof v === 'number' ? `${v.toFixed(3)}s` : '—', name === 'time' ? 'Single' : name === 'ao5' ? 'Ao5' : 'Ao12']}
+                  />
+                  <Line dataKey="time" stroke="rgba(34,211,238,0.35)" dot={false} strokeWidth={1} connectNulls={false} name="time" />
+                  <Line dataKey="ao5" stroke="#22D3EE" dot={false} strokeWidth={1.5} connectNulls name="ao5" />
+                  <Line dataKey="ao12" stroke="#a78bfa" dot={false} strokeWidth={1.5} connectNulls name="ao12" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Penalty breakdown */}
+          <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Penalties</span>
+            {[
+              { label: 'OK', value: penaltyCounts.ok, color: 'var(--positive)' },
+              { label: '+2', value: penaltyCounts.plusTwo, color: 'var(--inspection)' },
+              { label: 'DNF', value: penaltyCounts.dnf, color: 'var(--penalty)', extra: dnfRate !== null && penaltyCounts.dnf > 0 ? ` (${dnfRate.toFixed(1)}%)` : '' },
+            ].map(({ label, value, color, extra }) => (
+              <span key={label} style={{ fontSize: 13 }}>
+                <span style={{ color: 'var(--text-muted)' }}>{label}: </span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color }}>{value}</span>
+                {extra && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{extra}</span>}
+              </span>
+            ))}
+          </div>
+
+          {/* Session breakdown */}
+          {sessionBreakdown.length > 1 && (
+            <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+              {sectionHeader('Sessions')}
+              {tableHeader(['Session', 'Solves', 'Best', 'Mean', 'DNFs'], '1fr 48px 90px 90px 48px')}
+              {sessionBreakdown.map(({ label, sid, count, best, avg, dnfs }) => (
+                <div
+                  key={sid}
+                  onClick={() => setSessionFilter(sessionFilter === sid ? 'all' : sid)}
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 48px 90px 90px 48px', alignItems: 'center', gap: 16, padding: '9px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', backgroundColor: sessionFilter === sid ? 'rgba(34,211,238,0.05)' : 'transparent', transition: 'background 100ms' }}
+                >
+                  <span style={{ fontSize: 12, color: sessionFilter === sid ? 'var(--accent)' : 'var(--text-muted)' }}>{label}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: 'var(--text-primary)' }}>{count}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{best !== null ? formatTime(best) : '—'}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: 'var(--text-muted)' }}>{avg !== null ? formatTime(avg) : '—'}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: dnfs > 0 ? 'var(--penalty)' : 'var(--text-muted)' }}>{dnfs}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Per-event breakdown */}
+          {eventStats.length > 1 && (
+            <div style={{ backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+              {sectionHeader('By event')}
+              {tableHeader(['Event', 'Solves', 'Best', 'Mean'], '1fr 60px 90px 90px')}
+              {eventStats.map(({ event, best, count, avg }) => (
+                <div
+                  key={event}
+                  onClick={() => setEventFilter(eventFilter === event ? 'all' : event)}
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 60px 90px 90px', alignItems: 'center', gap: 16, padding: '9px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', backgroundColor: eventFilter === event ? 'rgba(34,211,238,0.05)' : 'transparent', transition: 'background 100ms' }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 600, color: eventFilter === event ? 'var(--accent)' : 'var(--text-primary)', fontFamily: "'JetBrains Mono', monospace" }}>{EVENT_LABELS[event] ?? event}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: 'var(--text-muted)' }}>{count}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{formatTime(best)}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: 'var(--text-muted)' }}>{formatTime(avg)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -771,7 +900,7 @@ export function HistoryPage() {
       {tab === 'notes' ? (
         <NotesInsights solves={solves} />
       ) : tab === 'stats' ? (
-        <StatsTab solves={filteredSolves} />
+        <StatsTab solves={solves} />
       ) : (
         <>
           {/* Controls row */}
