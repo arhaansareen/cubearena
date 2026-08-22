@@ -111,10 +111,12 @@ function ProfileNavIcon() {
 function AlgorithmsIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M16 11l2 2-2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 13h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }
@@ -147,9 +149,9 @@ const DESKTOP_NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/session', label: 'Session', icon: <SessionIcon /> },
   { to: '/history', label: 'History', icon: <HistoryIcon /> },
+  { to: '/algorithms', label: 'Algorithms', icon: <AlgorithmsIcon /> },
   { to: '/calendar', label: 'Calendar', icon: <CalendarIcon /> },
   { to: '/upcoming', label: 'Upcoming', icon: <GlobeIcon /> },
-  { to: '/algorithms', label: 'Algorithms', icon: <AlgorithmsIcon /> },
   { to: '/rivals', label: 'Rivals', icon: <RivalsIcon /> },
   { to: '/race', label: 'Race', icon: <RaceIcon /> },
   { to: '/competition', label: 'Compete', icon: <TrophyIcon /> },

@@ -742,7 +742,6 @@ export function HistoryPage() {
   const handleImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    // Reset so same file can be re-imported if needed
     e.target.value = ''
 
     if (!isConfigured) {
@@ -759,7 +758,29 @@ export function HistoryPage() {
       return
     }
 
-    const sessionKeys = Object.keys(json).filter((k) => /^session\d+/.test(k))
+    // Map cstimer scrType strings → WCAEvent
+    const SCRTYPE_MAP: Record<string, WCAEvent> = {
+      '333': '333', '222so': '222', '444wca': '444', '555wca': '555',
+      '666wca': '666', '777wca': '777', '333ni': '333bf', '333fm': '333fm',
+      '333oh': '333oh', 'clkwca': 'clock', 'mgmp': 'minx', 'pyrso': 'pyram',
+      'skbso': 'skewb', 'sqrs': 'sq1', '444bld': '444bf', '555bld': '555bf',
+    }
+
+    // Parse sessionData property to build session# → WCAEvent map
+    const eventBySessionKey = new Map<string, WCAEvent>()
+    try {
+      const props = json['properties'] as Record<string, unknown> | undefined
+      if (props?.sessionData && typeof props.sessionData === 'string') {
+        const sd = JSON.parse(props.sessionData) as Record<string, { name?: string; opt?: { scrType?: string } }>
+        for (const [numKey, meta] of Object.entries(sd)) {
+          const scrType = meta?.opt?.scrType ?? ''
+          const ev = SCRTYPE_MAP[scrType] ?? '333'
+          eventBySessionKey.set(`session${numKey}`, ev)
+        }
+      }
+    } catch { /* ignore, fall back to 333 */ }
+
+    const sessionKeys = Object.keys(json).filter((k) => /^session\d+$/.test(k))
     if (sessionKeys.length === 0) {
       showToast('No sessions found in cstimer file.')
       return
@@ -769,15 +790,17 @@ export function HistoryPage() {
     for (const key of sessionKeys) {
       const sessionData = json[key]
       if (!Array.isArray(sessionData)) continue
+      const event = eventBySessionKey.get(key) ?? '333'
       for (const entry of sessionData) {
         if (!Array.isArray(entry) || entry.length < 2) continue
         const [[penaltyRaw, timeMs], scrambleRaw, commentRaw, epochSecs] = entry as [[number, number], string?, string?, number?]
+        if (typeof timeMs !== 'number' || timeMs <= 0) continue
         const penalty: Solve['penalty'] = penaltyRaw === -1 ? 'DNF' : penaltyRaw === 2000 ? '+2' : null
         const effectiveTime = penalty === 'DNF' ? Infinity : penalty === '+2' ? timeMs + 2000 : timeMs
         const solve: Solve = {
-          id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+          id: crypto.randomUUID(),
           sessionId: key,
-          event: '333' as WCAEvent,
+          event,
           time: timeMs,
           penalty,
           effectiveTime,
@@ -785,7 +808,7 @@ export function HistoryPage() {
           notes: commentRaw || null,
           tags: [],
           inspectionTime: 0,
-          timestamp: ((epochSecs ?? Date.now() / 1000)) * 1000,
+          timestamp: (epochSecs ?? Date.now() / 1000) * 1000,
         }
         newSolves.push(solve)
       }
@@ -796,8 +819,11 @@ export function HistoryPage() {
       return
     }
 
-    // Persist all solves
-    await Promise.all(newSolves.map((s) => persistSolve(s)))
+    // Persist all in parallel (batched to avoid overwhelming Supabase)
+    const BATCH = 50
+    for (let i = 0; i < newSolves.length; i += BATCH) {
+      await Promise.all(newSolves.slice(i, i + BATCH).map((s) => persistSolve(s)))
+    }
     showToast(`✓ Imported ${newSolves.length} solve${newSolves.length !== 1 ? 's' : ''} from cstimer`)
   }, [isConfigured, persistSolve, showToast])
 

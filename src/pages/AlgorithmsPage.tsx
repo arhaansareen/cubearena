@@ -1,20 +1,14 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CubeViz } from '@/components/algs/CubeViz'
-import { OLL, PLL, F2L, getGroup } from '@/data/algData'
-import type { AlgCase, AlgSubset } from '@/data/algData'
+import { SOURCES } from '@/data/algData'
+import type { AlgCase, AlgSubset, AlgEvent } from '@/data/algData'
 import { useAuth } from '@/providers/AuthProvider'
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const LS_KEY = (uid: string) => `cubearena:alg-status:${uid}`
 
 type Status = 'unlearned' | 'learning' | 'mastered'
-
-function loadStatus(uid: string): Record<string, Status> {
-  try { return JSON.parse(localStorage.getItem(LS_KEY(uid)) ?? '{}') } catch { return {} }
-}
-function saveStatus(uid: string, s: Record<string, Status>) {
-  try { localStorage.setItem(LS_KEY(uid), JSON.stringify(s)) } catch {}
-}
 
 const STATUS_COLORS: Record<Status, string> = {
   unlearned: 'var(--border)',
@@ -28,9 +22,49 @@ const STATUS_LABELS: Record<Status, string> = {
 }
 const STATUS_CYCLE: Status[] = ['unlearned', 'learning', 'mastered']
 
-// ─── Alg card ─────────────────────────────────────────────────────────────────
-function AlgCard({
-  c, status, onToggle, onClick,
+const EVENT_SUBSETS: Record<AlgEvent, AlgSubset[]> = {
+  '222': ['CLL', 'OrtegaOLL', 'OrtegaPLL'],
+  '333': ['OLL', 'PLL', 'F2L', 'COLL'],
+  '444': ['OLLParity', 'PLLParity'],
+  '555': ['OLLParity', 'PLLParity'],
+  '666': ['OLLParity', 'PLLParity'],
+  '777': ['OLLParity', 'PLLParity'],
+}
+
+const EVENT_LABELS: Record<AlgEvent, string> = {
+  '222': '2×2',
+  '333': '3×3',
+  '444': '4×4',
+  '555': '5×5',
+  '666': '6×6',
+  '777': '7×7',
+}
+
+// ─── Persistence ──────────────────────────────────────────────────────────────
+function loadStatus(uid: string): Record<string, Status> {
+  try { return JSON.parse(localStorage.getItem(LS_KEY(uid)) ?? '{}') as Record<string, Status> }
+  catch { return {} }
+}
+
+function saveStatus(uid: string, s: Record<string, Status>) {
+  try { localStorage.setItem(LS_KEY(uid), JSON.stringify(s)) } catch { /* ignore */ }
+}
+
+// ─── Filter cases by event (for OLLParity / PLLParity which span events) ─────
+function filterByEvent(cases: AlgCase[], event: AlgEvent): AlgCase[] {
+  // OLLParity/PLLParity include cases for all big cubes — filter by event
+  if (cases.length > 0 && (cases[0].subset === 'OLLParity' || cases[0].subset === 'PLLParity')) {
+    return cases.filter(c => c.event === event)
+  }
+  return cases
+}
+
+// ─── AlgCard ──────────────────────────────────────────────────────────────────
+const AlgCard = memo(function AlgCard({
+  c,
+  status,
+  onToggle,
+  onClick,
 }: {
   c: AlgCase
   status: Status
@@ -47,7 +81,7 @@ function AlgCard({
       onClick={() => onClick(c)}
       style={{
         backgroundColor: 'var(--surface-0)',
-        border: `1px solid var(--border)`,
+        border: '1px solid var(--border)',
         borderRadius: 10,
         padding: 12,
         display: 'flex',
@@ -56,12 +90,15 @@ function AlgCard({
         cursor: 'pointer',
         position: 'relative',
         transition: 'border-color 150ms',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Status dot */}
       <button
         onClick={(e) => { e.stopPropagation(); onToggle(c.id) }}
         title={STATUS_LABELS[status]}
+        aria-label={`Status: ${STATUS_LABELS[status]}`}
         style={{
           position: 'absolute', top: 8, right: 8,
           width: 10, height: 10, borderRadius: '50%',
@@ -70,13 +107,13 @@ function AlgCard({
           cursor: 'pointer', padding: 0,
           transition: 'background-color 200ms, transform 150ms',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.5)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.5)' }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}
       />
 
       {/* Cube visual */}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <CubeViz alg={c.alg} subset={c.subset} size={88} />
+        <CubeViz alg={c.alg} subset={c.subset} event={c.event} size={90} />
       </div>
 
       {/* Name + alg */}
@@ -85,24 +122,37 @@ function AlgCard({
           {c.name}
         </div>
         <div
-          className="font-mono"
           style={{
-            fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.5,
-            wordBreak: 'break-all', opacity: 0.85,
+            fontSize: 10,
+            fontFamily: "'JetBrains Mono', monospace",
+            color: 'var(--text-muted)',
+            lineHeight: 1.5,
+            wordBreak: 'break-all',
+            opacity: 0.85,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
           }}
         >
-          {c.alg}
+          {c.alg || '—'}
         </div>
       </div>
     </motion.div>
   )
-}
+})
 
-// ─── Detail modal ─────────────────────────────────────────────────────────────
+// ─── DetailModal ──────────────────────────────────────────────────────────────
 function DetailModal({
-  c, status, onToggle, onClose,
+  c,
+  status,
+  onToggle,
+  onClose,
 }: {
-  c: AlgCase; status: Status; onToggle: (id: string) => void; onClose: () => void
+  c: AlgCase
+  status: Status
+  onToggle: (id: string) => void
+  onClose: () => void
 }) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -118,7 +168,7 @@ function DetailModal({
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 300,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        backgroundColor: 'rgba(0,0,0,0.65)',
         backdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 24,
@@ -128,23 +178,28 @@ function DetailModal({
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
         onClick={(e) => e.stopPropagation()}
         style={{
           backgroundColor: 'var(--surface-0)',
           border: '1px solid var(--border)',
           borderRadius: 16,
           padding: 28,
-          maxWidth: 440,
+          maxWidth: 460,
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
           gap: 20,
         }}
       >
+        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>{c.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{c.group} · {c.subset}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+              {c.group} · {c.subset}
+              {c.probability && <span style={{ marginLeft: 8 }}>· P = {c.probability}</span>}
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -153,32 +208,60 @@ function DetailModal({
               border: '1px solid var(--border)',
               backgroundColor: 'transparent',
               color: 'var(--text-muted)',
-              cursor: 'pointer', fontSize: 16,
+              cursor: 'pointer', fontSize: 18,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-          >×</button>
+          >
+            ×
+          </button>
         </div>
 
+        {/* Cube viz */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <CubeViz alg={c.alg} subset={c.subset} size={160} />
+          <CubeViz alg={c.alg} subset={c.subset} event={c.event} size={160} />
         </div>
 
-        <div style={{
-          backgroundColor: 'var(--surface-1)',
-          borderRadius: 8, padding: '10px 14px',
-        }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 500 }}>Algorithm</div>
-          <div className="font-mono" style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6 }}>
-            {c.alg}
+        {/* Algorithm */}
+        <div style={{ backgroundColor: 'var(--surface-1)', borderRadius: 8, padding: '10px 14px' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 5, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Algorithm
+          </div>
+          <div style={{
+            fontSize: 13,
+            fontFamily: "'JetBrains Mono', monospace",
+            color: 'var(--text-primary)',
+            lineHeight: 1.6,
+            userSelect: 'text',
+          }}>
+            {c.alg || '(none — solved!)'}
           </div>
         </div>
 
-        {c.probability && (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Probability: {c.probability}
+        {/* Alt algs */}
+        {c.altAlgs && c.altAlgs.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Alternative
+            </div>
+            {c.altAlgs.map((a, i) => (
+              <div
+                key={i}
+                style={{
+                  fontSize: 12,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  color: 'var(--text-muted)',
+                  lineHeight: 1.6,
+                  marginBottom: 4,
+                  userSelect: 'text',
+                }}
+              >
+                {a}
+              </div>
+            ))}
           </div>
         )}
 
+        {/* Status buttons */}
         <div style={{ display: 'flex', gap: 8 }}>
           {STATUS_CYCLE.map((s) => (
             <button
@@ -193,6 +276,12 @@ function DetailModal({
                 fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 transition: 'all 150ms',
               }}
+              onMouseEnter={(e) => {
+                if (status !== s) (e.currentTarget as HTMLElement).style.borderColor = STATUS_COLORS[s]
+              }}
+              onMouseLeave={(e) => {
+                if (status !== s) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
+              }}
             >
               {STATUS_LABELS[s]}
             </button>
@@ -203,7 +292,7 @@ function DetailModal({
   )
 }
 
-// ─── Drill Mode ───────────────────────────────────────────────────────────────
+// ─── DrillMode ────────────────────────────────────────────────────────────────
 function buildDrillQueue(cases: AlgCase[], statusMap: Record<string, Status>): AlgCase[] {
   const weights: Record<Status, number> = { unlearned: 4, learning: 2, mastered: 1 }
   const pool: AlgCase[] = []
@@ -211,11 +300,9 @@ function buildDrillQueue(cases: AlgCase[], statusMap: Record<string, Status>): A
     const w = weights[statusMap[c.id] ?? 'unlearned']
     for (let i = 0; i < w; i++) pool.push(c)
   }
-  // Fisher-Yates shuffle — weighted duplicates intentionally kept
-  // so unlearned cases appear more often in the drill sequence
   for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]]
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
   }
   return pool
 }
@@ -236,10 +323,8 @@ function DrillMode({
   const [revealed, setRevealed] = useState(false)
   const [done, setDone] = useState(false)
 
-  // Count mastered at completion time
   const masteredCount = useMemo(
     () => queue.filter(c => (statusMap[c.id] ?? 'unlearned') === 'mastered').length,
-    // recompute only when done screen is shown or statusMap changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [done, statusMap, queue]
   )
@@ -271,6 +356,38 @@ function DrillMode({
     advance()
   }, [queue, index, onStatusChange, advance])
 
+  if (cases.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 400,
+          backgroundColor: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <div style={{
+          backgroundColor: 'var(--surface-0)', border: '1px solid var(--border)',
+          borderRadius: 20, padding: 40, textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 16, color: 'var(--text-muted)', marginBottom: 16 }}>No cases to drill.</div>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '10px 28px', borderRadius: 10, border: 'none',
+              backgroundColor: 'var(--accent)', color: '#000', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </motion.div>
+    )
+  }
+
   const current = queue[index]
   const total = queue.length
 
@@ -281,29 +398,23 @@ function DrillMode({
       exit={{ opacity: 0 }}
       style={{
         position: 'fixed', inset: 0, zIndex: 400,
-        backgroundColor: 'rgba(0,0,0,0.85)',
+        backgroundColor: 'rgba(0,0,0,0.88)',
         backdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 24,
       }}
     >
-      <div
-        style={{
-          maxWidth: 420, width: '100%',
-          backgroundColor: 'var(--surface-0)',
-          border: '1px solid var(--border)',
-          borderRadius: 20,
-          padding: 28,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 20,
-        }}
-      >
+      <div style={{
+        maxWidth: 440, width: '100%',
+        backgroundColor: 'var(--surface-0)',
+        border: '1px solid var(--border)',
+        borderRadius: 20,
+        padding: 28,
+        display: 'flex', flexDirection: 'column', gap: 20,
+      }}>
         {/* Top row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{
-            fontSize: 13, fontWeight: 500, color: 'var(--text-muted)',
-          }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
             Drill
           </span>
           <button
@@ -312,35 +423,41 @@ function DrillMode({
               width: 28, height: 28, borderRadius: 6,
               border: '1px solid var(--border)',
               backgroundColor: 'transparent',
-              color: 'var(--text-muted)',
-              cursor: 'pointer', fontSize: 16,
+              color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-          >✕</button>
+          >
+            ×
+          </button>
         </div>
 
         {done ? (
-          /* ── Completion screen ── */
+          /* Completion screen */
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '12px 0' }}>
-            <div style={{ fontSize: 40 }}>🎉</div>
+            <div style={{
+              width: 60, height: 60, borderRadius: '50%',
+              border: '2px solid var(--accent)',
+              backgroundColor: 'var(--accent-dim)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 28,
+            }}>
+              ★
+            </div>
             <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' }}>
               Drill complete!
             </div>
             <div style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center' }}>
-              {masteredCount} / {total} mastered
+              <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{masteredCount}</span>
+              {' / '}{total} mastered this session
             </div>
             <button
               onClick={onClose}
               style={{
-                padding: '10px 28px',
-                borderRadius: 10,
-                border: 'none',
-                backgroundColor: 'var(--accent)',
-                color: '#000',
-                fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                padding: '10px 32px', borderRadius: 10, border: 'none',
+                backgroundColor: 'var(--accent)', color: '#000', fontSize: 14, fontWeight: 700, cursor: 'pointer',
               }}
             >
-              Close
+              Done
             </button>
           </div>
         ) : (
@@ -348,21 +465,23 @@ function DrillMode({
             {/* Progress bar */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace" }}>
                   {index + 1} / {total}
                 </span>
               </div>
               <div style={{ height: 3, backgroundColor: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${((index + 1) / total) * 100}%`,
-                  backgroundColor: 'var(--accent)',
-                  transition: 'width 300ms ease',
-                }} />
+                <motion.div
+                  animate={{ width: `${((index + 1) / total) * 100}%` }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  style={{
+                    height: '100%',
+                    backgroundColor: 'var(--accent)',
+                    borderRadius: 2,
+                  }}
+                />
               </div>
             </div>
 
-            {/* Card content with animation */}
             <AnimatePresence mode="wait">
               {current && (
                 <motion.div
@@ -374,9 +493,9 @@ function DrillMode({
                   style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}
                 >
                   {/* Cube viz */}
-                  <CubeViz alg={current.alg} subset={current.subset} size={160} />
+                  <CubeViz alg={current.alg} subset={current.subset} event={current.event} size={160} />
 
-                  {/* Name */}
+                  {/* Case info */}
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>
                       {current.name}
@@ -386,39 +505,43 @@ function DrillMode({
                     </div>
                   </div>
 
-                  {/* Hidden alg / Reveal */}
+                  {/* Reveal or revealed content */}
                   {!revealed ? (
                     <button
                       onClick={() => setRevealed(true)}
                       style={{
-                        width: '100%',
-                        padding: '12px 0',
-                        borderRadius: 10,
+                        width: '100%', padding: '12px 0', borderRadius: 10,
                         border: '1.5px solid var(--accent)',
                         backgroundColor: 'rgba(34,211,238,0.08)',
-                        color: 'var(--accent)',
-                        fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                        transition: 'background-color 150ms ease, border-color 150ms ease',
+                        color: 'var(--accent)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                        transition: 'background-color 150ms',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.16)' }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.08)' }}
-                      onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
-                      onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(34,211,238,0.16)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(34,211,238,0.08)' }}
+                      onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)' }}
+                      onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}
                     >
                       Reveal
                     </button>
                   ) : (
-                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}
+                    >
                       {/* Algorithm text */}
-                      <div style={{
-                        backgroundColor: 'var(--surface-1)',
-                        borderRadius: 8, padding: '10px 14px',
-                      }}>
+                      <div style={{ backgroundColor: 'var(--surface-1)', borderRadius: 8, padding: '10px 14px' }}>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 500 }}>
                           Algorithm
                         </div>
-                        <div className="font-mono" style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6 }}>
-                          {current.alg}
+                        <div style={{
+                          fontSize: 13,
+                          fontFamily: "'JetBrains Mono', monospace",
+                          color: 'var(--text-primary)',
+                          lineHeight: 1.6,
+                          userSelect: 'text',
+                        }}>
+                          {current.alg || '(none — solved!)'}
                         </div>
                       </div>
 
@@ -427,59 +550,53 @@ function DrillMode({
                         <button
                           onClick={handleGotIt}
                           style={{
-                            flex: 1, padding: '10px 0',
-                            borderRadius: 10,
+                            flex: 1, padding: '10px 0', borderRadius: 10,
                             border: '1.5px solid var(--accent)',
                             backgroundColor: 'rgba(34,211,238,0.1)',
-                            color: 'var(--accent)',
-                            fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                            transition: 'background-color 150ms ease, border-color 150ms ease',
+                            color: 'var(--accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                            transition: 'background-color 150ms',
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.2)' }}
-                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.1)' }}
-                          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
-                          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(34,211,238,0.2)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(34,211,238,0.1)' }}
+                          onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)' }}
+                          onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}
                         >
                           Got it
                         </button>
                         <button
                           onClick={handleNeedsWork}
                           style={{
-                            flex: 1, padding: '10px 0',
-                            borderRadius: 10,
+                            flex: 1, padding: '10px 0', borderRadius: 10,
                             border: '1.5px solid #f59e0b',
                             backgroundColor: 'rgba(245,158,11,0.1)',
-                            color: '#f59e0b',
-                            fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                            transition: 'background-color 150ms ease, border-color 150ms ease',
+                            color: '#f59e0b', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                            transition: 'background-color 150ms',
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(245,158,11,0.2)' }}
-                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(245,158,11,0.1)' }}
-                          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
-                          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(245,158,11,0.2)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(245,158,11,0.1)' }}
+                          onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)' }}
+                          onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}
                         >
                           Needs work
                         </button>
                         <button
                           onClick={advance}
                           style={{
-                            padding: '10px 14px',
-                            borderRadius: 10,
+                            padding: '10px 14px', borderRadius: 10,
                             border: '1px solid var(--border)',
                             backgroundColor: 'transparent',
-                            color: 'var(--text-muted)',
-                            fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                            transition: 'background-color 150ms ease, border-color 150ms ease',
+                            color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                            transition: 'background-color 150ms',
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--surface-1)' }}
-                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
-                          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--surface-1)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+                          onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)' }}
+                          onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}
                         >
                           Skip
                         </button>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
                 </motion.div>
               )}
@@ -492,13 +609,11 @@ function DrillMode({
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-const SUBSETS: AlgSubset[] = ['OLL', 'PLL', 'F2L']
-const SOURCES: Record<AlgSubset, AlgCase[]> = { OLL, PLL, F2L }
-
 export function AlgorithmsPage() {
   const { user } = useAuth()
   const uid = user?.uid ?? 'local'
 
+  const [event, setEvent] = useState<AlgEvent>('333')
   const [subset, setSubset] = useState<AlgSubset>('OLL')
   const [group, setGroup] = useState<string | null>(null)
   const [statusMap, setStatusMap] = useState<Record<string, Status>>(() => loadStatus(uid))
@@ -506,24 +621,49 @@ export function AlgorithmsPage() {
   const [filterStatus, setFilterStatus] = useState<Status | null>(null)
   const [drillActive, setDrillActive] = useState(false)
 
-  const groups = useMemo(() => getGroup(subset), [subset])
+  const eventSubsets = EVENT_SUBSETS[event]
+
+  const handleEventChange = (ev: AlgEvent) => {
+    setEvent(ev)
+    const subs = EVENT_SUBSETS[ev]
+    setSubset(subs[0])
+    setGroup(null)
+    setFilterStatus(null)
+  }
+
+  const handleSubsetChange = (s: AlgSubset) => {
+    setSubset(s)
+    setGroup(null)
+    setFilterStatus(null)
+  }
+
+  // Raw cases for this subset, filtered by event (for parity sets)
+  const rawCases = useMemo(() => {
+    return filterByEvent(SOURCES[subset], event)
+  }, [subset, event])
+
+  const groups = useMemo(() => {
+    const src = rawCases
+    return [...new Set(src.map((c) => c.group))]
+  }, [rawCases])
+
   const cases = useMemo(() => {
-    let list = SOURCES[subset]
+    let list = rawCases
     if (group) list = list.filter((c) => c.group === group)
     if (filterStatus) list = list.filter((c) => (statusMap[c.id] ?? 'unlearned') === filterStatus)
     return list
-  }, [subset, group, filterStatus, statusMap])
+  }, [rawCases, group, filterStatus, statusMap])
 
   const counts = useMemo(() => {
-    const src = SOURCES[subset]
-    const learned = src.filter((c) => (statusMap[c.id] ?? 'unlearned') === 'learning').length
+    const src = rawCases
     const mastered = src.filter((c) => (statusMap[c.id] ?? 'unlearned') === 'mastered').length
-    return { total: src.length, learned, mastered }
-  }, [subset, statusMap])
+    const learning = src.filter((c) => (statusMap[c.id] ?? 'unlearned') === 'learning').length
+    return { total: src.length, learning, mastered }
+  }, [rawCases, statusMap])
 
   const cycleStatus = useCallback((id: string) => {
     setStatusMap((prev) => {
-      const cur: Status = prev[id] ?? 'unlearned'
+      const cur: Status = (prev[id] as Status | undefined) ?? 'unlearned'
       const idx = STATUS_CYCLE.indexOf(cur)
       const next: Status = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length]
       const updated = { ...prev, [id]: next }
@@ -532,36 +672,54 @@ export function AlgorithmsPage() {
     })
   }, [uid])
 
-  const setStatus = useCallback((id: string, status: Status) => {
+  const setStatus = useCallback((id: string, s: Status) => {
     setStatusMap((prev) => {
-      const updated = { ...prev, [id]: status }
+      const updated = { ...prev, [id]: s }
       saveStatus(uid, updated)
       return updated
     })
   }, [uid])
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1100, margin: '0 auto' }}>
+    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-          CFOP Algorithms
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+          Algorithm Trainer
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>
-          Learn and track your OLL, PLL, and F2L cases.
+        <p style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 5, margin: 0 }}>
+          Learn and drill WCA algorithms across all events.
         </p>
       </div>
 
-      {/* Subset tabs + Drill button */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, alignItems: 'center' }}>
-        {SUBSETS.map((s) => (
+      {/* Event pills */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+        {(Object.keys(EVENT_SUBSETS) as AlgEvent[]).map((ev) => (
+          <button
+            key={ev}
+            onClick={() => handleEventChange(ev)}
+            style={{
+              padding: '6px 18px', borderRadius: 8,
+              border: `1px solid ${event === ev ? 'var(--accent)' : 'var(--border)'}`,
+              backgroundColor: event === ev ? 'rgba(34,211,238,0.12)' : 'transparent',
+              color: event === ev ? 'var(--accent)' : 'var(--text-muted)',
+              fontSize: 13, fontWeight: event === ev ? 700 : 500, cursor: 'pointer',
+              transition: 'all 150ms',
+            }}
+          >
+            {EVENT_LABELS[ev]}
+          </button>
+        ))}
+      </div>
+
+      {/* Subset pills + Drill button */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        {eventSubsets.map((s) => (
           <button
             key={s}
-            onClick={() => { setSubset(s); setGroup(null); setFilterStatus(null) }}
+            onClick={() => handleSubsetChange(s)}
             style={{
-              padding: '7px 18px',
-              borderRadius: 8,
-              border: 'none',
+              padding: '7px 20px', borderRadius: 8, border: 'none',
               backgroundColor: subset === s ? 'var(--accent)' : 'var(--surface-1)',
               color: subset === s ? '#000' : 'var(--text-muted)',
               fontSize: 13, fontWeight: 700, cursor: 'pointer',
@@ -572,28 +730,28 @@ export function AlgorithmsPage() {
           </button>
         ))}
 
-        {cases.length > 0 && (
-          <button
-            onClick={() => setDrillActive(true)}
-            style={{
-              marginLeft: 'auto',
-              padding: '7px 18px',
-              borderRadius: 8,
-              border: '1.5px solid var(--accent)',
-              backgroundColor: 'rgba(34,211,238,0.08)',
-              color: 'var(--accent)',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              transition: 'background-color 150ms ease, border-color 150ms ease',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.16)' }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(34,211,238,0.08)' }}
-            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
-            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
-          >
-            <span style={{ fontSize: 15 }}>⚡</span> Drill
-          </button>
-        )}
+        <button
+          onClick={() => setDrillActive(true)}
+          disabled={rawCases.filter(c => c.alg !== '').length === 0}
+          style={{
+            marginLeft: 'auto',
+            padding: '7px 20px', borderRadius: 8,
+            border: '1.5px solid var(--accent)',
+            backgroundColor: 'rgba(34,211,238,0.08)',
+            color: 'var(--accent)',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+            transition: 'background-color 150ms',
+            opacity: rawCases.filter(c => c.alg !== '').length === 0 ? 0.4 : 1,
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(34,211,238,0.16)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(34,211,238,0.08)' }}
+          onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)' }}
+          onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}
+        >
+          <span style={{ fontSize: 15 }}>⚡</span>
+          Drill
+        </button>
       </div>
 
       {/* Progress bar */}
@@ -605,28 +763,31 @@ export function AlgorithmsPage() {
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {counts.mastered}/{counts.total} mastered
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{counts.mastered}</span>
+              /{counts.total} mastered
             </span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {counts.learned} learning
+            <span style={{ fontSize: 12, color: '#f59e0b' }}>
+              {counts.learning} learning
             </span>
           </div>
           <div style={{ height: 5, backgroundColor: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
             <div style={{ display: 'flex', height: '100%' }}>
-              <div style={{
-                width: `${(counts.mastered / counts.total) * 100}%`,
-                backgroundColor: 'var(--accent)', transition: 'width 400ms ease',
-              }} />
-              <div style={{
-                width: `${(counts.learned / counts.total) * 100}%`,
-                backgroundColor: STATUS_COLORS['learning'], transition: 'width 400ms ease',
-              }} />
+              <motion.div
+                animate={{ width: counts.total > 0 ? `${(counts.mastered / counts.total) * 100}%` : '0%' }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                style={{ height: '100%', backgroundColor: 'var(--accent)' }}
+              />
+              <motion.div
+                animate={{ width: counts.total > 0 ? `${(counts.learning / counts.total) * 100}%` : '0%' }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                style={{ height: '100%', backgroundColor: '#f59e0b' }}
+              />
             </div>
           </div>
         </div>
 
-        {/* Legend */}
-        <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
+        {/* Status filter legend */}
+        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
           {STATUS_CYCLE.filter((s) => s !== 'unlearned').map((s) => (
             <button
               key={s}
@@ -636,12 +797,12 @@ export function AlgorithmsPage() {
                 fontSize: 11, color: filterStatus === s ? STATUS_COLORS[s] : 'var(--text-muted)',
                 background: 'none', border: 'none', cursor: 'pointer',
                 opacity: filterStatus && filterStatus !== s ? 0.4 : 1,
-                transition: 'all 150ms',
+                transition: 'all 150ms', padding: '2px 4px', borderRadius: 4,
               }}
             >
               <span style={{
                 width: 8, height: 8, borderRadius: '50%',
-                backgroundColor: STATUS_COLORS[s], display: 'inline-block',
+                backgroundColor: STATUS_COLORS[s], display: 'inline-block', flexShrink: 0,
               }} />
               {STATUS_LABELS[s]}
             </button>
@@ -650,44 +811,46 @@ export function AlgorithmsPage() {
       </div>
 
       {/* Group filter chips */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-        <button
-          onClick={() => setGroup(null)}
-          style={{
-            padding: '4px 12px', borderRadius: 20,
-            border: `1px solid ${!group ? 'var(--accent)' : 'var(--border)'}`,
-            backgroundColor: !group ? 'rgba(34,211,238,0.1)' : 'transparent',
-            color: !group ? 'var(--accent)' : 'var(--text-muted)',
-            fontSize: 12, fontWeight: 500, cursor: 'pointer',
-            transition: 'all 150ms',
-          }}
-        >
-          All
-        </button>
-        {groups.map((g) => (
+      {groups.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
           <button
-            key={g}
-            onClick={() => setGroup(group === g ? null : g)}
+            onClick={() => setGroup(null)}
             style={{
-              padding: '4px 12px', borderRadius: 20,
-              border: `1px solid ${group === g ? 'var(--accent)' : 'var(--border)'}`,
-              backgroundColor: group === g ? 'rgba(34,211,238,0.1)' : 'transparent',
-              color: group === g ? 'var(--accent)' : 'var(--text-muted)',
+              padding: '4px 14px', borderRadius: 20,
+              border: `1px solid ${!group ? 'var(--accent)' : 'var(--border)'}`,
+              backgroundColor: !group ? 'rgba(34,211,238,0.1)' : 'transparent',
+              color: !group ? 'var(--accent)' : 'var(--text-muted)',
               fontSize: 12, fontWeight: 500, cursor: 'pointer',
               transition: 'all 150ms',
             }}
           >
-            {g}
+            All
           </button>
-        ))}
-      </div>
+          {groups.map((g) => (
+            <button
+              key={g}
+              onClick={() => setGroup(group === g ? null : g)}
+              style={{
+                padding: '4px 14px', borderRadius: 20,
+                border: `1px solid ${group === g ? 'var(--accent)' : 'var(--border)'}`,
+                backgroundColor: group === g ? 'rgba(34,211,238,0.1)' : 'transparent',
+                color: group === g ? 'var(--accent)' : 'var(--text-muted)',
+                fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                transition: 'all 150ms',
+              }}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Count */}
+      {/* Case count */}
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
         {cases.length} case{cases.length !== 1 ? 's' : ''}
       </div>
 
-      {/* Grid */}
+      {/* Card grid */}
       <motion.div
         layout
         style={{
@@ -697,25 +860,33 @@ export function AlgorithmsPage() {
         }}
       >
         <AnimatePresence mode="popLayout">
-          {cases.map((c, i) => (
-            <motion.div key={c.id} style={{ animationDelay: `${i * 0.02}s` }}>
-              <AlgCard
-                c={c}
-                status={statusMap[c.id] ?? 'unlearned'}
-                onToggle={cycleStatus}
-                onClick={setSelected}
-              />
-            </motion.div>
+          {cases.map((c) => (
+            <AlgCard
+              key={c.id}
+              c={c}
+              status={(statusMap[c.id] as Status | undefined) ?? 'unlearned'}
+              onToggle={cycleStatus}
+              onClick={setSelected}
+            />
           ))}
         </AnimatePresence>
       </motion.div>
+
+      {cases.length === 0 && (
+        <div style={{
+          textAlign: 'center', padding: '60px 20px',
+          color: 'var(--text-muted)', fontSize: 14,
+        }}>
+          No cases match the current filter.
+        </div>
+      )}
 
       {/* Detail modal */}
       <AnimatePresence>
         {selected && (
           <DetailModal
             c={selected}
-            status={statusMap[selected.id] ?? 'unlearned'}
+            status={(statusMap[selected.id] as Status | undefined) ?? 'unlearned'}
             onToggle={cycleStatus}
             onClose={() => setSelected(null)}
           />
@@ -726,7 +897,7 @@ export function AlgorithmsPage() {
       <AnimatePresence>
         {drillActive && (
           <DrillMode
-            cases={cases}
+            cases={cases.filter(c => c.alg !== '')}
             statusMap={statusMap}
             onStatusChange={setStatus}
             onClose={() => setDrillActive(false)}

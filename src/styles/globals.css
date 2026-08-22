@@ -6,22 +6,22 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --bg: #020617;
-  --surface-0: #0F172A;
-  --surface-1: #1E293B;
-  --border: rgba(255, 255, 255, 0.08);
-  --text-primary: #F8FAFC;
-  --text-muted: #64748B;
-  --timer-idle: #E2E8F0;
-  --timer-active: #FFFFFF;
-  --inspection: #F59E0B;
-  --penalty: #EF4444;
-  --positive: #22C55E;
-  --accent: #22D3EE;
-  --accent-dim: rgba(34, 211, 238, 0.12);
-  --shadow-soft: 0 4px 24px rgba(2, 6, 23, 0.55);
-  --shadow-deep: 0 8px 40px rgba(2, 6, 23, 0.7);
-  --shadow-accent: 0 0 28px rgba(34, 211, 238, 0.18);
+  --bg: #17140e;
+  --surface-0: #201c15;
+  --surface-1: #2b2519;
+  --border: rgba(232, 223, 200, 0.09);
+  --text-primary: #e8dfc8;
+  --text-muted: #8a8168;
+  --timer-idle: #e8dfc8;
+  --timer-active: #f3ecd8;
+  --inspection: #d9a86a;
+  --penalty: #d0736b;
+  --positive: #a0b878;
+  --accent: #8fa66a;
+  --accent-dim: rgba(143, 166, 106, 0.13);
+  --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.55);
+  --shadow-deep: 0 8px 40px rgba(0, 0, 0, 0.7);
+  --shadow-accent: 0 0 28px rgba(143, 166, 106, 0.18);
   --background: #020617;
   --foreground: #F8FAFC;
   --card: oklch(1 0 0);

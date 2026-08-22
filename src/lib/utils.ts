@@ -29,6 +29,18 @@ export function computeAo(solves: Solve[], n: number): number | null {
   return trimmed.reduce((a, b) => a + b, 0) / trimmed.length
 }
 
+// Best Ao over all sliding windows of size n. Treats DNF as Infinity (matches computeAo).
+export function computeBestAo(solves: Solve[], n: number): number | null {
+  if (solves.length < n) return null
+  let best: number | null = null
+  for (let i = 0; i <= solves.length - n; i++) {
+    const window = solves.slice(i, i + n)
+    const ao = computeAo(window, n)
+    if (ao !== null && isFinite(ao) && (best === null || ao < best)) best = ao
+  }
+  return best
+}
+
 export function computeMean(solves: Solve[], n: number): number | null {
   const valid = solves.filter((s) => isFinite(s.effectiveTime))
   if (valid.length < n) return null

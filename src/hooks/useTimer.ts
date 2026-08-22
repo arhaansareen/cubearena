@@ -16,6 +16,10 @@ export interface UseTimerOptions {
   // 'manual' mode: inspection runs identically; at the point where the live
   // timer would start, the phase becomes 'manual_entry' instead of 'solving'.
   mode?: 'live' | 'manual'
+  holdThresholdMs?: number
+  // When false, skip the inspection phase entirely: hold-from-idle arms directly,
+  // and releasing the hold starts the solve (or manual entry).
+  inspectionEnabled?: boolean
 }
 
 export interface UseTimerReturn {
@@ -32,7 +36,6 @@ export interface UseTimerReturn {
   reset: () => void
 }
 
-const HOLD_THRESHOLD_MS = 300
 const INSPECTION_LIMIT_MS = 15000
 const DNF_LIMIT_MS = 17000
 
@@ -43,6 +46,10 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
   // the event handlers without needing to change their dependency arrays.
   const modeRef = useRef(options.mode ?? 'live')
   modeRef.current = options.mode ?? 'live'
+  const holdThresholdRef = useRef(options.holdThresholdMs ?? 300)
+  holdThresholdRef.current = options.holdThresholdMs ?? 300
+  const inspectionEnabledRef = useRef(options.inspectionEnabled ?? true)
+  inspectionEnabledRef.current = options.inspectionEnabled ?? true
   const onSolveCompleteRef = useRef(onSolveComplete)
   onSolveCompleteRef.current = onSolveComplete
 
@@ -264,7 +271,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
   // In manual mode: enter the time-entry phase.
   const dispatchFromArmed = useCallback(() => {
     const wasInInspection = inspectionStartRef.current !== null
-    if (!wasInInspection) {
+    if (!wasInInspection && inspectionEnabledRef.current) {
       startInspection()
       return
     }
@@ -310,12 +317,16 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
 
       // In live mode during inspection, require a hold to arm (stackmat-style).
       // In manual mode, skip arming — any space release goes to manual_entry.
-      if (current === 'inspection' && modeRef.current !== 'manual') {
+      // When inspection is disabled, hold-from-idle arms directly (no inspection phase).
+      const shouldArmOnHold =
+        (current === 'inspection' && modeRef.current !== 'manual') ||
+        (current === 'idle' && !inspectionEnabledRef.current)
+      if (shouldArmOnHold) {
         holdTimerRef.current = setTimeout(() => {
-          if (phaseRef.current === 'inspection') {
+          if (phaseRef.current === 'inspection' || phaseRef.current === 'idle') {
             arm()
           }
-        }, HOLD_THRESHOLD_MS)
+        }, holdThresholdRef.current)
       }
     }
 
@@ -332,7 +343,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       holdStartRef.current = null
       clearHoldTimer()
 
-      if (current === 'idle') {
+      if (current === 'idle' && inspectionEnabledRef.current) {
         startInspection()
       } else if (current === 'inspection' && modeRef.current === 'manual') {
         // In manual mode, any space tap during inspection → go straight to entry.
@@ -340,6 +351,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       } else if (current === 'armed') {
         dispatchFromArmed()
       }
+      // idle + inspection disabled: released before hold armed → do nothing.
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -370,12 +382,15 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
 
       holdStartRef.current = performance.now()
 
-      if (current === 'inspection') {
+      const shouldArmOnHold =
+        current === 'inspection' ||
+        (current === 'idle' && !inspectionEnabledRef.current)
+      if (shouldArmOnHold) {
         holdTimerRef.current = setTimeout(() => {
-          if (phaseRef.current === 'inspection') {
+          if (phaseRef.current === 'inspection' || phaseRef.current === 'idle') {
             arm()
           }
-        }, HOLD_THRESHOLD_MS)
+        }, holdThresholdRef.current)
       }
     }
 
@@ -386,7 +401,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       holdStartRef.current = null
       clearHoldTimer()
 
-      if (current === 'idle') {
+      if (current === 'idle' && inspectionEnabledRef.current) {
         startInspection()
       } else if (current === 'armed') {
         dispatchFromArmed()

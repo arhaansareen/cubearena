@@ -53,6 +53,7 @@ interface TimerDisplayProps {
   displayTime: number
   inspectionElapsed: number
   pendingPenalty: Penalty
+  inspectionEnabled?: boolean
 }
 
 function getTimerColor(phase: TimerPhase, pendingPenalty: Penalty): string {
@@ -87,8 +88,10 @@ function getFontSize(phase: TimerPhase): string {
   return 'clamp(72px, 12vw, 148px)'
 }
 
-function getHintText(phase: TimerPhase): string | null {
-  if (phase === 'idle') return 'Press Space to begin inspection'
+function getHintText(phase: TimerPhase, inspectionEnabled: boolean): string | null {
+  if (phase === 'idle') {
+    return inspectionEnabled ? 'Press Space to begin inspection' : 'Hold Space to start'
+  }
   if (phase === 'armed') return 'Release to start'
   if (phase === 'inspection') return 'Release to start solving'
   if (phase === 'solving') return 'Press Space to stop'
@@ -100,12 +103,13 @@ export function TimerDisplay({
   displayTime,
   inspectionElapsed,
   pendingPenalty,
+  inspectionEnabled = true,
 }: TimerDisplayProps) {
   const color = getTimerColor(phase, pendingPenalty)
   const content = getDisplayContent(phase, displayTime, inspectionElapsed)
   const scale = getScale(phase)
   const fontSize = getFontSize(phase)
-  const hintText = getHintText(phase)
+  const hintText = getHintText(phase, inspectionEnabled)
 
   const isMonoFont = phase !== 'idle' && phase !== 'armed'
   const isArmed = phase === 'armed'

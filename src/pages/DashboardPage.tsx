@@ -208,11 +208,18 @@ export function DashboardPage() {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 12 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="dashboard-page"
       style={{ padding: '32px', maxWidth: 880, margin: '0 auto', width: '100%' }}
     >
       <style>{`
         @media (min-width: 640px) {
           .wca-pb-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+        @media (max-width: 767px) {
+          .dashboard-page { padding: 16px !important; }
+          .today-grid { grid-template-columns: 1fr !important; }
+          .recent-sessions-grid { grid-template-columns: 60px 1fr 80px 24px !important; font-size: 12px; }
+          .recent-sessions-grid .hide-mobile { display: none !important; }
         }
       `}</style>
 
@@ -229,7 +236,7 @@ export function DashboardPage() {
       {/* Today: schedule + todos */}
       <section style={{ marginBottom: 36 }}>
         <h2 style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 12 }}>Today</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="today-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
 
           {/* Left: scheduled sessions */}
           <div style={{ background: 'var(--surface-0)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--shadow-soft)' }}>

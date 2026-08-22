@@ -16,9 +16,9 @@ import { CompetitionPage } from '@/pages/CompetitionPage'
 import { UpcomingCompsPage } from '@/pages/UpcomingCompsPage'
 import { LeaderboardPage } from '@/pages/LeaderboardPage'
 import { ProfilePage } from '@/pages/ProfilePage'
-import { AlgorithmsPage } from '@/pages/AlgorithmsPage'
 import { RacePage } from '@/pages/RacePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { AlgorithmsPage } from '@/pages/AlgorithmsPage'
 
 
 const router = createBrowserRouter([
@@ -41,6 +41,10 @@ const router = createBrowserRouter([
       {
         path: 'history',
         element: <HistoryPage />,
+      },
+      {
+        path: 'algorithms',
+        element: <AlgorithmsPage />,
       },
       {
         path: 'calendar',
@@ -69,10 +73,6 @@ const router = createBrowserRouter([
       {
         path: 'profile',
         element: <ProfilePage />,
-      },
-      {
-        path: 'algorithms',
-        element: <AlgorithmsPage />,
       },
       {
         path: 'settings',

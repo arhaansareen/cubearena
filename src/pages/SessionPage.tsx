@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { ScramblePanel } from '@/components/session/ScramblePanel'
 import { TimerDisplay } from '@/components/session/TimerDisplay'
@@ -7,11 +7,15 @@ import { SessionStatsBar } from '@/components/session/SessionStatsBar'
 import { SessionSolveList } from '@/components/session/SessionSolveList'
 import { PostSolveModal } from '@/components/session/PostSolveModal'
 import { PostSolvePanel } from '@/components/session/PostSolvePanel'
+import { InsightsModal } from '@/components/session/InsightsModal'
+import { SessionPicker } from '@/components/session/SessionPicker'
+import { KeyboardShortcutsModal } from '@/components/session/KeyboardShortcutsModal'
 import { useTimer, type TimerResult } from '@/hooks/useTimer'
 import { useSession } from '@/hooks/useSession'
 import { useScramble } from '@/hooks/useScramble'
 import { useAudioContext } from '@/providers/AudioProvider'
 import { useAuth } from '@/providers/AuthProvider'
+import { useProfile } from '@/providers/ProfileProvider'
 import { useSolveHistory } from '@/hooks/useSolveHistory'
 import { computeAo, computeMean } from '@/lib/utils'
 import { useXP } from '@/hooks/useXP'
@@ -24,15 +28,39 @@ export function SessionPage() {
   const [event, setEvent] = useState<WCAEvent>(
     () => (localStorage.getItem('cubearena:last-event') as WCAEvent) || '333'
   )
+  const [holdThreshold] = useState(() => {
+    const stored = parseInt(localStorage.getItem('cubearena:hold-threshold') ?? '350')
+    return isNaN(stored) ? 350 : stored
+  })
+  const [inspectionEnabled, setInspectionEnabled] = useState(
+    () => localStorage.getItem('cubearena:inspection-enabled') !== 'false'
+  )
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'cubearena:inspection-enabled') {
+        setInspectionEnabled(e.newValue !== 'false')
+      }
+    }
+    const onCustom = () => {
+      setInspectionEnabled(localStorage.getItem('cubearena:inspection-enabled') !== 'false')
+    }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('cubearena:settings-changed', onCustom)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('cubearena:settings-changed', onCustom)
+    }
+  }, [])
   const [showModal, setShowModal] = useState(false)
+  const [showInsights, setShowInsights] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [isManualMode, setIsManualMode] = useState(() => localStorage.getItem('cubearena:manual-mode') === 'true')
   const [lastResult, setLastResult] = useState<TimerResult | null>(null)
   const [currentPenalty, setCurrentPenalty] = useState<Penalty>(null)
   const currentScrambleRef = useRef<string>('')
-  // Captures the scramble at the exact moment each solve completes (before nextScramble advances it)
   const pendingScrambleRef = useRef<string>('')
 
-  const { scramble, next: nextScramble } = useScramble(event)
+  const { scramble, next: nextScramble, prev: prevScramble, canGoPrev, canGoForward } = useScramble(event)
   const { playInspectionCallout, startAmbient, stopAmbient, isAmbientPlaying } = useAudioContext()
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('cubearena:sound-enabled') !== 'false')
   const soundEnabledRef = useRef(soundEnabled)
@@ -46,16 +74,24 @@ export function SessionPage() {
       return next
     })
   }
+
   const { user } = useAuth()
-  const { persistSolve, deleteSolve: persistDeleteSolve } = useSolveHistory(user?.uid)
-  const { solves, ao5, ao12, mean, sessionId, addSolve, deleteSolve, clearSession } = useSession(event)
+  const { profile } = useProfile()
+  const { persistSolve, deleteSolve: persistDeleteSolve, solves: allSolves } = useSolveHistory(user?.uid)
+  const {
+    solves, ao5, ao12, ao50, ao100,
+    bestAo5, bestAo12, bestAo50, bestAo100,
+    mean, sessionId,
+    sessions, activeSessionId,
+    addSolve, deleteSolve,
+    createSession, switchSession, renameSession, deleteSession,
+  } = useSession(event)
   const mo3 = useMemo(() => computeMean(solves, 3), [solves])
   const { addXP } = useXP()
   const { logActivity } = useCalendar()
 
   currentScrambleRef.current = scramble
 
-  // Save a completed solve immediately — used by both explicit confirm and auto-save paths
   const flushSolve = (result: TimerResult, penalty: Penalty, scramble: string, notes: string | null, tags: string[]) => {
     const effectiveTime = penalty === 'DNF' ? Infinity : penalty === '+2' ? result.time + 2000 : result.time
     const solve: Solve = {
@@ -78,12 +114,10 @@ export function SessionPage() {
   }
 
   const handleSolveComplete = (result: TimerResult) => {
-    // If there's already a pending solve in the modal, auto-save it before replacing
     if (lastResult) {
       flushSolve(lastResult, currentPenalty, pendingScrambleRef.current, null, [])
       nextScramble()
     }
-    // Capture the scramble for this solve now (before nextScramble advances it)
     pendingScrambleRef.current = currentScrambleRef.current
     setLastResult(result)
     setCurrentPenalty(result.pendingPenalty)
@@ -101,9 +135,10 @@ export function SessionPage() {
     onCallout: playInspectionCallout,
     onSolveComplete: handleSolveComplete,
     mode: isManualMode ? 'manual' : 'live',
+    holdThresholdMs: holdThreshold,
+    inspectionEnabled,
   })
 
-  // Ambient audio: start on inspection (if sound enabled), stop on idle/stopped/manual_entry
   const prevPhaseRef = useRef(phase)
   if (phase === 'inspection' && prevPhaseRef.current !== 'inspection' && soundEnabledRef.current) startAmbient()
   if (
@@ -143,23 +178,47 @@ export function SessionPage() {
 
   const isIdle = phase === 'idle'
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (document.activeElement as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === '?') setShowShortcuts(p => !p)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', backgroundColor: 'var(--bg)', overflow: 'hidden' }}>
       <ScramblePanel
         scramble={scramble}
         loading={false}
         event={event}
-        onNewScramble={nextScramble}
+        onNextScramble={nextScramble}
+        onPrevScramble={prevScramble}
+        canGoPrev={canGoPrev}
+        canGoForward={canGoForward}
         onEventChange={(e) => { setEvent(e); localStorage.setItem('cubearena:last-event', e) }}
         soundEnabled={soundEnabled}
         onToggleSound={handleToggleSound}
+        onInsights={() => setShowInsights(true)}
       />
 
       {/* Content row: timer (left) + solve list (right, desktop only) */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {/* Left: timer area + AI rail */}
+        {/* Left: timer area */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+            <SessionPicker
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              onSwitch={switchSession}
+              onCreate={() => createSession()}
+              onRename={renameSession}
+              onDelete={deleteSession}
+            />
+          </div>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
             <AnimatePresence mode="wait">
               {phase === 'manual_entry' ? (
@@ -175,18 +234,17 @@ export function SessionPage() {
                   displayTime={displayTime}
                   inspectionElapsed={inspectionElapsed}
                   pendingPenalty={pendingPenalty}
+                  inspectionEnabled={inspectionEnabled}
                 />
               )}
             </AnimatePresence>
 
-            {/* Solve count */}
             {solves.length > 0 && phase !== 'manual_entry' && (
               <div style={{ position: 'absolute', top: 16, right: 24, fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
                 #{solves.length + 1}
               </div>
             )}
 
-            {/* Manual mode toggle */}
             {isIdle && (
               <button
                 onClick={toggleManualMode}
@@ -213,37 +271,71 @@ export function SessionPage() {
               </button>
             )}
 
+            {isIdle && (
+              <button
+                onClick={() => setShowShortcuts(true)}
+                title="Keyboard shortcuts (?)"
+                style={{
+                  position: 'absolute', bottom: 16, right: 24,
+                  width: 30, height: 30, borderRadius: '50%',
+                  border: '1px solid var(--border)',
+                  background: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: 14, fontWeight: 600,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'color 150ms ease, border-color 150ms ease',
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+                onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+              >
+                ?
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Right: solve list or post-solve panel (hidden on mobile via CSS) */}
-        {(solves.length > 0 || showModal) && (
-          <div
-            className="session-solve-panel"
-            style={{ width: 220, borderLeft: '1px solid var(--border)', flexShrink: 0 }}
-          >
-            {showModal && lastResult ? (
-              <PostSolvePanel
-                time={lastResult.time}
-                penalty={currentPenalty}
-                notesBehavior={DEFAULT_NOTES_BEHAVIOR}
-                onPenaltyChange={setCurrentPenalty}
-                onConfirm={handleConfirm}
-              />
-            ) : (
-              <SessionSolveList
-                solves={solves}
-                event={event}
-                onDeleteSolve={(id) => { deleteSolve(id); void persistDeleteSolve(id) }}
-              />
-            )}
-          </div>
-        )}
+        {/* Right: solve list always visible on desktop */}
+        <div
+          className="session-solve-panel"
+          style={{ width: 230, borderLeft: '1px solid var(--border)', flexShrink: 0 }}
+        >
+          {showModal && lastResult ? (
+            <PostSolvePanel
+              time={lastResult.time}
+              penalty={currentPenalty}
+              notesBehavior={DEFAULT_NOTES_BEHAVIOR}
+              onPenaltyChange={setCurrentPenalty}
+              onConfirm={handleConfirm}
+            />
+          ) : (
+            <SessionSolveList
+              solves={solves}
+              event={event}
+              onDeleteSolve={(id) => { deleteSolve(id); void persistDeleteSolve(id) }}
+            />
+          )}
+        </div>
       </div>
 
-      <SessionStatsBar solveCount={solves.length} ao5={ao5} ao12={ao12} mean={mean} mo3={mo3} event={event} onNewSession={clearSession} />
+      <SessionStatsBar
+        solves={solves}
+        ao5={ao5}
+        ao12={ao12}
+        ao50={ao50}
+        ao100={ao100}
+        bestAo5={bestAo5}
+        bestAo12={bestAo12}
+        bestAo50={bestAo50}
+        bestAo100={bestAo100}
+        mean={mean}
+        mo3={mo3}
+        event={event}
+        onNewSession={createSession}
+      />
 
-      {/* Mobile-only bottom sheet — desktop uses the inline panel */}
+      {/* Mobile-only bottom sheet */}
       <div className="session-modal-mobile">
         <PostSolveModal
           isOpen={showModal}
@@ -255,6 +347,20 @@ export function SessionPage() {
           onDismiss={handleModalDismiss}
         />
       </div>
+
+      <InsightsModal
+        isOpen={showInsights}
+        onClose={() => setShowInsights(false)}
+        solves={solves}
+        allSolves={allSolves}
+        event={event}
+        wcaId={profile?.wcaId}
+      />
+
+      <KeyboardShortcutsModal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
 
       <style>{`
         @media (max-width: 767px) {

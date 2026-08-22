@@ -5,6 +5,9 @@ import { generateScramble } from '@/lib/scramble'
 export interface UseScrambleReturn {
   scramble: string
   next: () => void
+  prev: () => void
+  canGoPrev: boolean
+  canGoForward: boolean
 }
 
 const EVENT_ID: Record<WCAEvent, string> = {
@@ -25,11 +28,23 @@ async function fetchScramble(event: WCAEvent): Promise<string> {
 }
 
 export function useScramble(event: WCAEvent): UseScrambleReturn {
-  const [scramble, setScramble] = useState<string>(() => generateScramble(event))
+  const initial = generateScramble(event)
+  const [scramble, setScramble] = useState<string>(initial)
+  const scrambleRef = useRef(initial)
   const eventRef = useRef(event)
-  // Pre-fetched WCA scramble ready to swap in instantly on next()
   const nextScrambleRef = useRef<string | null>(null)
   const prefetchingRef = useRef(false)
+  // pastRef: stack of scrambles we've navigated past (last = most recent)
+  const pastRef = useRef<string[]>([])
+  // futureRef: stack of scrambles ahead when we've gone back (last = most recent future)
+  const futureRef = useRef<string[]>([])
+  const [canGoPrev, setCanGoPrev] = useState(false)
+  const [canGoForward, setCanGoForward] = useState(false)
+
+  const show = useCallback((s: string) => {
+    scrambleRef.current = s
+    setScramble(s)
+  }, [])
 
   const prefetchNext = useCallback((ev: WCAEvent) => {
     if (prefetchingRef.current) return
@@ -40,35 +55,56 @@ export function useScramble(event: WCAEvent): UseScrambleReturn {
     })
   }, [])
 
-  // On mount or event change: show placeholder instantly, fetch real scramble,
-  // then immediately start prefetching the one after.
   useEffect(() => {
     eventRef.current = event
     nextScrambleRef.current = null
     prefetchingRef.current = false
-    setScramble(generateScramble(event))
+    pastRef.current = []
+    futureRef.current = []
+    setCanGoPrev(false)
+    setCanGoForward(false)
+    show(generateScramble(event))
     void fetchScramble(event).then(s => {
-      setScramble(s)
+      show(s)
       prefetchNext(event)
     })
-  }, [event, prefetchNext])
+  }, [event, prefetchNext, show])
 
   const next = useCallback(() => {
     const ev = eventRef.current
-    if (nextScrambleRef.current) {
-      // Pre-fetched WCA scramble ready — show it instantly
-      setScramble(nextScrambleRef.current)
-      nextScrambleRef.current = null
-      prefetchNext(ev)
+    if (futureRef.current.length > 0) {
+      pastRef.current.push(scrambleRef.current)
+      const s = futureRef.current.pop()!
+      show(s)
+      setCanGoPrev(true)
+      setCanGoForward(futureRef.current.length > 0)
     } else {
-      // Nothing ready yet — show placeholder and fetch
-      setScramble(generateScramble(ev))
-      void fetchScramble(ev).then(s => {
-        setScramble(s)
+      pastRef.current.push(scrambleRef.current)
+      if (pastRef.current.length > 50) pastRef.current.shift()
+      setCanGoPrev(true)
+      setCanGoForward(false)
+      if (nextScrambleRef.current) {
+        show(nextScrambleRef.current)
+        nextScrambleRef.current = null
         prefetchNext(ev)
-      })
+      } else {
+        show(generateScramble(ev))
+        void fetchScramble(ev).then(s => {
+          show(s)
+          prefetchNext(ev)
+        })
+      }
     }
-  }, [prefetchNext])
+  }, [prefetchNext, show])
 
-  return { scramble, next }
+  const prev = useCallback(() => {
+    if (pastRef.current.length === 0) return
+    futureRef.current.push(scrambleRef.current)
+    const s = pastRef.current.pop()!
+    show(s)
+    setCanGoPrev(pastRef.current.length > 0)
+    setCanGoForward(true)
+  }, [show])
+
+  return { scramble, next, prev, canGoPrev, canGoForward }
 }

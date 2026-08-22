@@ -133,6 +133,79 @@ function Toggle({ checked, onChange, label, description }: ToggleProps) {
   )
 }
 
+const HOLD_OPTIONS: { label: string; value: number }[] = [
+  { label: '0.35s', value: 350 },
+  { label: '0.55s', value: 550 },
+  { label: '0.80s', value: 800 },
+]
+
+function InspectionToggleSetting() {
+  const [enabled, setEnabled] = useState<boolean>(
+    () => localStorage.getItem('cubearena:inspection-enabled') !== 'false'
+  )
+
+  const handleChange = (v: boolean) => {
+    setEnabled(v)
+    localStorage.setItem('cubearena:inspection-enabled', String(v))
+    window.dispatchEvent(new Event('cubearena:settings-changed'))
+  }
+
+  return (
+    <Toggle
+      checked={enabled}
+      onChange={handleChange}
+      label="15s Inspection"
+      description="WCA-style 15-second inspection before each solve. Turn off to start the timer immediately."
+    />
+  )
+}
+
+function HoldThresholdSetting() {
+  const [threshold, setThreshold] = useState<number>(() => {
+    const stored = parseInt(localStorage.getItem('cubearena:hold-threshold') ?? '350')
+    return isNaN(stored) ? 350 : stored
+  })
+
+  const handleSelect = (value: number) => {
+    setThreshold(value)
+    localStorage.setItem('cubearena:hold-threshold', String(value))
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 2 }}>
+        Hold time before green
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+        How long space must be held before the timer arms
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {HOLD_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => handleSelect(opt.value)}
+            style={{
+              flex: 1,
+              padding: '8px 4px',
+              borderRadius: 8,
+              border: `1px solid ${threshold === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+              backgroundColor: threshold === opt.value ? 'var(--accent-dim)' : 'var(--surface-1)',
+              color: threshold === opt.value ? 'var(--accent)' : 'var(--text-muted)',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 150ms ease',
+              fontFamily: "'JetBrains Mono', monospace",
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
   const { mode, accent, customColor, setMode, setAccent, setCustomColor } = useTheme()
@@ -579,6 +652,10 @@ export function SettingsPage() {
             ))}
           </div>
         </div>
+
+        <InspectionToggleSetting />
+
+        <HoldThresholdSetting />
       </Section>
 
       {/* Audio */}
